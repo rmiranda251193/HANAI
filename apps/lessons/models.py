@@ -1,21 +1,22 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 import uuid
+
+from apps.physics.models import PhysicsConcept
 
 User = get_user_model()
 
 class Lesson(models.Model):
-    """Core lesson model for HANAI Physics AI"""
-    
-    STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('review', 'Under Review'),
-        ('approved', 'Approved'),
-        ('published', 'Published'),
-        ('archived', 'Archived'),
-    ]
-    
+    """Teacher-owned learning content linked to reusable Physics concepts."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        REVIEW = "review", "Under review"
+        PUBLISHED = "published", "Published"
+        ARCHIVED = "archived", "Archived"
+
     DIFFICULTY_CHOICES = [
         (1, 'Beginner'),
         (2, 'Easy'),
@@ -24,41 +25,56 @@ class Lesson(models.Model):
         (5, 'Expert'),
     ]
     
-    # Basic info
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=280, unique=True, blank=True)
     topic = models.CharField(max_length=255)
     grade_level = models.CharField(max_length=50, help_text="e.g., 9, 10, 11, 12")
+    duration_minutes = models.PositiveSmallIntegerField(
+        default=60,
+        help_text="Planned lesson duration in minutes.",
+    )
     description = models.TextField(blank=True)
-    
-    # Metadata
-    objectives = models.JSONField(default=list, help_text="Learning objectives")
-    prerequisites = models.JSONField(default=list, help_text="Prerequisite knowledge")
+
+    learning_objectives = models.JSONField(
+        default=list,
+        help_text="Learning objectives for this lesson.",
+    )
     difficulty = models.IntegerField(choices=DIFFICULTY_CHOICES, default=1)
-    
-    # Content
     content = models.JSONField(default=dict, help_text="Generated lesson content")
     problems = models.JSONField(default=list, help_text="Practice problems")
-    misconceptions = models.JSONField(default=list, help_text="Common misconceptions")
-    
-    # AI tracking
+    common_misconceptions = models.JSONField(
+        default=list,
+        help_text="Lesson-specific misconceptions to address.",
+    )
+
     ai_generated = models.BooleanField(default=False)
     ai_model = models.CharField(max_length=50, blank=True, null=True)
     ai_version = models.CharField(max_length=20, blank=True, null=True)
-    
-    # Status
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    
-    # Relations
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lessons')
-    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_lessons')
-    
-    # Timestamps
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+    physics_concepts = models.ManyToManyField(
+        PhysicsConcept,
+        related_name="lessons",
+        blank=True,
+        help_text="Physics concepts taught or applied by this lesson.",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="lessons",
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published_at = models.DateTimeField(null=True, blank=True)
-    approved_at = models.DateTimeField(null=True, blank=True)
-    
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
@@ -67,18 +83,25 @@ class Lesson(models.Model):
             models.Index(fields=['grade_level']),
         ]
     
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
-    
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title) or "lesson"
+            candidate_slug = base_slug
+            suffix = 2
+
+            while type(self).objects.filter(slug=candidate_slug).exclude(pk=self.pk).exists():
+                candidate_slug = f"{base_slug}-{suffix}"
+                suffix += 1
+
+            self.slug = candidate_slug
+        super().save(*args, **kwargs)
+
     def publish(self):
-        self.status = 'published'
+        self.status = self.Status.PUBLISHED
         self.published_at = timezone.now()
-        self.save()
-    
-    def approve(self, user):
-        self.status = 'approved'
-        self.approved_by = user
-        self.approved_at = timezone.now()
         self.save()
 
 
