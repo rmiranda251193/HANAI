@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Create Lesson &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading compact-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Create Lesson</h1>
+      <p>Save a structured lesson draft connected to the Physics knowledge domain.</p>
+    </div>
+  </section>
+
+  <form method="post" class="lesson-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid">
+      {% for field in form %}
+        <div class="form-field {% if field.name == 'physics_concepts' or field.name == 'learning_objectives' or field.name == 'common_misconceptions' %}form-field-wide{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+          {% if field.errors %}<div class="field-errors" role="alert">{{ field.errors }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="form-actions">
+      <a class="button button-secondary" href="{% url 'lessons:list' %}">Cancel</a>
+      <button class="button button-primary" type="submit">Save Draft</button>
+    </div>
+  </form>
+{% endblock %}

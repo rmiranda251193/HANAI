@@ -12,11 +12,13 @@
       <p class="card-label">Platform status</p>
       <h2>Foundation established</h2>
       <p>Core Django configuration, static assets, and application boundaries are in place.</p>
+      <a class="text-link" href="{% url 'lessons:list' %}">View my lessons</a>
     </article>
     <article class="surface-card accent-card">
       <p class="card-label">Next milestone</p>
-      <h2>Lesson domain review</h2>
-      <p>Future work will be added in focused, tested increments.</p>
+      <h2>Create a lesson draft</h2>
+      <p>Build a structured teacher lesson connected to the Physics knowledge domain.</p>
+      <a class="text-link" href="{% url 'lessons:create' %}">Open lesson builder</a>
     </article>
   </section>
 {% endblock %}

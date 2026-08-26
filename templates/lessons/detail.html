@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+      <h1>{{ lesson.title }}</h1>
+      <p>{{ lesson.duration_minutes }} minutes &middot; Updated {{ lesson.updated_at|date:"M j, Y, g:i a" }}</p>
+    </div>
+    <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
+  </section>
+
+  <div class="detail-grid">
+    <section class="surface-card detail-card">
+      <p class="card-label">Physics concepts</p>
+      <h2>Concepts in this lesson</h2>
+      {% if lesson.physics_concepts.exists %}
+        <ul class="concept-list">
+          {% for concept in lesson.physics_concepts.all %}
+            <li>
+              <strong>{{ concept.name }}</strong>
+              <span>{{ concept.topic }} &middot; {{ concept.get_difficulty_display }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No Physics concepts selected.</p>
+      {% endif %}
+    </section>
+
+    <section class="surface-card detail-card">
+      <p class="card-label">Learning design</p>
+      <h2>Learning objectives</h2>
+      <ul class="content-list">
+        {% for objective in lesson.learning_objectives %}<li>{{ objective }}</li>{% endfor %}
+      </ul>
+    </section>
+
+    <section class="surface-card detail-card">
+      <p class="card-label">Learning design</p>
+      <h2>Common misconceptions</h2>
+      <ul class="content-list">
+        {% for misconception in lesson.common_misconceptions %}<li>{{ misconception }}</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <div class="form-actions">
+    <a class="button button-secondary" href="{% url 'lessons:list' %}">Back to My Lessons</a>
+    <a class="button button-primary" href="{% url 'lessons:create' %}">Create Another Lesson</a>
+  </div>
+{% endblock %}

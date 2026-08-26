@@ -16,11 +16,12 @@
           <span>DodongOS <strong>Physics AI</strong></span>
         </a>
         <nav class="navigation">
-          <a class="nav-link is-active" href="{% url 'home' %}">Overview</a>
-          <span class="nav-link is-disabled">Teacher workspace <small>soon</small></span>
+          <a class="nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Overview</a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'list' %}is-active{% endif %}" href="{% url 'lessons:list' %}">My Lessons</a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'create' %}is-active{% endif %}" href="{% url 'lessons:create' %}">Create Lesson</a>
           <span class="nav-link is-disabled">Physics resources <small>soon</small></span>
         </nav>
-        <p class="sidebar-status"><span></span> Foundation mode</p>
+        <p class="sidebar-status"><span></span> Lesson builder ready</p>
       </aside>
       <main class="content">
         <header class="topbar">

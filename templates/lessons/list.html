@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}My Lessons &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>My Lessons</h1>
+      <p>Draft and organize Physics lessons before sharing them with students.</p>
+    </div>
+    <a class="button button-primary" href="{% url 'lessons:create' %}">Create Lesson</a>
+  </section>
+
+  {% if lessons %}
+    <section class="lesson-list" aria-label="Lessons">
+      {% for lesson in lessons %}
+        <article class="lesson-card">
+          <div class="lesson-card-main">
+            <div class="lesson-card-heading">
+              <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+              <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
+            </div>
+            <h2><a href="{% url 'lessons:detail' lesson.slug %}">{{ lesson.title }}</a></h2>
+            <p class="lesson-meta">Updated {{ lesson.updated_at|date:"M j, Y, g:i a" }} &middot; {{ lesson.duration_minutes }} minutes</p>
+            {% if lesson.physics_concepts.exists %}
+              <p class="concept-summary">
+                {% for concept in lesson.physics_concepts.all %}{{ concept.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              </p>
+            {% endif %}
+          </div>
+          <a class="text-link" href="{% url 'lessons:detail' lesson.slug %}">View draft</a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No lessons yet</p>
+      <h1>Start with a draft.</h1>
+      <p>Create a lesson and connect it to the Physics concepts it teaches.</p>
+      <a class="button button-primary" href="{% url 'lessons:create' %}">Create your first lesson</a>
+    </section>
+  {% endif %}
+{% endblock %}
