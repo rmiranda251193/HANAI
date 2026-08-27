@@ -47,8 +47,161 @@
     </section>
   </div>
 
+  {% if generation_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">AI lesson draft</p>
+      <p>{{ generation_error }}</p>
+    </section>
+  {% endif %}
+
   <div class="form-actions">
+    <form method="post" action="{% url 'lessons:generate' lesson.slug %}" data-generation-form>
+      {% csrf_token %}
+      <button class="button button-primary" type="submit" data-generation-button>
+        &#10024; Generate with AI
+      </button>
+      <p class="generation-status" data-generation-status hidden aria-live="polite">
+        Generating your Physics lesson...
+      </p>
+    </form>
     <a class="button button-secondary" href="{% url 'lessons:list' %}">Back to My Lessons</a>
     <a class="button button-primary" href="{% url 'lessons:create' %}">Create Another Lesson</a>
   </div>
+
+  {% if generated_draft %}
+    <section class="surface-card generated-draft" aria-labelledby="generated-draft-title">
+      <div class="generated-draft-heading">
+        <div>
+          <p class="card-label">AI-generated review draft</p>
+          <h2 id="generated-draft-title">{{ generated_draft.title }}</h2>
+        </div>
+        <span class="status-badge status-review">Not saved</span>
+      </div>
+      <p class="draft-notice">
+        This draft is separate from the lesson. Review it before any future accept, edit, or reject action.
+      </p>
+
+      <div class="generated-draft-grid">
+        <section class="draft-section draft-section-wide">
+          <h3>Overview</h3>
+          <p>{{ generated_draft.overview }}</p>
+        </section>
+
+        <section class="draft-section">
+          <h3>Learning objectives</h3>
+          <ul class="content-list">
+            {% for objective in generated_draft.learning_objectives %}
+              <li>{{ objective }}</li>
+            {% empty %}
+              <li>No learning objectives were generated.</li>
+            {% endfor %}
+          </ul>
+        </section>
+
+        <section class="draft-section">
+          <h3>Prerequisites</h3>
+          <ul class="content-list">
+            {% for prerequisite in generated_draft.prerequisites %}
+              <li>{{ prerequisite }}</li>
+            {% empty %}
+              <li>No prerequisites were generated.</li>
+            {% endfor %}
+          </ul>
+        </section>
+
+        <section class="draft-section draft-section-wide">
+          <h3>Key concepts</h3>
+          <ul class="content-list">
+            {% for concept in generated_draft.key_concepts %}
+              <li>{{ concept }}</li>
+            {% empty %}
+              <li>No key concepts were generated.</li>
+            {% endfor %}
+          </ul>
+        </section>
+
+        <section class="draft-section draft-section-wide">
+          <h3>Explanation</h3>
+          <p>{{ generated_draft.explanation }}</p>
+        </section>
+
+        <section class="draft-section draft-section-wide">
+          <h3>Worked examples</h3>
+          <div class="draft-item-list">
+            {% for example in generated_draft.worked_examples %}
+              <article class="draft-item">
+                <h4>{{ example.title }}</h4>
+                <p><strong>Problem:</strong> {{ example.problem }}</p>
+                <p><strong>Solution:</strong> {{ example.solution }}</p>
+              </article>
+            {% empty %}
+              <p>No worked examples were generated.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="draft-section">
+          <h3>Activities</h3>
+          <div class="draft-item-list">
+            {% for activity in generated_draft.activities %}
+              <article class="draft-item">
+                <h4>{{ activity.title }}</h4>
+                <p>{{ activity.description }}</p>
+              </article>
+            {% empty %}
+              <p>No activities were generated.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="draft-section">
+          <h3>Assessment questions</h3>
+          <div class="draft-item-list">
+            {% for question in generated_draft.assessment_questions %}
+              <article class="draft-item">
+                <p><strong>{{ question.question }}</strong></p>
+                <p><strong>Expected reasoning:</strong> {{ question.expected_reasoning }}</p>
+              </article>
+            {% empty %}
+              <p>No assessment questions were generated.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="draft-section draft-section-wide">
+          <h3>Teacher notes</h3>
+          <ul class="content-list">
+            {% for note in generated_draft.teacher_notes %}
+              <li>{{ note }}</li>
+            {% empty %}
+              <li>No teacher notes were generated.</li>
+            {% endfor %}
+          </ul>
+        </section>
+      </div>
+    </section>
+  {% endif %}
+
+  <script>
+    (() => {
+      const form = document.querySelector("[data-generation-form]");
+      if (!form) return;
+
+      form.addEventListener("submit", (event) => {
+        const button = form.querySelector("[data-generation-button]");
+        const status = form.querySelector("[data-generation-status]");
+        if (form.dataset.submitting === "true") {
+          event.preventDefault();
+          return;
+        }
+
+        form.dataset.submitting = "true";
+        button.disabled = true;
+        button.setAttribute("aria-disabled", "true");
+        button.textContent = "Generating...";
+        form.setAttribute("aria-busy", "true");
+        status.hidden = false;
+      });
+    })();
+  </script>
 {% endblock %}
