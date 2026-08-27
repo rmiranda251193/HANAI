@@ -16,3 +16,11 @@ class InvalidLessonDraftError(AIError):
     def __init__(self, message: str, reasons: list[str] | None = None):
         super().__init__(message)
         self.reasons = reasons or [message]
+
+
+class InvalidLessonReviewError(AIError):
+    """AI output did not match the lesson review contract."""
+
+    def __init__(self, message: str, reasons: list[str] | None = None):
+        super().__init__(message)
+        self.reasons = reasons or [message]

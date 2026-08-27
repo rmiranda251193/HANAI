@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 
-from .exceptions import InvalidLessonDraftError
+from .exceptions import InvalidLessonDraftError, InvalidLessonReviewError
 
 LESSON_DRAFT_JSON_SCHEMA = {
     "title": "string",
@@ -23,6 +23,35 @@ LESSON_DRAFT_JSON_SCHEMA = {
         {"question": "string", "expected_reasoning": "string"},
     ],
     "teacher_notes": ["string"],
+}
+
+REVIEW_ISSUE_CATEGORIES = frozenset(
+    {
+        "physics",
+        "units",
+        "calculation",
+        "pedagogy",
+        "misconception",
+        "clarity",
+        "alignment",
+    }
+)
+REVIEW_ISSUE_SEVERITIES = frozenset({"info", "warning", "error"})
+REVIEW_ISSUE_CONFIDENCES = frozenset({"low", "medium", "high"})
+
+LESSON_REVIEW_JSON_SCHEMA = {
+    "overall_summary": "string",
+    "issues": [
+        {
+            "category": "physics | units | calculation | pedagogy | misconception | clarity | alignment",
+            "severity": "info | warning | error",
+            "issue": "string",
+            "explanation": "string",
+            "affected_section": "string",
+            "suggested_revision": "string",
+            "confidence": "low | medium | high",
+        }
+    ],
 }
 
 _FENCE_PREFIX = re.compile(r"^```(?:json)?\s*", re.IGNORECASE)
@@ -89,11 +118,43 @@ def example_lesson_draft_dict() -> dict:
     }
 
 
-def parse_model_json(text: str) -> dict:
+def example_lesson_review_dict() -> dict:
+    """Canonical valid review payload used by the fake provider and tests."""
+
+    return {
+        "overall_summary": (
+            "The draft is broadly suitable for review, with one meaningful "
+            "misconception-focused improvement to consider."
+        ),
+        "issues": [
+            {
+                "category": "misconception",
+                "severity": "warning",
+                "issue": "The activity could make the net-force misconception more explicit.",
+                "explanation": (
+                    "Students may still confuse the presence of forces with a nonzero "
+                    "net force unless they compare balanced and unbalanced cases."
+                ),
+                "affected_section": "Activities",
+                "suggested_revision": (
+                    "Add a balanced-force comparison before students predict the "
+                    "unbalanced-force result."
+                ),
+                "confidence": "high",
+            }
+        ],
+    }
+
+
+def parse_model_json(
+    text: str,
+    *,
+    error_class: type[InvalidLessonDraftError] | type[InvalidLessonReviewError] = InvalidLessonDraftError,
+) -> dict:
     """Parse a model response into a JSON object, allowing optional markdown fences."""
 
     if not isinstance(text, str) or not text.strip():
-        raise InvalidLessonDraftError("AI response was empty.")
+        raise error_class("AI response was empty.")
 
     stripped = text.strip()
     if stripped.startswith("```"):
@@ -104,10 +165,10 @@ def parse_model_json(text: str) -> dict:
     try:
         payload = json.loads(stripped)
     except json.JSONDecodeError as exc:
-        raise InvalidLessonDraftError("AI response was not valid JSON.") from exc
+        raise error_class("AI response was not valid JSON.") from exc
 
     if not isinstance(payload, dict):
-        raise InvalidLessonDraftError("AI response must be a JSON object.")
+        raise error_class("AI response must be a JSON object.")
     return payload
 
 
@@ -143,6 +204,28 @@ def _require_string_list(data: dict, key: str, reasons: list[str]) -> tuple[str,
         if cleaned:
             items.append(cleaned)
     return tuple(items)
+
+
+def _require_choice(
+    data: dict,
+    key: str,
+    allowed_values: frozenset[str],
+    reasons: list[str],
+) -> str:
+    value = _require_string(data, key, reasons)
+    if value and value not in allowed_values:
+        options = ", ".join(sorted(allowed_values))
+        reasons.append(f"Field '{key}' must be one of: {options}.")
+    return value
+
+
+def _reject_unexpected_fields(
+    data: dict,
+    allowed_fields: frozenset[str],
+    reasons: list[str],
+) -> None:
+    for field_name in sorted(set(data) - allowed_fields):
+        reasons.append(f"Unexpected field '{field_name}'.")
 
 
 def _require_object_list(
@@ -262,6 +345,113 @@ class LessonDraft:
             ),
             teacher_notes=teacher_notes,
         )
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ReviewIssue:
+    """One bounded, review-only finding about a generated lesson draft."""
+
+    category: str
+    severity: str
+    issue: str
+    explanation: str
+    affected_section: str
+    suggested_revision: str
+    confidence: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ReviewIssue":
+        if not isinstance(data, dict):
+            raise InvalidLessonReviewError("Review issue must be a JSON object.")
+
+        reasons: list[str] = []
+        _reject_unexpected_fields(
+            data,
+            frozenset(
+                {
+                    "category",
+                    "severity",
+                    "issue",
+                    "explanation",
+                    "affected_section",
+                    "suggested_revision",
+                    "confidence",
+                }
+            ),
+            reasons,
+        )
+        category = _require_choice(
+            data, "category", REVIEW_ISSUE_CATEGORIES, reasons
+        )
+        severity = _require_choice(
+            data, "severity", REVIEW_ISSUE_SEVERITIES, reasons
+        )
+        issue = _require_string(data, "issue", reasons)
+        explanation = _require_string(data, "explanation", reasons)
+        affected_section = _require_string(data, "affected_section", reasons)
+        suggested_revision = _require_string(data, "suggested_revision", reasons)
+        confidence = _require_choice(
+            data, "confidence", REVIEW_ISSUE_CONFIDENCES, reasons
+        )
+
+        if reasons:
+            raise InvalidLessonReviewError(
+                "AI lesson review issue failed validation.", reasons=reasons
+            )
+
+        return cls(
+            category=category,
+            severity=severity,
+            issue=issue,
+            explanation=explanation,
+            affected_section=affected_section,
+            suggested_revision=suggested_revision,
+            confidence=confidence,
+        )
+
+
+@dataclass(frozen=True)
+class LessonReviewResult:
+    """Validated review findings for a generated lesson draft."""
+
+    overall_summary: str
+    issues: tuple[ReviewIssue, ...]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "LessonReviewResult":
+        if not isinstance(data, dict):
+            raise InvalidLessonReviewError("Lesson review must be a JSON object.")
+
+        reasons: list[str] = []
+        _reject_unexpected_fields(
+            data, frozenset({"overall_summary", "issues"}), reasons
+        )
+        overall_summary = _require_string(data, "overall_summary", reasons)
+        issues_payload = data.get("issues")
+        issues: list[ReviewIssue] = []
+
+        if "issues" not in data:
+            reasons.append("Missing required field 'issues'.")
+        elif not isinstance(issues_payload, list):
+            reasons.append("Field 'issues' must be a list of review issues.")
+        else:
+            for index, issue_payload in enumerate(issues_payload):
+                try:
+                    issues.append(ReviewIssue.from_dict(issue_payload))
+                except InvalidLessonReviewError as exc:
+                    reasons.extend(
+                        f"Issue {index}: {reason}" for reason in exc.reasons
+                    )
+
+        if reasons:
+            raise InvalidLessonReviewError(
+                "AI lesson review failed validation.", reasons=reasons
+            )
+
+        return cls(overall_summary=overall_summary, issues=tuple(issues))
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -7,7 +7,7 @@ from django.conf import settings
 from openai import OpenAI
 
 from .exceptions import AIProviderError, UnsupportedAIProviderError
-from .schemas import example_lesson_draft_dict
+from .schemas import example_lesson_draft_dict, example_lesson_review_dict
 
 RESERVED_PROVIDERS = frozenset({"ollama"})
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
@@ -36,15 +36,25 @@ class FakeAIProvider(AIProvider):
 
     name = "fake"
 
-    def __init__(self, response: str | None = None, model: str | None = None):
+    def __init__(
+        self,
+        response: str | None = None,
+        model: str | None = None,
+        review_response: str | None = None,
+    ):
         self.model = model or "fake-lesson-draft"
         self._fixed_response = response
+        self._review_response = review_response
         self.calls: list[dict[str, str]] = []
 
     def generate(self, prompt: str, *, system_prompt: str = "") -> str:
         self.calls.append({"prompt": prompt, "system_prompt": system_prompt})
         if self._fixed_response is not None:
             return self._fixed_response
+        if "lesson-review-v1" in system_prompt:
+            if self._review_response is not None:
+                return self._review_response
+            return json.dumps(example_lesson_review_dict())
         return json.dumps(example_lesson_draft_dict())
 
 

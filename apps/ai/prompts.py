@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from .requests import LessonGenerationRequest
-from .schemas import LESSON_DRAFT_JSON_SCHEMA
+from .requests import LessonGenerationRequest, LessonReviewRequest
+from .schemas import LESSON_DRAFT_JSON_SCHEMA, LESSON_REVIEW_JSON_SCHEMA
 
 LESSON_GENERATION_PROMPT_VERSION = "lesson-generation-v1"
+LESSON_REVIEW_PROMPT_VERSION = "lesson-review-v1"
 
 
 @dataclass(frozen=True)
@@ -70,3 +71,68 @@ Physics concepts (authoritative):
 """
 
     return Prompt(system=system.strip(), user=user.strip())
+
+
+def build_lesson_review_prompt(request: LessonReviewRequest) -> Prompt:
+    """Build a Physics-first prompt for reviewing, not rewriting, a lesson draft."""
+
+    system = f"""You are the lesson-review assistant for DodongOS Physics AI.
+
+Core rule: AI assists. Teachers decide. Students learn by thinking.
+
+Review the generated lesson draft for a teacher. Do not rewrite it, approve it,
+publish it, or make changes to it. Identify only meaningful issues and give a
+bounded recommendation for each issue.
+
+Physics-first review priorities:
+- Check conceptual Physics accuracy against the supplied concept knowledge.
+- Inspect equations, SI units, and numerical reasoning where they appear.
+- Check whether the draft handles listed misconceptions accurately.
+- Check pedagogical clarity, learning-objective alignment, and grade appropriateness.
+- Distinguish a certain error from a possible concern using severity and confidence.
+- If no meaningful issues are present, return an empty issues list.
+
+Output contract:
+- Return ONLY a JSON object. No markdown, no commentary, no code fences.
+- Match this schema exactly:
+{json.dumps(LESSON_REVIEW_JSON_SCHEMA, indent=2)}
+- Prompt version: {LESSON_REVIEW_PROMPT_VERSION}
+"""
+
+    objectives = "\n".join(f"- {item}" for item in request.learning_objectives)
+    misconceptions = (
+        "\n".join(f"- {item}" for item in request.common_misconceptions)
+        if request.common_misconceptions
+        else "- None listed by the teacher."
+    )
+    concept_blocks = "\n\n".join(
+        concept.as_prompt_block() for concept in request.concepts
+    )
+    draft_json = json.dumps(request.draft.to_dict(), indent=2)
+
+    user = f"""Review this generated Physics lesson draft.
+
+Original teacher lesson context:
+Title: {request.title}
+Topic: {request.topic}
+Grade level: {request.grade_level}
+Duration (minutes): {request.duration_minutes}
+
+Learning objectives:
+{objectives}
+
+Teacher-listed misconceptions:
+{misconceptions}
+
+Physics concepts (authoritative):
+{concept_blocks}
+
+Generated lesson draft to review:
+{draft_json}
+"""
+
+    return Prompt(
+        system=system.strip(),
+        user=user.strip(),
+        version=LESSON_REVIEW_PROMPT_VERSION,
+    )

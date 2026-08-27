@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from apps.physics.models import PhysicsConcept
 
+from .schemas import LessonDraft
+
 
 def _string_tuple(value, field_name: str) -> tuple[str, ...]:
     if isinstance(value, str) or not isinstance(value, (list, tuple)):
@@ -131,4 +133,53 @@ class LessonGenerationRequest:
                 ConceptContext.from_concept(concept)
                 for concept in lesson.physics_concepts.all()
             ),
+        )
+
+
+@dataclass(frozen=True)
+class LessonReviewRequest:
+    """Immutable teacher context and draft snapshot for AI lesson review."""
+
+    original_lesson: LessonGenerationRequest
+    draft: LessonDraft
+
+    def __post_init__(self):
+        if not isinstance(self.original_lesson, LessonGenerationRequest):
+            raise ValueError("original_lesson must be a LessonGenerationRequest instance")
+        if not isinstance(self.draft, LessonDraft):
+            raise ValueError("draft must be a LessonDraft instance")
+
+    @property
+    def title(self) -> str:
+        return self.original_lesson.title
+
+    @property
+    def topic(self) -> str:
+        return self.original_lesson.topic
+
+    @property
+    def grade_level(self) -> str:
+        return self.original_lesson.grade_level
+
+    @property
+    def duration_minutes(self) -> int:
+        return self.original_lesson.duration_minutes
+
+    @property
+    def learning_objectives(self) -> tuple[str, ...]:
+        return self.original_lesson.learning_objectives
+
+    @property
+    def common_misconceptions(self) -> tuple[str, ...]:
+        return self.original_lesson.common_misconceptions
+
+    @property
+    def concepts(self) -> tuple[ConceptContext, ...]:
+        return self.original_lesson.concepts
+
+    @classmethod
+    def from_lesson(cls, lesson, draft: LessonDraft) -> LessonReviewRequest:
+        return cls(
+            original_lesson=LessonGenerationRequest.from_lesson(lesson),
+            draft=draft,
         )

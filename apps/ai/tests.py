@@ -7,12 +7,29 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from apps.lessons.models import Lesson
 from apps.physics.models import PhysicsConcept
 
-from .exceptions import AIProviderError, InvalidLessonDraftError, UnsupportedAIProviderError
-from .prompts import LESSON_GENERATION_PROMPT_VERSION, build_lesson_generation_prompt
+from .exceptions import (
+    AIProviderError,
+    InvalidLessonDraftError,
+    InvalidLessonReviewError,
+    UnsupportedAIProviderError,
+)
+from .prompts import (
+    LESSON_GENERATION_PROMPT_VERSION,
+    LESSON_REVIEW_PROMPT_VERSION,
+    build_lesson_generation_prompt,
+    build_lesson_review_prompt,
+)
 from .providers import FakeAIProvider, OpenAIProvider, get_ai_provider
-from .requests import ConceptContext, LessonGenerationRequest
-from .schemas import LessonDraft, example_lesson_draft_dict, parse_model_json
-from .services import generate_lesson_draft
+from .requests import ConceptContext, LessonGenerationRequest, LessonReviewRequest
+from .schemas import (
+    LessonDraft,
+    LessonReviewResult,
+    ReviewIssue,
+    example_lesson_draft_dict,
+    example_lesson_review_dict,
+    parse_model_json,
+)
+from .services import generate_lesson_draft, review_lesson_draft
 
 
 def make_concept_context(**overrides) -> ConceptContext:
@@ -44,6 +61,15 @@ def make_request(**overrides) -> LessonGenerationRequest:
     }
     data.update(overrides)
     return LessonGenerationRequest(**data)
+
+
+def make_review_request(**overrides) -> LessonReviewRequest:
+    data = {
+        "original_lesson": make_request(),
+        "draft": LessonDraft.from_dict(example_lesson_draft_dict()),
+    }
+    data.update(overrides)
+    return LessonReviewRequest(**data)
 
 
 class AIProviderTests(SimpleTestCase):
@@ -230,6 +256,58 @@ class LessonDraftSchemaTests(SimpleTestCase):
             parse_model_json("this is not json")
 
 
+class ReviewIssueSchemaTests(SimpleTestCase):
+    def test_valid_review_issue_passes_validation(self):
+        payload = example_lesson_review_dict()["issues"][0]
+
+        issue = ReviewIssue.from_dict(payload)
+
+        self.assertEqual(issue.category, "misconception")
+        self.assertEqual(issue.severity, "warning")
+        self.assertEqual(issue.confidence, "high")
+
+    def test_invalid_review_issue_is_rejected(self):
+        payload = example_lesson_review_dict()["issues"][0]
+        payload["severity"] = "urgent"
+
+        with self.assertRaises(InvalidLessonReviewError) as ctx:
+            ReviewIssue.from_dict(payload)
+
+        self.assertIn(
+            "Field 'severity' must be one of: error, info, warning.",
+            ctx.exception.reasons,
+        )
+
+
+class LessonReviewResultSchemaTests(SimpleTestCase):
+    def test_review_result_accepts_multiple_issues(self):
+        payload = example_lesson_review_dict()
+        second_issue = payload["issues"][0].copy()
+        second_issue.update(
+            {
+                "category": "clarity",
+                "severity": "info",
+                "issue": "The explanation could introduce net force before acceleration.",
+                "confidence": "medium",
+            }
+        )
+        payload["issues"].append(second_issue)
+
+        result = LessonReviewResult.from_dict(payload)
+
+        self.assertEqual(len(result.issues), 2)
+        self.assertEqual(result.issues[1].category, "clarity")
+        self.assertEqual(result.to_dict()["issues"][0]["confidence"], "high")
+
+    def test_malformed_review_result_is_rejected(self):
+        payload = {"overall_summary": "A useful review."}
+
+        with self.assertRaises(InvalidLessonReviewError) as ctx:
+            LessonReviewResult.from_dict(payload)
+
+        self.assertIn("Missing required field 'issues'.", ctx.exception.reasons)
+
+
 class LessonGenerationRequestTests(SimpleTestCase):
     def test_request_requires_title_topic_grade_objective_and_concept(self):
         with self.assertRaisesMessage(ValueError, "title is required"):
@@ -275,6 +353,45 @@ class LessonGenerationRequestFromLessonTests(TestCase):
         self.assertEqual(request.concepts[0].si_units, ("newton (N)",))
 
 
+class LessonReviewRequestFromLessonTests(TestCase):
+    def test_from_lesson_snapshots_context_and_retains_validated_draft(self):
+        force = PhysicsConcept.objects.create(
+            name="Force",
+            description="An interaction that can change an object's motion.",
+            topic="Dynamics",
+            difficulty=PhysicsConcept.Difficulty.INTRODUCTORY,
+            equations=["F_net = ma"],
+            si_units=["newton (N)"],
+            prerequisites=["Acceleration"],
+            common_misconceptions=["Forces are stored inside moving objects."],
+        )
+        lesson = Lesson.objects.create(
+            title="Introduction to Newton's Second Law",
+            topic="Dynamics",
+            grade_level="11",
+            duration_minutes=45,
+            learning_objectives=["Relate net force, mass, and acceleration."],
+            common_misconceptions=["More mass always means more acceleration."],
+        )
+        lesson.physics_concepts.add(force)
+        draft = LessonDraft.from_dict(example_lesson_draft_dict())
+
+        request = LessonReviewRequest.from_lesson(lesson, draft)
+
+        self.assertEqual(request.title, lesson.title)
+        self.assertEqual(request.grade_level, "11")
+        self.assertEqual(request.learning_objectives, tuple(lesson.learning_objectives))
+        self.assertEqual(
+            request.common_misconceptions, tuple(lesson.common_misconceptions)
+        )
+        self.assertEqual(request.concepts[0].equations, ("F_net = ma",))
+        self.assertEqual(
+            request.concepts[0].common_misconceptions,
+            ("Forces are stored inside moving objects.",),
+        )
+        self.assertIs(request.draft, draft)
+
+
 class PromptBuilderTests(SimpleTestCase):
     def test_prompt_includes_request_data_schema_and_teacher_authority(self):
         request = make_request()
@@ -293,6 +410,28 @@ class PromptBuilderTests(SimpleTestCase):
         self.assertIn("F_net = ma", prompt.user)
         self.assertIn("newton (N)", prompt.user)
         self.assertIn("### Force", prompt.user)
+
+
+class ReviewPromptBuilderTests(SimpleTestCase):
+    def test_review_prompt_includes_draft_and_physics_context(self):
+        request = make_review_request()
+        prompt = build_lesson_review_prompt(request)
+
+        self.assertEqual(prompt.version, LESSON_REVIEW_PROMPT_VERSION)
+        self.assertIn("Return ONLY a JSON object", prompt.system)
+        self.assertIn("Do not rewrite it", prompt.system)
+        self.assertIn("meaningful issues", prompt.system)
+        self.assertIn("equations", prompt.system)
+        self.assertIn(request.title, prompt.user)
+        self.assertIn("Grade level: 11", prompt.user)
+        self.assertIn(request.draft.overview, prompt.user)
+        self.assertIn("F_net = ma", prompt.user)
+        self.assertIn("newton (N)", prompt.user)
+        self.assertIn("More mass always means more acceleration.", prompt.user)
+        self.assertIn(
+            "A moving object needs a force to keep moving at constant velocity.",
+            prompt.user,
+        )
 
 
 class GenerateLessonDraftTests(SimpleTestCase):
@@ -328,6 +467,67 @@ class GenerateLessonDraftTests(SimpleTestCase):
         result = generate_lesson_draft(make_request(), provider=provider)
 
         self.assertEqual(result.draft.overview, payload["overview"])
+
+
+class ReviewLessonDraftTests(SimpleTestCase):
+    def test_fake_provider_returns_a_valid_review_result(self):
+        provider = FakeAIProvider()
+
+        result = review_lesson_draft(make_review_request(), provider=provider)
+
+        self.assertEqual(result.overall_summary, example_lesson_review_dict()["overall_summary"])
+        self.assertEqual(len(result.issues), 1)
+        self.assertEqual(result.issues[0].category, "misconception")
+        self.assertEqual(len(provider.calls), 1)
+        self.assertIn(LESSON_REVIEW_PROMPT_VERSION, provider.calls[0]["system_prompt"])
+        self.assertIn("Introduction to Newton's Second Law", provider.calls[0]["prompt"])
+
+    def test_review_service_rejects_invalid_json_with_review_error(self):
+        provider = FakeAIProvider(review_response="not-json")
+
+        with self.assertRaises(InvalidLessonReviewError):
+            review_lesson_draft(make_review_request(), provider=provider)
+
+    def test_review_service_rejects_invalid_review_schema(self):
+        provider = FakeAIProvider(
+            review_response=json.dumps({"overall_summary": "Incomplete review."})
+        )
+
+        with self.assertRaises(InvalidLessonReviewError):
+            review_lesson_draft(make_review_request(), provider=provider)
+
+    def test_provider_errors_propagate_as_existing_ai_exception(self):
+        provider = MagicMock(spec=OpenAIProvider)
+        provider.generate.side_effect = AIProviderError("provider unavailable")
+
+        with self.assertRaisesMessage(AIProviderError, "provider unavailable"):
+            review_lesson_draft(make_review_request(), provider=provider)
+
+    def test_deterministic_validator_findings_are_combined_with_ai_review(self):
+        deterministic_issue = ReviewIssue.from_dict(
+            {
+                "category": "units",
+                "severity": "info",
+                "issue": "A unit check is available for teacher review.",
+                "explanation": "A future deterministic validator identified this note.",
+                "affected_section": "Worked examples",
+                "suggested_revision": "Confirm the units before finalizing.",
+                "confidence": "high",
+            }
+        )
+
+        class StubValidator:
+            def validate(self, request):
+                return (deterministic_issue,)
+
+        result = review_lesson_draft(
+            make_review_request(),
+            provider=FakeAIProvider(),
+            validators=(StubValidator(),),
+        )
+
+        self.assertEqual(len(result.issues), 2)
+        self.assertEqual(result.issues[0], deterministic_issue)
 
 
 class AISettingsTests(SimpleTestCase):
