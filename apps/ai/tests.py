@@ -1,13 +1,15 @@
 import json
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from apps.lessons.models import Lesson
 from apps.physics.models import PhysicsConcept
 
-from .exceptions import InvalidLessonDraftError, UnsupportedAIProviderError
+from .exceptions import AIProviderError, InvalidLessonDraftError, UnsupportedAIProviderError
 from .prompts import LESSON_GENERATION_PROMPT_VERSION, build_lesson_generation_prompt
-from .providers import FakeAIProvider, get_ai_provider
+from .providers import FakeAIProvider, OpenAIProvider, get_ai_provider
 from .requests import ConceptContext, LessonGenerationRequest
 from .schemas import LessonDraft, example_lesson_draft_dict, parse_model_json
 from .services import generate_lesson_draft
@@ -67,13 +69,19 @@ class AIProviderTests(SimpleTestCase):
         self.assertIsInstance(provider, FakeAIProvider)
         self.assertEqual(provider.name, "fake")
 
-    @override_settings(AI_PROVIDER="openai")
-    def test_openai_provider_is_reserved_but_not_implemented(self):
-        with self.assertRaisesMessage(
-            UnsupportedAIProviderError,
-            "The 'openai' provider is reserved but not implemented yet.",
-        ):
-            get_ai_provider()
+    @override_settings(
+        AI_PROVIDER="openai",
+        OPENAI_API_KEY="test-api-key",
+        OPENAI_MODEL="gpt-test-model",
+        OPENAI_TIMEOUT=45,
+    )
+    def test_get_ai_provider_returns_openai_provider(self):
+        provider = get_ai_provider()
+
+        self.assertIsInstance(provider, OpenAIProvider)
+        self.assertEqual(provider.name, "openai")
+        self.assertEqual(provider.model, "gpt-test-model")
+        self.assertEqual(provider.timeout, 45)
 
     @override_settings(AI_PROVIDER="ollama")
     def test_ollama_provider_is_reserved_but_not_implemented(self):
@@ -90,6 +98,75 @@ class AIProviderTests(SimpleTestCase):
             "Unknown AI provider 'unknown-vendor'.",
         ):
             get_ai_provider()
+
+
+class OpenAIProviderTests(SimpleTestCase):
+    def test_missing_api_key_only_fails_when_provider_is_invoked(self):
+        with override_settings(AI_PROVIDER="openai", OPENAI_API_KEY=""):
+            provider = get_ai_provider()
+
+        with self.assertRaisesMessage(AIProviderError, "OPENAI_API_KEY is not configured"):
+            provider.generate("prompt")
+
+    @override_settings(
+        OPENAI_API_KEY="test-api-key",
+        OPENAI_MODEL="gpt-test-model",
+        OPENAI_TIMEOUT=42,
+    )
+    @patch("apps.ai.providers.OpenAI")
+    def test_uses_settings_to_configure_sdk_and_returns_response_text(self, openai_class):
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=" generated lesson "))]
+        )
+        client = MagicMock()
+        client.chat.completions.create.return_value = response
+        openai_class.return_value = client
+
+        provider = OpenAIProvider()
+        text = provider.generate("user prompt", system_prompt="system prompt")
+
+        self.assertEqual(text, "generated lesson")
+        openai_class.assert_called_once_with(
+            api_key="test-api-key", timeout=42.0
+        )
+        client.chat.completions.create.assert_called_once_with(
+            model="gpt-test-model",
+            messages=[
+                {"role": "system", "content": "system prompt"},
+                {"role": "user", "content": "user prompt"},
+            ],
+        )
+
+    def test_explicit_configuration_overrides_settings(self):
+        client = MagicMock()
+        provider = OpenAIProvider(
+            api_key="test-api-key", model="gpt-explicit", timeout="15", client=client
+        )
+
+        self.assertEqual(provider.model, "gpt-explicit")
+        self.assertEqual(provider.timeout, 15.0)
+
+    def test_sdk_errors_are_translated_without_exposing_api_key(self):
+        client = MagicMock()
+        client.chat.completions.create.side_effect = RuntimeError(
+            "Request failed with test-api-key"
+        )
+        provider = OpenAIProvider(api_key="test-api-key", client=client)
+
+        with self.assertRaises(AIProviderError) as ctx:
+            provider.generate("prompt")
+
+        self.assertIn("OpenAI provider request failed", str(ctx.exception))
+        self.assertNotIn("test-api-key", str(ctx.exception))
+        self.assertIn("[redacted]", str(ctx.exception))
+
+    def test_empty_sdk_response_is_rejected(self):
+        client = MagicMock()
+        client.chat.completions.create.return_value = SimpleNamespace(choices=[])
+        provider = OpenAIProvider(api_key="test-api-key", client=client)
+
+        with self.assertRaisesMessage(AIProviderError, "empty response"):
+            provider.generate("prompt")
 
 
 class LessonDraftSchemaTests(SimpleTestCase):
