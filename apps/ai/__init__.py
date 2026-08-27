@@ -1,1 +1,1 @@
-"""AI provider integration boundary (implementation deferred)."""
+"""AI provider abstraction and structured lesson-generation contract."""
