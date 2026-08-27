@@ -142,10 +142,17 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # AI providers
-# Only "fake" is implemented. "openai" and "ollama" are reserved for later work.
+# Default is "fake" so local development and tests do not call a remote API.
+# "openai" is implemented. "ollama" is reserved for later work.
 AI_PROVIDER = os.getenv("AI_PROVIDER", "fake").strip().lower() or "fake"
 AI_MODEL = os.getenv("AI_MODEL", "").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "").strip() or "gpt-4o-mini"
+try:
+    OPENAI_TIMEOUT = int(os.getenv("OPENAI_TIMEOUT", "60").strip() or "60")
+except ValueError:
+    OPENAI_TIMEOUT = 60
+if OPENAI_TIMEOUT <= 0:
+    OPENAI_TIMEOUT = 60
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip() or "http://localhost:11434"
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1").strip() or "llama3.1"
