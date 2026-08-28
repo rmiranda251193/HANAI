@@ -6,6 +6,7 @@ from django.urls import reverse
 from apps.ai.exceptions import AIProviderError
 from apps.ai.providers import FakeAIProvider
 from apps.physics.models import PhysicsConcept
+from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue
 
 from .models import Lesson
 
@@ -203,7 +204,7 @@ class LessonGenerationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "lessons/detail.html")
-        self.assertContains(response, "AI-generated review draft")
+        self.assertContains(response, "AI-generated draft")
         self.assertContains(response, "Introduction to Newton&#x27;s Second Law", html=False)
         self.assertContains(response, "Students relate net force, mass, and acceleration")
         self.assertContains(response, "Calculate acceleration from net force and mass.")
@@ -214,7 +215,7 @@ class LessonGenerationViewTests(TestCase):
         self.assertContains(response, "Predict then measure")
         self.assertContains(response, "Two students pull a wagon")
         self.assertContains(response, "This is a draft. Review equations")
-        self.assertContains(response, "Not saved")
+        self.assertContains(response, "Saved for review")
 
         self.lesson.refresh_from_db()
         self.assertEqual(self.lesson.title, original_title)
@@ -293,3 +294,40 @@ class LessonGenerationViewTests(TestCase):
         accepted = csrf_client.post(self.generation_url(), HTTP_X_CSRFTOKEN=token)
 
         self.assertEqual(accepted.status_code, 200)
+
+    @override_settings(AI_PROVIDER="fake")
+    def test_teacher_can_generate_review_decide_and_finalize_a_draft(self):
+        generated = self.client.post(self.generation_url())
+        self.assertEqual(generated.status_code, 200)
+
+        draft = GeneratedLessonDraft.objects.get(lesson=self.lesson)
+        reviewed = self.client.post(
+            reverse("lessons:review", args=[self.lesson.slug, draft.pk])
+        )
+        self.assertEqual(reviewed.status_code, 200)
+        self.assertContains(reviewed, "Teacher decisions required")
+
+        issue = PersistedReviewIssue.objects.get(review__draft=draft)
+        decided = self.client.post(
+            reverse(
+                "lessons:review_issue_decision",
+                args=[self.lesson.slug, draft.pk, issue.pk],
+            ),
+            {"decision": "accepted"},
+        )
+        self.assertEqual(decided.status_code, 200)
+
+        finalized = self.client.post(
+            reverse(
+                "lessons:finalize",
+                args=[self.lesson.slug, draft.pk, issue.review_id],
+            )
+        )
+        self.assertEqual(finalized.status_code, 200)
+        self.assertContains(finalized, "Lesson content was finalized")
+
+        self.lesson.refresh_from_db()
+        draft.refresh_from_db()
+        self.assertTrue(self.lesson.ai_generated)
+        self.assertEqual(self.lesson.status, Lesson.Status.REVIEW)
+        self.assertIsNotNone(draft.finalized_at)

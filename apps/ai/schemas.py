@@ -347,7 +347,23 @@ class LessonDraft:
         )
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        # ``dataclasses.asdict`` preserves tuples, whereas this is the JSON
+        # contract consumed by ``from_dict`` and Django's JSONField.  Return
+        # lists even before a draft is written and reloaded from the database.
+        return {
+            "title": self.title,
+            "overview": self.overview,
+            "learning_objectives": list(self.learning_objectives),
+            "prerequisites": list(self.prerequisites),
+            "key_concepts": list(self.key_concepts),
+            "explanation": self.explanation,
+            "worked_examples": [asdict(example) for example in self.worked_examples],
+            "activities": [asdict(activity) for activity in self.activities],
+            "assessment_questions": [
+                asdict(question) for question in self.assessment_questions
+            ],
+            "teacher_notes": list(self.teacher_notes),
+        }
 
 
 @dataclass(frozen=True)

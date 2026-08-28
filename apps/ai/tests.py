@@ -203,6 +203,7 @@ class LessonDraftSchemaTests(SimpleTestCase):
         self.assertEqual(draft.key_concepts, ("Force", "Newton's Second Law"))
         self.assertEqual(draft.worked_examples[0].title, "Cart on a low-friction track")
         self.assertEqual(draft.to_dict()["title"], draft.title)
+        self.assertEqual(LessonDraft.from_dict(draft.to_dict()), draft)
 
     def test_missing_required_field_is_rejected(self):
         payload = example_lesson_draft_dict()
