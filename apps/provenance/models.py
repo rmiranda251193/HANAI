@@ -105,6 +105,49 @@ class PersistedReviewIssue(models.Model):
         return f"{self.get_severity_display()} review issue: {self.issue[:60]}"
 
 
+class ProvenanceEvent(models.Model):
+    """Chronological audit event for one lesson's AI-assisted workflow."""
+
+    class EventType(models.TextChoices):
+        LESSON_CREATED = "lesson_created", "Lesson created"
+        AI_DRAFT_GENERATED = "ai_draft_generated", "AI draft generated"
+        AI_REVIEW_COMPLETED = "ai_review_completed", "AI review completed"
+        TEACHER_ACCEPTED = "teacher_accepted", "Teacher accepted"
+        TEACHER_EDITED = "teacher_edited", "Teacher edited"
+        TEACHER_REJECTED = "teacher_rejected", "Teacher rejected"
+        LESSON_FINALIZED = "lesson_finalized", "Lesson finalized"
+
+    lesson = models.ForeignKey(
+        "lessons.Lesson",
+        on_delete=models.CASCADE,
+        related_name="provenance_events",
+    )
+    event_type = models.CharField(max_length=32, choices=EventType.choices)
+    source = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Actor or origin for this event, such as teacher or an AI provider.",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="lesson_provenance_events",
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["lesson", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_event_type_display()} for {self.lesson}"
+
+
 class ReviewIssueDecision(models.Model):
     """Teacher response kept separate from the original AI review finding."""
 

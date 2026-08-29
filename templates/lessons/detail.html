@@ -307,6 +307,27 @@
     </section>
   {% endif %}
 
+  {% if lesson_history %}
+    <section class="surface-card lesson-history" aria-labelledby="lesson-history-title">
+      <p class="card-label">Traceability</p>
+      <h2 id="lesson-history-title">Lesson history</h2>
+      <ol class="history-timeline">
+        {% for entry in lesson_history %}
+          <li class="history-event history-event-{{ entry.event_type }}">
+            <p class="history-event-title">{{ entry.title }}</p>
+            {% if entry.source_label %}
+              <p class="history-event-source">{{ entry.source_label }}</p>
+            {% endif %}
+            {% for detail in entry.details %}
+              <p class="history-event-detail">{{ detail }}</p>
+            {% endfor %}
+            <p class="history-event-time">{{ entry.created_at|date:"j M Y" }}</p>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+  {% endif %}
+
   <script>
     (() => {
       const form = document.querySelector("[data-generation-form]");

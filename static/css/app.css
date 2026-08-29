@@ -147,6 +147,15 @@ a { color: inherit; }
 .review-decision-record p { margin: .3rem 0; color: #dbeaf1; line-height: 1.55; }
 .review-pending-note, .review-empty { margin: 1rem 0 0; color: var(--muted); line-height: 1.55; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.lesson-history { max-width: 64rem; margin-top: 1.5rem; }
+.lesson-history h2 { margin: .65rem 0 0; font-size: 1.2rem; }
+.history-timeline { display: grid; margin: 1.15rem 0 0; padding: 0; list-style: none; }
+.history-event { position: relative; padding: 0 0 1.2rem 1.4rem; border-left: 1px solid var(--line); }
+.history-event:last-child { padding-bottom: 0; }
+.history-event::before { content: ""; position: absolute; left: -.38rem; top: .28rem; width: .65rem; height: .65rem; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 .7rem var(--cyan); }
+.history-event-title { margin: 0; font-size: .98rem; font-weight: 700; }
+.history-event-source, .history-event-time { margin: .28rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.45; }
+.history-event-detail { margin: .28rem 0 0; color: #dbeaf1; font-size: .88rem; line-height: 1.5; }
 @keyframes generation-pulse { 50% { opacity: .35; transform: scale(.8); } }
 @media (max-width: 720px) { .generated-draft-grid { grid-template-columns: 1fr; } .draft-section-wide { grid-column: auto; } .generated-draft-heading, .review-panel-heading, .review-issue-heading { flex-direction: column; } .review-reject-form input { width: 100%; } }
 @media (max-width: 720px) { .page-heading, .lesson-card { align-items: start; flex-direction: column; } .form-grid, .detail-grid { grid-template-columns: 1fr; } .detail-card:first-child { grid-column: auto; } .concept-checkbox-group { grid-template-columns: 1fr; } }

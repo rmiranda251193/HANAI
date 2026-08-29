@@ -1,19 +1,22 @@
 import logging
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.ai.exceptions import AIError
 from apps.ai.requests import LessonGenerationRequest, LessonReviewRequest
 from apps.ai.services import generate_lesson_draft, review_lesson_draft
-from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue
+from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue, ProvenanceEvent
 from apps.provenance.services import (
     LessonFinalizationError,
     ReviewDecisionError,
     ReviewWorkflowError,
     finalize_lesson_from_review,
+    get_lesson_history,
     persist_generated_lesson_draft,
     persist_lesson_draft_review,
+    record_event,
     record_review_issue_decision,
 )
 
@@ -42,7 +45,10 @@ def _render_lesson_detail(
     """Render one persisted AI draft and its review state alongside a lesson."""
 
     generated_lesson_draft = generated_lesson_draft or lesson.ai_drafts.first()
-    context = {"lesson": lesson}
+    context = {
+        "lesson": lesson,
+        "lesson_history": get_lesson_history(lesson),
+    }
 
     if generated_lesson_draft is not None:
         context["generated_lesson_draft"] = generated_lesson_draft
@@ -80,7 +86,25 @@ def lesson_create(request):
     form = LessonForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
-        lesson = form.save()
+        with transaction.atomic():
+            lesson = form.save()
+            record_event(
+                lesson,
+                ProvenanceEvent.EventType.LESSON_CREATED,
+                source="teacher",
+                actor=_current_teacher(request),
+                metadata={
+                    "title": lesson.title,
+                    "topic": lesson.topic,
+                    "grade_level": lesson.grade_level,
+                    "duration_minutes": lesson.duration_minutes,
+                    "learning_objectives": list(lesson.learning_objectives),
+                    "common_misconceptions": list(lesson.common_misconceptions),
+                    "physics_concepts": list(
+                        lesson.physics_concepts.values_list("name", flat=True)
+                    ),
+                },
+            )
         return redirect("lessons:detail", slug=lesson.slug)
 
     return render(request, "lessons/form.html", {"form": form})

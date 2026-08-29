@@ -1,1 +1,1 @@
-"""Educational content provenance boundary (implementation deferred)."""
+"""Educational content provenance: immutable artifacts and an audit trail."""
