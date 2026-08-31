@@ -6,7 +6,7 @@ from django.urls import reverse
 from apps.ai.exceptions import AIProviderError
 from apps.ai.providers import FakeAIProvider
 from apps.physics.models import PhysicsConcept
-from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue
+from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue, ProvenanceEvent
 
 from .models import Lesson
 
@@ -134,6 +134,23 @@ class LessonBuilderViewTests(TestCase):
             lesson.common_misconceptions,
             ["More mass always means more acceleration."],
         )
+
+    def test_creating_a_lesson_records_provenance_and_shows_history(self):
+        response = self.client.post(reverse("lessons:create"), self.valid_lesson_data())
+
+        lesson = Lesson.objects.get()
+        self.assertRedirects(response, reverse("lessons:detail", args=[lesson.slug]))
+        event = ProvenanceEvent.objects.get(
+            lesson=lesson,
+            event_type=ProvenanceEvent.EventType.LESSON_CREATED,
+        )
+        self.assertEqual(event.source, "teacher")
+        self.assertEqual(event.metadata["title"], lesson.title)
+
+        detail = self.client.get(reverse("lessons:detail", args=[lesson.slug]))
+        self.assertContains(detail, "Lesson history")
+        self.assertContains(detail, "Lesson created")
+        self.assertContains(detail, "Teacher")
 
     def test_lesson_detail_page_works(self):
         lesson = Lesson.objects.create(
@@ -325,9 +342,29 @@ class LessonGenerationViewTests(TestCase):
         )
         self.assertEqual(finalized.status_code, 200)
         self.assertContains(finalized, "Lesson content was finalized")
+        self.assertContains(finalized, "Lesson history")
+        self.assertContains(finalized, "AI draft generated")
+        self.assertContains(finalized, "AI review completed")
+        self.assertContains(finalized, "Teacher accepted")
+        self.assertContains(finalized, "Lesson finalized")
+        self.assertContains(finalized, "AI-generated draft")
+        self.assertContains(finalized, "Teacher decisions required")
 
         self.lesson.refresh_from_db()
         draft.refresh_from_db()
         self.assertTrue(self.lesson.ai_generated)
         self.assertEqual(self.lesson.status, Lesson.Status.REVIEW)
         self.assertIsNotNone(draft.finalized_at)
+        self.assertEqual(
+            list(
+                ProvenanceEvent.objects.filter(lesson=self.lesson).values_list(
+                    "event_type", flat=True
+                )
+            ),
+            [
+                ProvenanceEvent.EventType.AI_DRAFT_GENERATED,
+                ProvenanceEvent.EventType.AI_REVIEW_COMPLETED,
+                ProvenanceEvent.EventType.TEACHER_ACCEPTED,
+                ProvenanceEvent.EventType.LESSON_FINALIZED,
+            ],
+        )
