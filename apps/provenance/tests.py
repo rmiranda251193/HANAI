@@ -1,5 +1,7 @@
 import json
 
+from django.contrib import admin as django_admin
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
@@ -9,7 +11,14 @@ from apps.ai.services import generate_lesson_draft, review_lesson_draft
 from apps.lessons.models import Lesson
 from apps.physics.models import PhysicsConcept
 
-from .models import PersistedReviewIssue, ProvenanceEvent
+from . import admin as provenance_admin  # noqa: F401  (import must not raise)
+from .models import (
+    GeneratedLessonDraft,
+    LessonDraftReview,
+    PersistedReviewIssue,
+    ProvenanceEvent,
+    ReviewIssueDecision,
+)
 from .services import (
     finalize_lesson_from_review,
     get_lesson_history,
@@ -480,3 +489,39 @@ class ProvenanceAuditTrailTests(TestCase):
         self.assertEqual(entries[1].source_label, "Fake")
         self.assertIn("Model: fake-lesson-draft", entries[1].details)
         self.assertIn("Prompt: lesson-generation-v1", entries[1].details)
+
+
+class ProvenanceAdminTests(TestCase):
+    AUDIT_MODELS = (
+        ProvenanceEvent,
+        GeneratedLessonDraft,
+        LessonDraftReview,
+        PersistedReviewIssue,
+        ReviewIssueDecision,
+    )
+
+    def test_audit_models_are_registered_in_admin(self):
+        for model in self.AUDIT_MODELS:
+            self.assertIn(model, django_admin.site._registry)
+
+    def test_audit_admins_are_read_only(self):
+        for model in self.AUDIT_MODELS:
+            model_admin = django_admin.site._registry[model]
+            self.assertFalse(model_admin.has_add_permission(None))
+            self.assertFalse(model_admin.has_change_permission(None))
+            self.assertFalse(model_admin.has_delete_permission(None))
+            self.assertEqual(
+                set(model_admin.get_readonly_fields(None)),
+                {field.name for field in model._meta.fields},
+            )
+
+    def test_admin_changelists_load_without_error(self):
+        admin_user = get_user_model().objects.create_superuser(
+            username="auditor", email="auditor@example.com", password="pw"
+        )
+        self.client.force_login(admin_user)
+        for model in self.AUDIT_MODELS:
+            url = reverse(
+                f"admin:{model._meta.app_label}_{model._meta.model_name}_changelist"
+            )
+            self.assertEqual(self.client.get(url).status_code, 200)
