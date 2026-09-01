@@ -129,9 +129,17 @@ def tutor_view(request, slug):
         practice_problems,
     )
 
+    # A GET ``prefill`` lets another page (e.g. the Physics Lab) hand the student
+    # a starting message. It only pre-fills the textarea; nothing is sent until
+    # the student presses Send, so this never creates a turn on its own.
+    initial_question = ""
+    if request.method == "GET":
+        initial_question = request.GET.get("prefill", "")[:2000]
+
     context = {
         "lesson": lesson,
         "session": session,
+        "initial_question": initial_question,
         "practice_problem": practice_problems[problem_index],
         "practice_problem_index": problem_index,
         "practice_problem_count": len(practice_problems),

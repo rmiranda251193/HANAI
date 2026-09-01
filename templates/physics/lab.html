@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Physics Lab &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Physics Lab</h1>
+      <p>Run an experiment, change one thing at a time, and watch the physics respond. Every simulation is an idealized model built to make one relationship clear.</p>
+    </div>
+  </section>
+
+  {% if simulations %}
+    <section class="lab-index" aria-label="Available simulations">
+      {% for simulation in simulations %}
+        <article class="surface-card lab-index-card">
+          <p class="card-label">{{ simulation.concept.name }}</p>
+          <h2><a href="{% url 'physics_lab:detail' simulation.slug %}">{{ simulation.title }}</a></h2>
+          <p>{{ simulation.description }}</p>
+          <a class="button button-primary" href="{% url 'physics_lab:detail' simulation.slug %}">Open lab</a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No simulations yet</p>
+      <h1>Nothing to run right now.</h1>
+      <p>Seed the built-in simulations with <code>python manage.py seed_simulations</code>.</p>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -115,3 +115,47 @@ class PhysicsMisconception(models.Model):
 
     def __str__(self) -> str:
         return f"{self.code} — {self.title}"
+
+
+class PhysicsSimulation(models.Model):
+    """A reusable, concept-linked interactive Physics Lab simulation.
+
+    The catalog row is deliberately thin: it names a simulation and ties it to a
+    :class:`PhysicsConcept`. All simulation state (mass, force, time, motion)
+    lives in the client-side simulation, and every physical value is computed
+    deterministically in code -- never by an AI provider.
+    """
+
+    class SimulationType(models.TextChoices):
+        NEWTONS_SECOND_LAW = "newtons_second_law", "Newton's Second Law"
+
+    concept = models.ForeignKey(
+        PhysicsConcept,
+        on_delete=models.PROTECT,
+        related_name="simulations",
+        help_text="The concept this simulation lets a student explore.",
+    )
+    slug = models.SlugField(max_length=80, unique=True)
+    title = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
+    simulation_type = models.CharField(
+        max_length=40,
+        choices=SimulationType.choices,
+        help_text="Selects which client-side simulation and template to render.",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["title"]
+        verbose_name = "Physics simulation"
+        verbose_name_plural = "Physics simulations"
+
+    def __str__(self) -> str:
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
