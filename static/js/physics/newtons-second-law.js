@@ -65,7 +65,6 @@
     };
     var trace = [[0, 0]];
     var maxV = 1;
-    var prediction = null;
 
     var $ = function (sel) {
       return root.querySelector(sel);
@@ -100,13 +99,7 @@
       start: $("[data-action-start]"),
       pause: $("[data-action-pause]"),
       reset: $("[data-action-reset]"),
-      motionNote: $("[data-motion-note]"),
-      predictionInput: $("[data-prediction-input]"),
-      predictionSubmit: $("[data-prediction-submit]"),
-      predictionTest: $("[data-prediction-test]"),
-      predictionResult: $("[data-prediction-result]"),
-      observation: $("[data-observation]"),
-      tutorLink: $("[data-tutor-link]")
+      motionNote: $("[data-motion-note]")
     };
 
     var loop = lab.createRunLoop(tick, { maxDt: 0.05, coarseDt: 0.2 });
@@ -225,7 +218,7 @@
 
       renderScene(a);
       renderGraph();
-      refreshTutorLink();
+      root.dispatchEvent(new CustomEvent("lab:state", { detail: getState() }));
     }
 
     function renderScene(a) {
@@ -299,111 +292,6 @@
       }
     }
 
-    // -- prediction ------------------------------------------------
-
-    var PREDICTION_LABELS = {
-      double: "It doubles",
-      half: "It is halved",
-      same: "It stays the same",
-      quadruple: "It quadruples"
-    };
-    var STORAGE_KEY = "physicslab:newtons_second_law:prediction";
-
-    function loadStoredPrediction() {
-      try {
-        var stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored && el.predictionInput && PREDICTION_LABELS[stored]) {
-          el.predictionInput.value = stored;
-        }
-      } catch (err) {
-        /* storage unavailable: prediction stays in-memory only */
-      }
-    }
-
-    function submitPrediction() {
-      if (!el.predictionInput) return;
-      var choice = el.predictionInput.value;
-      if (!choice) {
-        setText(el.predictionResult, "Choose a prediction first.");
-        return;
-      }
-      prediction = {
-        choice: choice,
-        baselineForce: state.forceN,
-        baselineAccel: acceleration()
-      };
-      try {
-        window.localStorage.setItem(STORAGE_KEY, choice);
-      } catch (err) {
-        /* ignore */
-      }
-      setText(
-        el.predictionResult,
-        "Prediction locked in: “" + PREDICTION_LABELS[choice] +
-          "”. Now run the check."
-      );
-      if (el.predictionTest) el.predictionTest.hidden = false;
-    }
-
-    function testPrediction() {
-      if (!prediction) {
-        setText(el.predictionResult, "Make a prediction first.");
-        return;
-      }
-      var targetForce = prediction.baselineForce * 2;
-      var cappedNote = "";
-      if (targetForce > MAX_FORCE_N) {
-        targetForce = MAX_FORCE_N;
-        cappedNote = " (force is capped at " + MAX_FORCE_N + " N, so it could not fully double)";
-      }
-      setForce(targetForce);
-      var newAccel = acceleration();
-      var ratio = prediction.baselineAccel > 0 ? newAccel / prediction.baselineAccel : 0;
-
-      var actual;
-      if (ratio >= 1.8 && ratio <= 2.2) actual = "double";
-      else if (ratio >= 3.6) actual = "quadruple";
-      else if (ratio > 0.4 && ratio < 0.6) actual = "half";
-      else if (ratio >= 0.9 && ratio <= 1.1) actual = "same";
-      else actual = "change by about " + ratio.toFixed(2) + "x";
-
-      var correct = actual === prediction.choice;
-      var verdict = correct
-        ? "That matches your prediction."
-        : "That is different from your prediction — look at a = F / m again.";
-      setText(
-        el.predictionResult,
-        "Force went from " + prediction.baselineForce.toFixed(1) + " N to " +
-          targetForce.toFixed(1) + " N" + cappedNote + ". Acceleration went from " +
-          prediction.baselineAccel.toFixed(2) + " to " + newAccel.toFixed(2) +
-          " m/s² — it " + (actual === "double" ? "doubled" :
-            actual === "half" ? "halved" : actual === "same" ? "stayed the same" :
-            actual === "quadruple" ? "quadrupled" : actual) + ". " + verdict
-      );
-    }
-
-    // -- tutor connection --------------------------------------------
-
-    function buildContext() {
-      var a = acceleration();
-      var observation = el.observation ? el.observation.value.trim() : "";
-      return (
-        "Physics Lab experiment - Newton's Second Law\n" +
-        "mass = " + state.massKg.toFixed(1) + " kg\n" +
-        "net force = " + state.forceN.toFixed(1) + " N\n" +
-        "acceleration = " + a.toFixed(2) + " m/s^2 (a = F / m, idealized model)\n" +
-        "What I observed: " + (observation || "(add your observation above)")
-      );
-    }
-
-    function refreshTutorLink() {
-      if (!el.tutorLink || !config.tutorBase) return;
-      el.tutorLink.setAttribute(
-        "href",
-        config.tutorBase + "?prefill=" + encodeURIComponent(buildContext())
-      );
-    }
-
     // -- wiring --------------------------------------------------
 
     function onMassInput() {
@@ -424,18 +312,14 @@
     if (el.start) el.start.addEventListener("click", start);
     if (el.pause) el.pause.addEventListener("click", pause);
     if (el.reset) el.reset.addEventListener("click", reset);
-    if (el.predictionSubmit) el.predictionSubmit.addEventListener("click", submitPrediction);
-    if (el.predictionTest) el.predictionTest.addEventListener("click", testPrediction);
-    if (el.observation) el.observation.addEventListener("input", refreshTutorLink);
 
     if (loop.reduced && el.motionNote) el.motionNote.hidden = false;
 
-    loadStoredPrediction();
     syncInputs();
     setStatus("Ready. Set the mass and force, then press Start.");
     render();
 
-    return {
+    var api = {
       setMass: setMass,
       setForce: setForce,
       start: start,
@@ -443,6 +327,10 @@
       reset: reset,
       getState: getState
     };
+    // Expose the instance so the experiment-flow layer can read live values
+    // without coupling to this file's internals.
+    root.labInstance = api;
+    return api;
   }
 
   PhysicsLab.NewtonsSecondLaw = {

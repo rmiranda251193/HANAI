@@ -107,4 +107,60 @@
       <p>When students work with the tutor on this lesson's concepts, possible misconceptions will appear here for your review.</p>
     </section>
   {% endif %}
+
+  {% if experiments %}
+    <section class="page-heading compact-heading" style="padding-top:2.5rem;">
+      <div>
+        <p class="eyebrow">Physics Lab</p>
+        <h1 style="font-size:1.6rem;">Student experiment evidence</h1>
+        <p>What each student predicted, observed and explained. This is evidence of their thinking, not a grade.</p>
+      </div>
+    </section>
+
+    <section class="insight-list" aria-label="Student experiment evidence">
+      {% for row in experiments %}
+        <article class="surface-card insight-card experiment-card">
+          <div class="insight-card-head">
+            <div>
+              <p class="card-label">{{ row.attempt.simulation.title }}</p>
+              <p class="insight-meta">
+                Student: <strong>{{ row.attempt.student.display_name }}</strong>
+                {% if row.attempt.acceleration_m_s2 is not None %}
+                  &middot; mass {{ row.attempt.mass_kg|floatformat:1 }} kg
+                  &middot; force {{ row.attempt.force_n|floatformat:1 }} N
+                  &middot; acceleration {{ row.attempt.acceleration_m_s2|floatformat:2 }} m/s&sup2;
+                {% endif %}
+                &middot; {{ row.attempt.started_at|date:"M j, Y, g:i a" }}
+              </p>
+            </div>
+          </div>
+
+          <dl class="experiment-evidence">
+            {% if row.attempt.prediction %}
+              <div><dt>Prediction</dt><dd>&ldquo;{{ row.attempt.prediction }}&rdquo;</dd></div>
+            {% endif %}
+            {% if row.attempt.observation %}
+              <div><dt>Observation</dt><dd>&ldquo;{{ row.attempt.observation }}&rdquo;</dd></div>
+            {% endif %}
+            {% if row.attempt.explanation %}
+              <div><dt>Explanation</dt><dd>&ldquo;{{ row.attempt.explanation }}&rdquo;</dd></div>
+            {% endif %}
+            <div><dt>Tutor feedback</dt><dd>{% if row.tutor_feedback %}Discussed with tutor{% else %}Not yet{% endif %}</dd></div>
+            <div>
+              <dt>Possible misconception</dt>
+              <dd>
+                {% if row.misconception %}
+                  {{ row.misconception.misconception.title }}
+                  <span class="confidence-badge confidence-{{ row.misconception.confidence }}">{{ row.misconception.get_confidence_display }}</span>
+                  <span class="status-badge status-{{ row.misconception.status }}">{{ row.misconception.get_status_display }}</span>
+                {% else %}
+                  None noted
+                {% endif %}
+              </dd>
+            </div>
+          </dl>
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
 {% endblock %}

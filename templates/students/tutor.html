@@ -61,11 +61,17 @@
         <form method="post" action="" class="tutor-composer">
           {% csrf_token %}
           <input type="hidden" name="action" value="ask">
+          {% if experiment_attempt %}
+            <input type="hidden" name="experiment" value="{{ experiment_attempt.id }}">
+          {% endif %}
           <label for="tutor-question">Ask Physics Tutor</label>
           <textarea id="tutor-question" name="question" rows="3"
                     placeholder="e.g. What is acceleration?" required>{{ initial_question }}</textarea>
           {% if initial_question %}
             <p class="tutor-prefill-note">Loaded from your Physics Lab experiment &mdash; edit it, then press Send.</p>
+          {% endif %}
+          {% if experiment_attempt %}
+            <p class="tutor-prefill-note">Your tutor can see this experiment: prediction, values, observation and explanation.</p>
           {% endif %}
           <button type="submit" class="button button-primary">Send</button>
         </form>

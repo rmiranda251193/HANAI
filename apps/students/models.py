@@ -107,15 +107,19 @@ class TutorMessage(models.Model):
 
 
 class LearningEvidence(models.Model):
-    """Lightweight record that a student engaged with the tutor.
+    """Lightweight record of a meaningful student learning moment.
 
     This is intentionally not analytics. It never claims a misconception; it
-    only stores that a question was asked or a practice problem attempted.
+    only records that something worth noticing happened -- a question asked, a
+    practice attempt, or a Physics Lab prediction / observation / explanation.
     """
 
     class Kind(models.TextChoices):
         QUESTION_ASKED = "question_asked", "Question asked"
         PRACTICE_ATTEMPTED = "practice_attempted", "Practice attempted"
+        PREDICTION_SUBMITTED = "prediction_submitted", "Prediction submitted"
+        EXPERIMENT_OBSERVED = "experiment_observed", "Experiment observed"
+        EXPLANATION_SUBMITTED = "explanation_submitted", "Explanation submitted"
 
     student = models.ForeignKey(
         StudentProfile,
@@ -125,6 +129,8 @@ class LearningEvidence(models.Model):
     lesson = models.ForeignKey(
         "lessons.Lesson",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="learning_evidence",
     )
     session = models.ForeignKey(
@@ -137,16 +143,25 @@ class LearningEvidence(models.Model):
     kind = models.CharField(max_length=32, choices=Kind.choices)
     tutor_mode = models.CharField(max_length=20, blank=True, default="")
     detail = models.CharField(max_length=300, blank=True, default="")
+    context = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Optional structured context, e.g. deterministic experiment "
+            "parameters {simulation, mass_kg, force_n, acceleration_m_s2}."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["lesson", "created_at"]),
+            models.Index(fields=["student", "kind"]),
         ]
 
     def __str__(self) -> str:
-        return f"{self.get_kind_display()} for {self.lesson}"
+        return f"{self.get_kind_display()} for {self.lesson or 'no lesson'}"
 
 
 class StudentMisconception(models.Model):
@@ -276,3 +291,70 @@ class MisconceptionEvidence(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_source_display()} evidence for {self.observation_id}"
+
+
+class ExperimentAttempt(models.Model):
+    """One student's run through a Physics Lab simulation as a learning activity.
+
+    Predict -> experiment -> observe -> explain. The stored ``mass_kg`` /
+    ``force_n`` / ``acceleration_m_s2`` are the server-recomputed deterministic
+    result (a = F / m), never the browser's numbers. This is evidence of
+    engagement and reasoning, not a grade.
+    """
+
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="experiment_attempts",
+    )
+    lesson = models.ForeignKey(
+        "lessons.Lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="experiment_attempts",
+    )
+    simulation = models.ForeignKey(
+        "physics.PhysicsSimulation",
+        on_delete=models.CASCADE,
+        related_name="attempts",
+    )
+    session = models.ForeignKey(
+        TutorSession,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="experiment_attempts",
+    )
+
+    prediction = models.TextField(blank=True, default="")
+    observation = models.TextField(blank=True, default="")
+    explanation = models.TextField(blank=True, default="")
+
+    # Server-recomputed deterministic values (SI units). Not trusted from the browser.
+    mass_kg = models.FloatField(null=True, blank=True)
+    force_n = models.FloatField(null=True, blank=True)
+    acceleration_m_s2 = models.FloatField(null=True, blank=True)
+    parameters = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Structured experiment context recomputed on the server.",
+    )
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["student", "simulation"]),
+            models.Index(fields=["simulation", "started_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Experiment: {self.simulation} for {self.student}"
+
+    @property
+    def is_complete(self) -> bool:
+        return self.completed_at is not None

@@ -18,7 +18,7 @@ from .misconception_services import (
 from .models import LearningEvidence, TutorMessage, TutorSession
 from .prompts import build_tutor_prompt
 from .providers import get_tutor_provider
-from .requests import CandidateHint, TutorRequest
+from .requests import CandidateHint, ExperimentContext, TutorRequest
 from .schemas import TutorResponse
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,7 @@ def record_learning_evidence(
     kind: str,
     tutor_mode: str = "",
     detail: str = "",
+    context: dict | None = None,
 ) -> LearningEvidence:
     """Persist one lightweight engagement record. Never infers a misconception."""
 
@@ -87,6 +88,7 @@ def record_learning_evidence(
         kind=kind,
         tutor_mode=tutor_mode or "",
         detail=(detail or "")[:300],
+        context=context or {},
     )
 
 
@@ -114,6 +116,7 @@ def run_tutor_turn(
     student_question: str = "",
     practice_problem: str = "",
     student_attempt: str = "",
+    experiment: ExperimentContext | None = None,
     provider: AIProvider | None = None,
     assess_misconceptions: bool = True,
 ) -> tuple[TutorMessage, TutorResult]:
@@ -143,6 +146,7 @@ def run_tutor_turn(
         practice_problem=practice_problem,
         student_attempt=student_attempt,
         candidate_misconceptions=_candidate_hints(session),
+        experiment=experiment,
     )
     result = tutor_student(tutor_request, provider=provider)
 

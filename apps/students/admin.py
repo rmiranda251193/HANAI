@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    ExperimentAttempt,
     LearningEvidence,
     MisconceptionEvidence,
     StudentMisconception,
@@ -71,6 +72,39 @@ class LearningEvidenceAdmin(admin.ModelAdmin):
     search_fields = ("student__display_name", "lesson__title", "detail")
     list_select_related = ("student", "lesson", "session")
     date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        return [field.name for field in self.model._meta.fields]
+
+
+@admin.register(ExperimentAttempt)
+class ExperimentAttemptAdmin(admin.ModelAdmin):
+    list_display = (
+        "student",
+        "simulation",
+        "lesson",
+        "mass_kg",
+        "force_n",
+        "acceleration_m_s2",
+        "completed_at",
+        "started_at",
+    )
+    list_filter = ("simulation__simulation_type", "started_at", "completed_at")
+    search_fields = (
+        "student__display_name",
+        "simulation__title",
+        "prediction",
+        "observation",
+        "explanation",
+    )
+    list_select_related = ("student", "simulation", "lesson")
+    date_hierarchy = "started_at"
 
     def has_add_permission(self, request):
         return False

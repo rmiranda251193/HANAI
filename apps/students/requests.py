@@ -44,6 +44,59 @@ class CandidateHint:
 
 
 @dataclass(frozen=True)
+class ExperimentContext:
+    """A completed (or in-progress) Physics Lab experiment, as tutor context.
+
+    The numeric fields are the server-recomputed deterministic values, so the
+    tutor reasons about the same acceleration the app computed, not a browser
+    number.
+    """
+
+    simulation: str = ""
+    mass_kg: float | None = None
+    force_n: float | None = None
+    acceleration_m_s2: float | None = None
+    prediction: str = ""
+    observation: str = ""
+    explanation: str = ""
+
+    def __post_init__(self):
+        object.__setattr__(self, "simulation", str(self.simulation or "").strip())
+        for name in ("prediction", "observation", "explanation"):
+            object.__setattr__(self, name, str(getattr(self, name) or "").strip())
+
+    @property
+    def has_content(self) -> bool:
+        return any(
+            [
+                self.prediction,
+                self.observation,
+                self.explanation,
+                self.mass_kg is not None,
+                self.force_n is not None,
+                self.acceleration_m_s2 is not None,
+            ]
+        )
+
+    @classmethod
+    def from_attempt(cls, attempt) -> "ExperimentContext":
+        simulation = getattr(attempt, "simulation", None)
+        if simulation is not None and hasattr(simulation, "get_simulation_type_display"):
+            label = simulation.get_simulation_type_display()
+        else:
+            label = str(simulation) if simulation is not None else ""
+        return cls(
+            simulation=label,
+            mass_kg=attempt.mass_kg,
+            force_n=attempt.force_n,
+            acceleration_m_s2=attempt.acceleration_m_s2,
+            prediction=attempt.prediction,
+            observation=attempt.observation,
+            explanation=attempt.explanation,
+        )
+
+
+@dataclass(frozen=True)
 class TutorRequest:
     """Immutable context passed to the tutoring service.
 
@@ -59,6 +112,7 @@ class TutorRequest:
     concepts: tuple[ConceptContext, ...] = ()
     recent_messages: tuple[TutorConversationMessage, ...] = ()
     candidate_misconceptions: tuple[CandidateHint, ...] = ()
+    experiment: "ExperimentContext | None" = None
     student_question: str = ""
     practice_problem: str = ""
     student_attempt: str = ""
@@ -100,6 +154,10 @@ class TutorRequest:
             raise ValueError("a student question or a practice attempt is required")
         if not all(isinstance(concept, ConceptContext) for concept in self.concepts):
             raise ValueError("concepts must be ConceptContext instances")
+        if self.experiment is not None and not isinstance(
+            self.experiment, ExperimentContext
+        ):
+            raise ValueError("experiment must be an ExperimentContext instance")
 
     @property
     def is_practice_turn(self) -> bool:
@@ -114,6 +172,7 @@ class TutorRequest:
         practice_problem: str = "",
         student_attempt: str = "",
         candidate_misconceptions: tuple[CandidateHint, ...] = (),
+        experiment: "ExperimentContext | None" = None,
         recent_limit: int = RECENT_MESSAGE_LIMIT,
     ) -> "TutorRequest":
         lesson = session.lesson
@@ -136,6 +195,7 @@ class TutorRequest:
                 for message in messages
             ),
             candidate_misconceptions=tuple(candidate_misconceptions),
+            experiment=experiment,
             student_question=student_question,
             practice_problem=practice_problem,
             student_attempt=student_attempt,

@@ -8,7 +8,14 @@ from apps.lessons.models import Lesson
 
 from .exceptions import EmptyTutorMessageError, MisconceptionDecisionError, TutorError
 from .misconception_services import apply_teacher_decision
-from .models import StudentMisconception, StudentProfile, TutorMessage, TutorSession
+from .models import (
+    ExperimentAttempt,
+    StudentMisconception,
+    StudentProfile,
+    TutorMessage,
+    TutorSession,
+)
+from .requests import ExperimentContext
 from .services import run_tutor_turn
 
 logger = logging.getLogger(__name__)
@@ -103,6 +110,20 @@ def _clamp_index(raw_value, items: list) -> int:
     return index
 
 
+def _experiment_attempt_for(student: StudentProfile, raw_id):
+    """Load an experiment attempt by id, only if it belongs to this student."""
+
+    try:
+        attempt_id = int(raw_id)
+    except (TypeError, ValueError):
+        return None
+    return (
+        ExperimentAttempt.objects.filter(pk=attempt_id, student=student)
+        .select_related("simulation")
+        .first()
+    )
+
+
 def student_home(request):
     lessons = Lesson.objects.prefetch_related("physics_concepts")[:6]
     return render(request, "students/home.html", {"lessons": lessons})
@@ -136,10 +157,21 @@ def tutor_view(request, slug):
     if request.method == "GET":
         initial_question = request.GET.get("prefill", "")[:2000]
 
+    # An ``experiment`` id (from the Physics Lab "Ask the Tutor" link) attaches
+    # the deterministic experiment values + prediction/observation/explanation
+    # to the tutor turn as structured context.
+    experiment_attempt = _experiment_attempt_for(
+        student,
+        request.GET.get("experiment")
+        if request.method == "GET"
+        else request.POST.get("experiment"),
+    )
+
     context = {
         "lesson": lesson,
         "session": session,
         "initial_question": initial_question,
+        "experiment_attempt": experiment_attempt,
         "practice_problem": practice_problems[problem_index],
         "practice_problem_index": problem_index,
         "practice_problem_count": len(practice_problems),
@@ -147,6 +179,11 @@ def tutor_view(request, slug):
 
     if request.method == "POST":
         action = request.POST.get("action", "ask")
+        experiment_context = (
+            ExperimentContext.from_attempt(experiment_attempt)
+            if experiment_attempt is not None
+            else None
+        )
         try:
             if action == "practice":
                 attempt = request.POST.get("attempt", "")
@@ -164,7 +201,11 @@ def tutor_view(request, slug):
                 if not question.strip():
                     context["tutor_error"] = EMPTY_QUESTION_MESSAGE
                 else:
-                    run_tutor_turn(session, student_question=question)
+                    run_tutor_turn(
+                        session,
+                        student_question=question,
+                        experiment=experiment_context,
+                    )
                     context["workflow_message"] = "Your tutor replied below."
         except EmptyTutorMessageError as exc:
             context["tutor_error"] = str(exc)
@@ -207,11 +248,63 @@ def _lesson_observations(lesson: Lesson):
     return list(query)
 
 
+def _lesson_experiments(lesson: Lesson):
+    """Physics Lab experiment evidence tied to this lesson or its concepts.
+
+    Each row carries whether the student took it to the tutor and the most
+    recent *possible* misconception on the same concept (title, never a code).
+    """
+
+    from types import SimpleNamespace
+
+    from django.db.models import Q
+
+    concept_ids = list(lesson.physics_concepts.values_list("pk", flat=True))
+    condition = Q(lesson=lesson)
+    if concept_ids:
+        condition |= Q(simulation__concept_id__in=concept_ids)
+
+    attempts = (
+        ExperimentAttempt.objects.filter(condition)
+        .exclude(prediction="", observation="", explanation="")
+        .select_related("student", "simulation", "simulation__concept")
+        .order_by("-started_at")[:25]
+    )
+
+    rows = []
+    for attempt in attempts:
+        tutor_feedback = bool(
+            attempt.session_id
+            and TutorMessage.objects.filter(
+                session_id=attempt.session_id, role=TutorMessage.Role.TUTOR
+            ).exists()
+        )
+        misconception = (
+            StudentMisconception.objects.filter(
+                student=attempt.student,
+                misconception__physics_concept=attempt.simulation.concept,
+            )
+            .exclude(status=StudentMisconception.Status.DISMISSED)
+            .select_related("misconception")
+            .order_by("-last_observed_at")
+            .first()
+        )
+        rows.append(
+            SimpleNamespace(
+                attempt=attempt,
+                tutor_feedback=tutor_feedback,
+                misconception=misconception,
+            )
+        )
+    return rows
+
+
 def _render_insights(request, lesson: Lesson, **extra_context):
     observations = _lesson_observations(lesson)
     context = {
         "lesson": lesson,
         "observations": observations,
+        "experiments": _lesson_experiments(lesson),
         "candidate_status": StudentMisconception.Status.CANDIDATE,
         "has_candidates": any(
             obs.status == StudentMisconception.Status.CANDIDATE for obs in observations

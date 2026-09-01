@@ -106,6 +106,36 @@ Output contract:
             "Possible misconceptions to gently probe: none flagged for this student."
         )
 
+    experiment_block = ""
+    experiment = request.experiment
+    if experiment is not None and experiment.has_content:
+        exp_lines = [
+            f"Physics Lab experiment the student just ran "
+            f"({experiment.simulation or 'simulation'}):"
+        ]
+        if experiment.mass_kg is not None and experiment.force_n is not None:
+            exp_lines.append(
+                f"- setup: mass = {experiment.mass_kg:.2f} kg, "
+                f"net force = {experiment.force_n:.2f} N"
+            )
+        if experiment.acceleration_m_s2 is not None:
+            exp_lines.append(
+                f"- acceleration (deterministic a = F / m, computed by the app): "
+                f"{experiment.acceleration_m_s2:.2f} m/s^2"
+            )
+        if experiment.prediction:
+            exp_lines.append(f"- their prediction beforehand: {experiment.prediction}")
+        if experiment.observation:
+            exp_lines.append(f"- what they observed: {experiment.observation}")
+        if experiment.explanation:
+            exp_lines.append(f"- their explanation: {experiment.explanation}")
+        exp_lines.append(
+            "Compare their prediction with what happened, respond to their "
+            "reasoning, and pose a next question (for example, what if the mass "
+            "changed instead)."
+        )
+        experiment_block = "\n".join(exp_lines) + "\n"
+
     practice_block = ""
     if request.practice_problem:
         practice_block = f"\nPractice problem the student is working on:\n{request.practice_problem}\n"
@@ -137,6 +167,7 @@ Physics concepts (authoritative):
 
 {candidate_block}
 
+{experiment_block}
 Recent conversation (oldest first):
 {conversation}
 {practice_block}
