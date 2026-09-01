@@ -181,7 +181,31 @@ a { color: inherit; }
 .tutor-latest-mode, .tutor-latest-concept { margin: .55rem 0 0; color: var(--muted); font-size: .85rem; }
 .tutor-latest-hint { margin: .6rem 0 0; color: #dbeaf1; line-height: 1.55; }
 .tutor-practice-problem { margin: .6rem 0 1rem; padding: .7rem .8rem; border-left: 3px solid var(--amber); background: rgba(242, 180, 102, .08); color: #dbeaf1; line-height: 1.55; }
-@media (max-width: 900px) { .tutor-layout { grid-template-columns: 1fr; } }
+.detail-insights-link { max-width: 64rem; margin: 1rem 0 0; }
+.insight-list { display: grid; gap: 1rem; max-width: 64rem; margin-top: 1.5rem; }
+.insight-card { border-left: 3px solid var(--cyan); }
+.insight-card-head { display: flex; align-items: start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.insight-card h2 { margin: .5rem 0 .4rem; font-size: 1.15rem; }
+.insight-meta { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.insight-badges { display: flex; flex-direction: column; align-items: end; gap: .4rem; }
+.confidence-badge { display: inline-flex; padding: .25rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
+.confidence-low { border-color: rgba(153, 173, 187, .4); color: var(--muted); }
+.confidence-medium { border-color: rgba(242, 180, 102, .45); color: var(--amber); }
+.confidence-high { border-color: rgba(85, 215, 235, .5); color: var(--cyan); }
+.status-candidate { background: rgba(85, 215, 235, .13); color: var(--cyan); }
+.status-confirmed_by_teacher { background: rgba(242, 180, 102, .16); color: var(--amber); }
+.status-resolved { background: rgba(117, 213, 158, .14); color: #8be7af; }
+.status-dismissed { background: rgba(153, 173, 187, .14); color: var(--muted); }
+.insight-description, .insight-guidance { margin: .9rem 0 0; color: #dbeaf1; line-height: 1.6; }
+.insight-description-label { display: inline-block; margin-right: .3rem; color: var(--cyan); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.insight-evidence { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.insight-evidence .content-list { list-style: none; padding-left: 0; }
+.insight-evidence-source { display: inline-block; margin-right: .4rem; padding: .1rem .4rem; border-radius: .3rem; background: rgba(85, 215, 235, .1); color: var(--cyan); font-size: .7rem; font-weight: 700; text-transform: uppercase; }
+.insight-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--line); }
+.insight-actions input[type="text"] { flex: 1 1 14rem; min-width: 0; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: .4rem; outline: none; color: var(--text); background: #0b1724; font: inherit; }
+.insight-actions input[type="text"]:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(85, 215, 235, .14); }
+.insight-decided { margin: 1.1rem 0 0; padding-top: 1.1rem; border-top: 1px solid var(--line); color: var(--muted); line-height: 1.55; }
+@media (max-width: 900px) { .tutor-layout { grid-template-columns: 1fr; } .insight-card-head { flex-direction: column; } .insight-badges { align-items: start; flex-direction: row; } }
 @media (prefers-reduced-motion: reduce) { .generation-status::before { animation: none; } }
 @keyframes generation-pulse { 50% { opacity: .35; transform: scale(.8); } }
 @media (max-width: 720px) { .generated-draft-grid { grid-template-columns: 1fr; } .draft-section-wide { grid-column: auto; } .generated-draft-heading, .review-panel-heading, .review-issue-heading { flex-direction: column; } .review-reject-form input { width: 100%; } }

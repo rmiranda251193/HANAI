@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class StudentProfile(models.Model):
@@ -146,3 +147,132 @@ class LearningEvidence(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_kind_display()} for {self.lesson}"
+
+
+class StudentMisconception(models.Model):
+    """A *possible* misconception observed for one student.
+
+    This is a candidate, not a diagnosis. It carries a coarse confidence and a
+    status the teacher controls. AI and rules may create or update a candidate;
+    only a teacher may confirm one.
+    """
+
+    class Confidence(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Status(models.TextChoices):
+        CANDIDATE = "candidate", "Candidate"
+        CONFIRMED_BY_TEACHER = "confirmed_by_teacher", "Confirmed by teacher"
+        RESOLVED = "resolved", "Resolved"
+        DISMISSED = "dismissed", "Dismissed"
+
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="misconceptions",
+    )
+    misconception = models.ForeignKey(
+        "physics.PhysicsMisconception",
+        on_delete=models.CASCADE,
+        related_name="student_observations",
+    )
+    confidence = models.CharField(
+        max_length=8,
+        choices=Confidence.choices,
+        default=Confidence.LOW,
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.CANDIDATE,
+    )
+    first_observed_at = models.DateTimeField(default=timezone.now)
+    last_observed_at = models.DateTimeField(default=timezone.now)
+    observation_count = models.PositiveIntegerField(default=0)
+    evidence_summary = models.CharField(max_length=500, blank=True, default="")
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="misconception_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    teacher_note = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_observed_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "misconception"],
+                name="uniq_student_misconception",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["status", "last_observed_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"Possible: {self.misconception.code} for {self.student} "
+            f"({self.get_confidence_display()}, {self.get_status_display()})"
+        )
+
+    @property
+    def is_teacher_decided(self) -> bool:
+        return self.status != self.Status.CANDIDATE
+
+
+class MisconceptionEvidence(models.Model):
+    """A short, real pointer to something the student actually did.
+
+    It links an observation to the learning evidence and/or tutor message that
+    prompted it, plus a brief excerpt. Whole conversations are never copied.
+    """
+
+    class Source(models.TextChoices):
+        RULE = "rule", "Rule"
+        AI = "ai", "AI"
+
+    observation = models.ForeignKey(
+        StudentMisconception,
+        on_delete=models.CASCADE,
+        related_name="evidence",
+    )
+    learning_evidence = models.ForeignKey(
+        LearningEvidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="misconception_evidence",
+    )
+    tutor_message = models.ForeignKey(
+        TutorMessage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="misconception_evidence",
+    )
+    source = models.CharField(max_length=8, choices=Source.choices)
+    detector = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="Rule code or prompt version that produced this signal.",
+    )
+    excerpt = models.CharField(max_length=500)
+    reasoning = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["observation", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_source_display()} evidence for {self.observation_id}"

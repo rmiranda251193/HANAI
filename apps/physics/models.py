@@ -65,3 +65,53 @@ class PhysicsConcept(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+
+class PhysicsMisconception(models.Model):
+    """Reusable catalog entry describing a *possible* physics misunderstanding.
+
+    This is domain knowledge, not a diagnosis. Each entry names a pattern of
+    reasoning that learners sometimes show, links it to the concept it distorts,
+    and records cautious guidance for detecting and addressing it. Nothing here
+    asserts that any particular student holds the misconception.
+    """
+
+    code = models.SlugField(
+        max_length=64,
+        unique=True,
+        help_text="Stable machine identifier, e.g. FREE_FALL_MASS_ACCELERATION.",
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(
+        help_text=(
+            "Cautious, educational summary of the possible misunderstanding. "
+            "Phrase it as something a learner *may* believe, never as a verdict."
+        )
+    )
+    physics_concept = models.ForeignKey(
+        PhysicsConcept,
+        on_delete=models.PROTECT,
+        related_name="misconceptions",
+        help_text="The concept this misconception most directly distorts.",
+    )
+    detection_guidance = models.TextField(
+        blank=True,
+        default="",
+        help_text="Reasoning patterns or statements that may suggest this confusion.",
+    )
+    intervention_guidance = models.TextField(
+        blank=True,
+        default="",
+        help_text="A teaching move the tutor can use, e.g. a controlled comparison.",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "Physics misconception"
+        verbose_name_plural = "Physics misconceptions"
+
+    def __str__(self) -> str:
+        return f"{self.code} — {self.title}"

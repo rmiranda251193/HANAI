@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 from datetime import datetime
 
@@ -10,11 +11,17 @@ from apps.ai.providers import AIProvider
 from apps.ai.schemas import parse_model_json
 
 from .exceptions import EmptyTutorMessageError, InvalidTutorResponseError
+from .misconception_services import (
+    active_candidates_for_lesson,
+    assess_student_misconceptions,
+)
 from .models import LearningEvidence, TutorMessage, TutorSession
 from .prompts import build_tutor_prompt
 from .providers import get_tutor_provider
-from .requests import TutorRequest
+from .requests import CandidateHint, TutorRequest
 from .schemas import TutorResponse
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -83,6 +90,24 @@ def record_learning_evidence(
     )
 
 
+def _candidate_hints(session: TutorSession) -> tuple[CandidateHint, ...]:
+    """Turn a student's live candidate observations into tutor context."""
+
+    hints: list[CandidateHint] = []
+    for observation in active_candidates_for_lesson(session.student, session.lesson):
+        catalog = observation.misconception
+        hints.append(
+            CandidateHint(
+                concept=catalog.physics_concept.name,
+                title=catalog.title,
+                description=catalog.description,
+                intervention_guidance=catalog.intervention_guidance,
+                confidence=observation.confidence,
+            )
+        )
+    return tuple(hints)
+
+
 def run_tutor_turn(
     session: TutorSession,
     *,
@@ -90,11 +115,14 @@ def run_tutor_turn(
     practice_problem: str = "",
     student_attempt: str = "",
     provider: AIProvider | None = None,
+    assess_misconceptions: bool = True,
 ) -> tuple[TutorMessage, TutorResult]:
     """Persist the student message, call the tutor, and persist the reply.
 
     The student message is saved first so it stays visible even if the tutor
-    call then fails; the caller shows a friendly error in that case.
+    call then fails; the caller shows a friendly error in that case. After a
+    successful reply, the student's text is assessed for possible misconception
+    candidates -- a failure there never breaks the tutoring turn.
     """
 
     student_content = (student_attempt or student_question).strip()
@@ -103,7 +131,7 @@ def run_tutor_turn(
 
     is_practice = bool(student_attempt.strip())
 
-    TutorMessage.objects.create(
+    student_message = TutorMessage.objects.create(
         session=session,
         role=TutorMessage.Role.STUDENT,
         content=student_content,
@@ -114,6 +142,7 @@ def run_tutor_turn(
         student_question=student_question,
         practice_problem=practice_problem,
         student_attempt=student_attempt,
+        candidate_misconceptions=_candidate_hints(session),
     )
     result = tutor_student(tutor_request, provider=provider)
 
@@ -133,7 +162,7 @@ def run_tutor_turn(
     # Bump ``updated_at`` so the session reflects the latest activity.
     session.save(update_fields=["updated_at"])
 
-    record_learning_evidence(
+    evidence = record_learning_evidence(
         session,
         kind=(
             LearningEvidence.Kind.PRACTICE_ATTEMPTED
@@ -143,5 +172,19 @@ def run_tutor_turn(
         tutor_mode=result.response.mode,
         detail=student_content,
     )
+
+    if assess_misconceptions:
+        try:
+            assess_student_misconceptions(
+                student=session.student,
+                lesson=session.lesson,
+                text=student_content,
+                learning_evidence=evidence,
+                tutor_message=student_message,
+            )
+        except Exception:  # pragma: no cover - defensive; tutoring must not break
+            logger.exception(
+                "Misconception assessment failed for session %s.", session.pk
+            )
 
     return tutor_message, result

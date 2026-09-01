@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Learning signals &middot; {{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace &middot; {{ lesson.topic }}</p>
+      <h1>Possible misconceptions</h1>
+      <p>
+        Candidates gathered from tutor evidence for <strong>{{ lesson.title }}</strong>.
+        These are cautious signals, not diagnoses. You decide what they mean.
+      </p>
+    </div>
+    <a class="text-link" href="{% url 'lessons:detail' lesson.slug %}">Back to lesson</a>
+  </section>
+
+  {% if decision_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Teacher decision</p>
+      <p>{{ decision_error }}</p>
+    </section>
+  {% endif %}
+  {% if workflow_message %}
+    <section class="generation-message generation-message-success" role="status">
+      <p class="card-label">Teacher decision</p>
+      <p>{{ workflow_message }}</p>
+    </section>
+  {% endif %}
+
+  {% if observations %}
+    <section class="insight-list" aria-label="Possible misconceptions">
+      {% for observation in observations %}
+        <article class="surface-card insight-card">
+          <div class="insight-card-head">
+            <div>
+              <p class="card-label">{{ observation.misconception.physics_concept.name }}</p>
+              <h2>{{ observation.misconception.title }}</h2>
+              <p class="insight-meta">
+                Student: <strong>{{ observation.student.display_name }}</strong>
+                &middot; Observed {{ observation.observation_count }}&times;
+                &middot; Last seen {{ observation.last_observed_at|date:"M j, Y, g:i a" }}
+              </p>
+            </div>
+            <div class="insight-badges">
+              <span class="confidence-badge confidence-{{ observation.confidence }}">
+                {{ observation.get_confidence_display }} confidence
+              </span>
+              <span class="status-badge status-{{ observation.status }}">
+                {{ observation.get_status_display }}
+              </span>
+            </div>
+          </div>
+
+          <p class="insight-description">
+            <span class="insight-description-label">Possible misconception:</span>
+            {{ observation.misconception.description }}
+          </p>
+
+          {% if observation.misconception.intervention_guidance %}
+            <p class="insight-guidance">
+              <span class="insight-description-label">Suggested teaching move:</span>
+              {{ observation.misconception.intervention_guidance }}
+            </p>
+          {% endif %}
+
+          <div class="insight-evidence">
+            <p class="insight-description-label">Evidence</p>
+            <ul class="content-list">
+              {% for item in observation.evidence.all %}
+                <li>
+                  <span class="insight-evidence-source">{{ item.get_source_display }}</span>
+                  &ldquo;{{ item.excerpt }}&rdquo;
+                </li>
+              {% empty %}
+                <li>No stored excerpts.</li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          {% if observation.status == candidate_status %}
+            <form method="post"
+                  action="{% url 'students:misconception_decision' lesson.slug observation.id %}"
+                  class="insight-actions">
+              {% csrf_token %}
+              <label class="visually-hidden" for="note-{{ observation.id }}">Optional note</label>
+              <input type="text" id="note-{{ observation.id }}" name="note"
+                     placeholder="Optional note for the record" maxlength="500">
+              <button type="submit" name="decision" value="confirm" class="button button-primary">Confirm</button>
+              <button type="submit" name="decision" value="dismiss" class="button button-secondary">Dismiss</button>
+              <button type="submit" name="decision" value="resolve" class="button button-secondary">Mark resolved</button>
+            </form>
+          {% else %}
+            <p class="insight-decided">
+              {{ observation.get_status_display }}
+              {% if observation.decided_at %}on {{ observation.decided_at|date:"M j, Y" }}{% endif %}
+              {% if observation.teacher_note %}&mdash; &ldquo;{{ observation.teacher_note }}&rdquo;{% endif %}
+            </p>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No signals yet</p>
+      <h1>Nothing to review.</h1>
+      <p>When students work with the tutor on this lesson's concepts, possible misconceptions will appear here for your review.</p>
+    </section>
+  {% endif %}
+{% endblock %}

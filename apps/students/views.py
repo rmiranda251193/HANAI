@@ -1,12 +1,14 @@
 import logging
 
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_POST
 
 from apps.ai.exceptions import AIError
 from apps.lessons.models import Lesson
 
-from .exceptions import EmptyTutorMessageError, TutorError
-from .models import StudentProfile, TutorMessage, TutorSession
+from .exceptions import EmptyTutorMessageError, MisconceptionDecisionError, TutorError
+from .misconception_services import apply_teacher_decision
+from .models import StudentMisconception, StudentProfile, TutorMessage, TutorSession
 from .services import run_tutor_turn
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ TUTOR_ERROR_MESSAGE = (
 )
 EMPTY_QUESTION_MESSAGE = "Type a question before sending it to the tutor."
 EMPTY_ATTEMPT_MESSAGE = "Write your attempt before sending it to the tutor."
+DECISION_SAVED_MESSAGE = "Your decision was recorded."
 
 
 def _current_student(request) -> StudentProfile:
@@ -40,6 +43,15 @@ def _current_student(request) -> StudentProfile:
         defaults={"display_name": GUEST_DISPLAY_NAME},
     )
     return profile
+
+
+def _current_teacher(request):
+    """The acting teacher, or None in local development without auth.
+
+    TODO(auth): require an authenticated teacher for the insight decision views.
+    """
+
+    return request.user if getattr(request.user, "is_authenticated", False) else None
 
 
 def _active_session(student: StudentProfile, lesson: Lesson) -> TutorSession:
@@ -166,3 +178,78 @@ def tutor_view(request, slug):
         None,
     )
     return render(request, "students/tutor.html", context)
+
+
+# --- Teacher-facing insight views -------------------------------------------------
+
+
+def _lesson_observations(lesson: Lesson):
+    concept_ids = list(lesson.physics_concepts.values_list("pk", flat=True))
+    query = (
+        StudentMisconception.objects.select_related(
+            "student", "misconception", "misconception__physics_concept"
+        )
+        .prefetch_related("evidence")
+        .order_by("status", "-last_observed_at")
+    )
+    if concept_ids:
+        query = query.filter(misconception__physics_concept_id__in=concept_ids)
+    else:
+        query = query.none()
+    return list(query)
+
+
+def _render_insights(request, lesson: Lesson, **extra_context):
+    observations = _lesson_observations(lesson)
+    context = {
+        "lesson": lesson,
+        "observations": observations,
+        "candidate_status": StudentMisconception.Status.CANDIDATE,
+        "has_candidates": any(
+            obs.status == StudentMisconception.Status.CANDIDATE for obs in observations
+        ),
+    }
+    context.update(extra_context)
+    return render(request, "students/insights.html", context)
+
+
+def lesson_insights(request, slug):
+    """Teacher view of *possible* misconceptions for this lesson's concepts."""
+
+    lesson = get_object_or_404(
+        Lesson.objects.prefetch_related("physics_concepts"), slug=slug
+    )
+    return _render_insights(request, lesson)
+
+
+@require_POST
+def misconception_decision(request, slug, observation_id):
+    """Record an explicit teacher decision on one observation."""
+
+    lesson = get_object_or_404(
+        Lesson.objects.prefetch_related("physics_concepts"), slug=slug
+    )
+    observation = get_object_or_404(StudentMisconception, pk=observation_id)
+
+    try:
+        apply_teacher_decision(
+            observation,
+            request.POST.get("decision", ""),
+            teacher=_current_teacher(request),
+            note=request.POST.get("note", ""),
+        )
+    except MisconceptionDecisionError as exc:
+        return _render_insights(request, lesson, decision_error=str(exc))
+    except Exception:
+        logger.exception(
+            "Unexpected misconception decision failure for lesson %s.", lesson.pk
+        )
+        return _render_insights(
+            request,
+            lesson,
+            decision_error="Your decision could not be saved. Please try again.",
+        )
+
+    return _render_insights(
+        request, lesson, workflow_message=DECISION_SAVED_MESSAGE
+    )

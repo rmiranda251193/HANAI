@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PhysicsConcept
+from .models import PhysicsConcept, PhysicsMisconception
 
 
 @admin.register(PhysicsConcept)
@@ -25,6 +25,23 @@ class PhysicsConceptAdmin(admin.ModelAdmin):
                 )
             },
         ),
+        ("Availability", {"fields": ("is_active",)}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
+
+@admin.register(PhysicsMisconception)
+class PhysicsMisconceptionAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "physics_concept", "is_active", "updated_at")
+    list_filter = ("is_active", "physics_concept__topic")
+    search_fields = ("code", "title", "description")
+    list_select_related = ("physics_concept",)
+    list_editable = ("is_active",)
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        ("Catalog entry", {"fields": ("code", "title", "description", "physics_concept")}),
+        ("Guidance", {"fields": ("detection_guidance", "intervention_guidance")}),
         ("Availability", {"fields": ("is_active",)}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )

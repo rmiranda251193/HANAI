@@ -47,6 +47,10 @@
     </section>
   </div>
 
+  <p class="detail-insights-link">
+    <a class="text-link" href="{% url 'students:insights' lesson.slug %}">Student learning signals (possible misconceptions) &rarr;</a>
+  </p>
+
   {% if generation_error %}
     <section class="generation-message generation-message-error" role="alert">
       <p class="card-label">AI lesson draft</p>

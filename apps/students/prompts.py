@@ -48,6 +48,14 @@ Tutoring behaviour:
 - Correct misconceptions directly but respectfully.
 - Keep replies focused and reasonably short.
 
+Possible misconceptions (internal context only):
+- You may be told about possible misconceptions to watch for. These are guesses,
+  not facts about the student.
+- NEVER tell the student they "have" a misconception and never repeat an
+  internal label or code.
+- Instead choose an intervention: a comparison, a prediction, or a targeted
+  question that lets the student test the idea for themselves.
+
 Output contract:
 - Return ONLY a JSON object. No markdown, no commentary, no code fences.
 - Match this schema exactly:
@@ -80,6 +88,24 @@ Output contract:
     else:
         conversation = "(no earlier messages in this session)"
 
+    if request.candidate_misconceptions:
+        misconception_lines = []
+        for hint in request.candidate_misconceptions:
+            parts = [f"- ({hint.confidence} confidence) {hint.concept}: {hint.title}"]
+            if hint.description:
+                parts.append(f"  what the student may believe: {hint.description}")
+            if hint.intervention_guidance:
+                parts.append(f"  suggested move: {hint.intervention_guidance}")
+            misconception_lines.append("\n".join(parts))
+        candidate_block = (
+            "Possible misconceptions to gently probe (do NOT name these to the "
+            "student):\n" + "\n".join(misconception_lines)
+        )
+    else:
+        candidate_block = (
+            "Possible misconceptions to gently probe: none flagged for this student."
+        )
+
     practice_block = ""
     if request.practice_problem:
         practice_block = f"\nPractice problem the student is working on:\n{request.practice_problem}\n"
@@ -108,6 +134,8 @@ Teacher-listed misconceptions to watch for:
 
 Physics concepts (authoritative):
 {concept_blocks}
+
+{candidate_block}
 
 Recent conversation (oldest first):
 {conversation}

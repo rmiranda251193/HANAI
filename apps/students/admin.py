@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import LearningEvidence, StudentProfile, TutorMessage, TutorSession
+from .models import (
+    LearningEvidence,
+    MisconceptionEvidence,
+    StudentMisconception,
+    StudentProfile,
+    TutorMessage,
+    TutorSession,
+)
 
 
 class _ReadOnlyInline(admin.TabularInline):
@@ -63,6 +70,62 @@ class LearningEvidenceAdmin(admin.ModelAdmin):
     list_filter = ("kind", "tutor_mode", "created_at")
     search_fields = ("student__display_name", "lesson__title", "detail")
     list_select_related = ("student", "lesson", "session")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        return [field.name for field in self.model._meta.fields]
+
+
+class MisconceptionEvidenceInline(_ReadOnlyInline):
+    model = MisconceptionEvidence
+    fields = ("source", "detector", "excerpt", "reasoning", "created_at")
+    readonly_fields = fields
+    ordering = ("created_at", "id")
+
+
+@admin.register(StudentMisconception)
+class StudentMisconceptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "student",
+        "misconception",
+        "confidence",
+        "status",
+        "observation_count",
+        "last_observed_at",
+    )
+    list_filter = ("status", "confidence", "misconception__physics_concept__topic")
+    search_fields = ("student__display_name", "misconception__code", "misconception__title")
+    list_select_related = ("student", "misconception", "misconception__physics_concept")
+    date_hierarchy = "last_observed_at"
+    readonly_fields = (
+        "student",
+        "misconception",
+        "confidence",
+        "first_observed_at",
+        "last_observed_at",
+        "observation_count",
+        "evidence_summary",
+        "created_at",
+        "updated_at",
+    )
+    inlines = (MisconceptionEvidenceInline,)
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(MisconceptionEvidence)
+class MisconceptionEvidenceAdmin(admin.ModelAdmin):
+    list_display = ("observation", "source", "detector", "created_at")
+    list_filter = ("source", "detector", "created_at")
+    search_fields = ("excerpt", "reasoning", "observation__student__display_name")
+    list_select_related = ("observation", "observation__student")
     date_hierarchy = "created_at"
 
     def has_add_permission(self, request):

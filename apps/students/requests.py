@@ -20,6 +20,30 @@ class TutorConversationMessage:
 
 
 @dataclass(frozen=True)
+class CandidateHint:
+    """A possible misconception the tutor may gently probe.
+
+    This is context for the tutor only. It must never be shown to the student
+    as a label or verdict.
+    """
+
+    concept: str
+    title: str
+    description: str
+    intervention_guidance: str = ""
+    confidence: str = "low"
+
+    def __post_init__(self):
+        object.__setattr__(self, "concept", str(self.concept).strip())
+        object.__setattr__(self, "title", str(self.title).strip())
+        object.__setattr__(self, "description", str(self.description).strip())
+        object.__setattr__(
+            self, "intervention_guidance", str(self.intervention_guidance).strip()
+        )
+        object.__setattr__(self, "confidence", str(self.confidence).strip().lower())
+
+
+@dataclass(frozen=True)
 class TutorRequest:
     """Immutable context passed to the tutoring service.
 
@@ -34,6 +58,7 @@ class TutorRequest:
     common_misconceptions: tuple[str, ...] = ()
     concepts: tuple[ConceptContext, ...] = ()
     recent_messages: tuple[TutorConversationMessage, ...] = ()
+    candidate_misconceptions: tuple[CandidateHint, ...] = ()
     student_question: str = ""
     practice_problem: str = ""
     student_attempt: str = ""
@@ -58,6 +83,9 @@ class TutorRequest:
         )
         object.__setattr__(self, "concepts", tuple(self.concepts))
         object.__setattr__(self, "recent_messages", tuple(self.recent_messages))
+        object.__setattr__(
+            self, "candidate_misconceptions", tuple(self.candidate_misconceptions)
+        )
         object.__setattr__(self, "student_question", self.student_question.strip())
         object.__setattr__(self, "practice_problem", self.practice_problem.strip())
         object.__setattr__(self, "student_attempt", self.student_attempt.strip())
@@ -85,6 +113,7 @@ class TutorRequest:
         student_question: str = "",
         practice_problem: str = "",
         student_attempt: str = "",
+        candidate_misconceptions: tuple[CandidateHint, ...] = (),
         recent_limit: int = RECENT_MESSAGE_LIMIT,
     ) -> "TutorRequest":
         lesson = session.lesson
@@ -106,6 +135,7 @@ class TutorRequest:
                 TutorConversationMessage(role=message.role, content=message.content)
                 for message in messages
             ),
+            candidate_misconceptions=tuple(candidate_misconceptions),
             student_question=student_question,
             practice_problem=practice_problem,
             student_attempt=student_attempt,
