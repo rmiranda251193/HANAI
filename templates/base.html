@@ -19,6 +19,7 @@
           <a class="nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Overview</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'list' %}is-active{% endif %}" href="{% url 'lessons:list' %}">My Lessons</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'create' %}is-active{% endif %}" href="{% url 'lessons:create' %}">Create Lesson</a>
+          <a class="nav-link {% if request.resolver_match.namespace == 'students' %}is-active{% endif %}" href="{% url 'students:lessons' %}">Physics Tutor</a>
           <span class="nav-link is-disabled">Physics resources <small>soon</small></span>
         </nav>
         <p class="sidebar-status"><span></span> Lesson builder ready</p>

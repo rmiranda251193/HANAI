@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Tutor &middot; {{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+      <h1>{{ lesson.title }}</h1>
+      <p>Physics tutor &middot; work through the ideas by thinking, not just reading answers.</p>
+    </div>
+    <a class="text-link" href="{% url 'students:lessons' %}">All lessons</a>
+  </section>
+
+  {% if tutor_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Physics tutor</p>
+      <p>{{ tutor_error }}</p>
+    </section>
+  {% endif %}
+
+  {% if workflow_message %}
+    <section class="generation-message generation-message-success" role="status">
+      <p class="card-label">Physics tutor</p>
+      <p>{{ workflow_message }}</p>
+    </section>
+  {% endif %}
+
+  <div class="tutor-layout">
+    <div class="tutor-main">
+      <section class="surface-card tutor-conversation" aria-labelledby="tutor-conversation-title">
+        <p class="card-label">Conversation</p>
+        <h2 id="tutor-conversation-title">Ask, think, attempt</h2>
+
+        {% if conversation %}
+          <ol class="tutor-thread">
+            {% for message in conversation %}
+              <li class="tutor-turn tutor-turn-{{ message.role }}">
+                <p class="tutor-turn-role">
+                  {{ message.get_role_display }}{% if message.mode %} &middot; <span class="tutor-mode">{{ message.mode }}</span>{% endif %}
+                </p>
+                <p class="tutor-turn-text">{{ message.content|linebreaksbr }}</p>
+                {% if message.role == "tutor" %}
+                  {% if message.data.hint %}
+                    <p class="tutor-turn-extra"><span class="tutor-extra-label">Hint</span> {{ message.data.hint }}</p>
+                  {% endif %}
+                  {% if message.data.next_question %}
+                    <p class="tutor-turn-extra"><span class="tutor-extra-label">Try answering</span> {{ message.data.next_question }}</p>
+                  {% endif %}
+                  {% if message.data.needs_student_attempt %}
+                    <p class="tutor-turn-cue">The tutor is waiting for your attempt.</p>
+                  {% endif %}
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="tutor-empty">No messages yet. Ask your first question below to begin.</p>
+        {% endif %}
+
+        <form method="post" action="" class="tutor-composer">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="ask">
+          <label for="tutor-question">Ask Physics Tutor</label>
+          <textarea id="tutor-question" name="question" rows="3"
+                    placeholder="e.g. What is acceleration?" required></textarea>
+          <button type="submit" class="button button-primary">Send</button>
+        </form>
+      </section>
+    </div>
+
+    <aside class="tutor-side">
+      <section class="surface-card">
+        <p class="card-label">This lesson</p>
+        <h2>Physics concepts</h2>
+        <ul class="concept-list">
+          {% for concept in lesson.physics_concepts.all %}
+            <li>
+              <strong>{{ concept.name }}</strong>
+              <span>{{ concept.topic }} &middot; {{ concept.get_difficulty_display }}</span>
+            </li>
+          {% empty %}
+            <li><span>No Physics concepts are attached to this lesson yet.</span></li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section class="surface-card">
+        <p class="card-label">Objective</p>
+        <h2>What to aim for</h2>
+        <ul class="content-list">
+          {% for objective in lesson.learning_objectives %}
+            <li>{{ objective }}</li>
+          {% empty %}
+            <li>Understand the key ideas of this lesson.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      {% if latest_tutor_message %}
+        <section class="surface-card tutor-latest" aria-label="Latest tutor guidance">
+          <p class="card-label">Latest guidance</p>
+          <p class="tutor-latest-mode">Mode: <span class="tutor-mode">{{ latest_tutor_message.mode|default:"—" }}</span></p>
+          {% if latest_tutor_message.data.concept %}
+            <p class="tutor-latest-concept">Concept: {{ latest_tutor_message.data.concept }}</p>
+          {% endif %}
+          {% if latest_tutor_message.data.hint %}
+            <p class="tutor-latest-hint">{{ latest_tutor_message.data.hint }}</p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      <section class="surface-card tutor-practice" aria-labelledby="tutor-practice-title">
+        <p class="card-label">Practice</p>
+        <h2 id="tutor-practice-title">Try a problem</h2>
+        <p class="tutor-practice-problem">{{ practice_problem }}</p>
+        <form method="post" action="" class="tutor-composer">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="practice">
+          <input type="hidden" name="problem_index" value="{{ practice_problem_index }}">
+          <label for="tutor-attempt">Your attempt</label>
+          <textarea id="tutor-attempt" name="attempt" rows="3"
+                    placeholder="Show your reasoning, step by step..." required></textarea>
+          <button type="submit" class="button button-secondary">Send attempt for feedback</button>
+        </form>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

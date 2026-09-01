@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Study a lesson &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Choose a lesson to study</h1>
+      <p>Pick a lesson and the Physics tutor will help you understand it.</p>
+    </div>
+  </section>
+
+  {% if lessons %}
+    <section class="lesson-list" aria-label="Lessons">
+      {% for lesson in lessons %}
+        <article class="lesson-card">
+          <div class="lesson-card-main">
+            <div class="lesson-card-heading">
+              <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+              <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
+            </div>
+            <h2><a href="{% url 'students:tutor' lesson.slug %}">{{ lesson.title }}</a></h2>
+            <p class="lesson-meta">{{ lesson.duration_minutes }} minutes</p>
+            {% if lesson.physics_concepts.exists %}
+              <p class="concept-summary">
+                {% for concept in lesson.physics_concepts.all %}{{ concept.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              </p>
+            {% endif %}
+          </div>
+          <a class="text-link" href="{% url 'students:tutor' lesson.slug %}">Open Physics tutor</a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No lessons yet</p>
+      <h1>Nothing to study right now.</h1>
+      <p>Ask your teacher to publish a Physics lesson, then come back here.</p>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Physics Tutor &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Learn Physics by thinking.</h1>
+      <p>Open a lesson, ask the Physics tutor what is confusing you, and work through it step by step.</p>
+    </div>
+    <a class="button button-primary" href="{% url 'students:lessons' %}">Browse lessons</a>
+  </section>
+
+  <section class="foundation-grid" aria-label="How the tutor works">
+    <article class="surface-card">
+      <p class="card-label">How it works</p>
+      <h2>Guidance, not just answers</h2>
+      <p>The tutor asks what you are trying to find, offers a hint, and lets you attempt the next step yourself.</p>
+    </article>
+    <article class="surface-card accent-card">
+      <p class="card-label">Grounded in your lesson</p>
+      <h2>Real Physics concepts</h2>
+      <p>Every reply stays inside the lesson's concepts, equations, and SI units &mdash; no invented facts.</p>
+    </article>
+  </section>
+
+  {% if lessons %}
+    <section class="lesson-list" aria-label="Lessons you can study">
+      {% for lesson in lessons %}
+        <article class="lesson-card">
+          <div class="lesson-card-main">
+            <div class="lesson-card-heading">
+              <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+              <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
+            </div>
+            <h2><a href="{% url 'students:tutor' lesson.slug %}">{{ lesson.title }}</a></h2>
+          </div>
+          <a class="text-link" href="{% url 'students:tutor' lesson.slug %}">Open tutor</a>
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
+{% endblock %}
