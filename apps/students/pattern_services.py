@@ -291,8 +291,10 @@ _URL_LABELS = {
 }
 
 
-def _step(text: str, url: str, label: str) -> dict:
-    return {"text": text, "url": url, "url_label": label}
+def _step(text: str, url: str, label: str, code: str = "fallback") -> dict:
+    # ``code`` lets a caller tell an unfinished/teacher-directed step apart from
+    # a generic fallback (used by the concept-graph path engine in Step 20).
+    return {"text": text, "url": url, "url_label": label, "code": code}
 
 
 def _next_investigation(
@@ -318,17 +320,20 @@ def _next_investigation(
                 "Return to the Physics Lab and record what happened.",
                 lab_url,
                 _URL_LABELS["physics_lab"],
+                "incomplete_experiment",
             )
         if observation and not explanation:
             return _step(
                 "Explain what you think caused the result.",
                 lab_url,
                 _URL_LABELS["physics_lab"],
+                "incomplete_experiment",
             )
         return _step(
             "Return to the Physics Lab and finish your experiment.",
             lab_url,
             _URL_LABELS["physics_lab"],
+            "incomplete_experiment",
         )
 
     # Rule 2 -- an unopened teacher recommendation is the next step.
@@ -337,6 +342,7 @@ def _next_investigation(
             "Your teacher suggested a next step — open your recommendations.",
             reverse("students:recommendations"),
             _URL_LABELS["recommendations"],
+            "pending_recommendation",
         )
 
     # Rule 3 -- completed a lab for a concept but never practiced it.
@@ -348,11 +354,13 @@ def _next_investigation(
                     f"Try a practice problem about {bucket['concept']}.",
                     reverse("students:practice", args=[lesson["slug"]]),
                     _URL_LABELS["practice"],
+                    "practice_after_lab",
                 )
             return _step(
                 f"Try a practice problem about {bucket['concept']}.",
                 lessons_url,
                 _URL_LABELS["lessons"],
+                "practice_after_lab",
             )
 
     # Rule 4 -- practiced a concept but never investigated it in the Lab.
@@ -366,6 +374,7 @@ def _next_investigation(
                 f"Investigate {bucket['concept']} in the Physics Lab.",
                 lab_url,
                 _URL_LABELS["physics_lab"],
+                "lab_after_practice",
             )
 
     # Rule 5 -- practice and lab for a concept, but no recent tutor discussion.
@@ -381,11 +390,13 @@ def _next_investigation(
                     "Discuss your result with the Physics Tutor.",
                     reverse("students:tutor", args=[lesson["slug"]]),
                     _URL_LABELS["tutor"],
+                    "tutor_after_both",
                 )
             return _step(
                 "Discuss your result with the Physics Tutor.",
                 lessons_url,
                 _URL_LABELS["tutor"],
+                "tutor_after_both",
             )
 
     # Rule 6 -- fall back to open exploration.
@@ -394,11 +405,13 @@ def _next_investigation(
             "Start with a lesson, a practice problem, the Physics Lab, or a Tutor question.",
             lessons_url,
             _URL_LABELS["lessons"],
+            "start",
         )
     return _step(
         "Choose another Physics activity and keep investigating.",
         lessons_url,
         _URL_LABELS["lessons"],
+        "fallback",
     )
 
 

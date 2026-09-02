@@ -466,3 +466,26 @@ a { color: inherit; }
 .tw-pattern-item { padding: .75rem .9rem; border: 1px solid var(--line); border-radius: .5rem; background: rgba(17, 31, 46, .5); }
 .tw-pattern-concept { margin: 0 0 .3rem; font-weight: 700; color: #edf6fb; }
 .tw-pattern-meta { margin: .15rem 0 0; color: var(--muted); font-size: .84rem; line-height: 1.6; }
+.tw-path-chain { margin: .5rem 0 0; color: #dbeaf1; line-height: 1.7; }
+
+/* Concept graph / learning path */
+.cpath-section { max-width: 64rem; margin-top: 1rem; }
+.cpath-section h2 { margin: .5rem 0 .9rem; font-size: 1.15rem; }
+.cpath-section .journey-subhead { margin-top: 1.1rem; }
+.cpath-list { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .6rem; }
+.cpath-item { padding: .75rem .9rem; border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.cpath-item-name { margin: 0; font-weight: 700; color: #edf6fb; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.cpath-item-meta { margin: .3rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
+.cpath-item-note { margin: .3rem 0 0; color: #cfe0e8; font-size: .84rem; line-height: 1.5; }
+.cpath-state { display: inline-flex; padding: .12rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
+.cpath-state-explored { border-color: rgba(117, 213, 158, .5); color: #8be7af; }
+.cpath-state-next { border-color: rgba(85, 215, 235, .5); color: var(--cyan); }
+.cpath-state-related { border-color: rgba(242, 180, 102, .45); color: var(--amber); }
+.cpath-chain { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .35rem; }
+.cpath-chain-node { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .7rem; border: 1px solid var(--line); border-radius: .45rem; background: rgba(17, 31, 46, .5); }
+.cpath-chain-node.is-explored { border-color: rgba(117, 213, 158, .35); }
+.cpath-chain-arrow { color: var(--muted); font-weight: 700; }
+.cpath-chain-name { font-weight: 650; color: #edf6fb; }
+.cpath-next { margin-top: 1rem; }
+.cpath-next h2 { margin: .5rem 0 .4rem; font-size: 1.2rem; }
+.cpath-next-chain { margin: .5rem 0 0; color: #dbeaf1; font-weight: 650; line-height: 1.6; }

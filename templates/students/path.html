@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Your Physics Learning Path &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Your Physics Learning Path</h1>
+      <p>A map of the Physics concepts you&rsquo;ve explored and the related concepts you can investigate next. It describes how Physics ideas connect &mdash; it is not a grade or a level.</p>
+    </div>
+  </section>
+
+  {% if not graph_available %}
+    <section class="empty-state" aria-labelledby="cpath-nograph-title">
+      <p class="eyebrow">Concept map unavailable</p>
+      <h2 id="cpath-nograph-title">The Physics concept graph is not set up yet.</h2>
+      <p>Once Physics concepts and their prerequisites are in place, your learning path will appear here.</p>
+    </section>
+  {% elif not has_explored %}
+    <section class="empty-state" aria-labelledby="cpath-empty-title">
+      <p class="eyebrow">Nothing to map yet</p>
+      <h2 id="cpath-empty-title">Your learning path will appear here once you&rsquo;ve explored some Physics.</h2>
+      <p>Open a lesson, try a practice problem, run a Physics Lab experiment, or ask the Tutor a question.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
+        <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Go to the Physics Lab</a>
+      </div>
+    </section>
+  {% else %}
+    <section class="surface-card cpath-section" aria-labelledby="cpath-explored-title">
+      <p class="card-label">Explored concepts</p>
+      <h2 id="cpath-explored-title">Physics you&rsquo;ve worked with</h2>
+      <ul class="cpath-list" role="list">
+        {% for concept in explored %}
+          <li class="cpath-item">
+            <p class="cpath-item-name">{{ concept.name }}
+              <span class="cpath-state cpath-state-explored">Explored</span>
+            </p>
+            <p class="cpath-item-meta">{{ concept.topic }} &middot; {{ concept.activities }} activit{{ concept.activities|pluralize:"y,ies" }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    {% if walked_path|length > 1 %}
+      <section class="surface-card cpath-section" aria-labelledby="cpath-chain-title">
+        <p class="card-label">Concept chain</p>
+        <h2 id="cpath-chain-title">From your most foundational explored concept to your most advanced</h2>
+        <ol class="cpath-chain">
+          {% for node in walked_path %}
+            <li class="cpath-chain-node{% if node.explored %} is-explored{% endif %}">
+              {% if not forloop.first %}<span class="cpath-chain-arrow" aria-hidden="true">&darr;</span> {% endif %}
+              <span class="cpath-chain-name">{{ node.name }}</span>
+              <span class="cpath-state {% if node.explored %}cpath-state-explored{% else %}cpath-state-related{% endif %}">{% if node.explored %}Explored{% else %}Not yet explored{% endif %}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+    {% endif %}
+
+    {% if related_prerequisites or next_candidates %}
+      <section class="surface-card cpath-section" aria-labelledby="cpath-connected-title">
+        <p class="card-label">Connected concepts</p>
+        <h2 id="cpath-connected-title">Concepts linked to what you&rsquo;ve explored</h2>
+
+        {% if next_candidates %}
+          <h3 class="journey-subhead">Concepts that follow</h3>
+          <ul class="cpath-list" role="list">
+            {% for concept in next_candidates %}
+              <li class="cpath-item">
+                <p class="cpath-item-name">{{ concept.name }}
+                  <span class="cpath-state cpath-state-next">Next to explore</span>
+                </p>
+                <p class="cpath-item-meta">Follows {{ concept.follows|join:", " }}</p>
+                {% if concept.missing_prereqs %}
+                  <p class="cpath-item-note">Related prerequisite to look at first: {{ concept.missing_prereqs|join:", " }}.</p>
+                {% else %}
+                  <p class="cpath-item-note">This concept connects to the Physics you&rsquo;ve already explored.</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if related_prerequisites %}
+          <h3 class="journey-subhead">Related prerequisites</h3>
+          <ul class="cpath-list" role="list">
+            {% for concept in related_prerequisites %}
+              <li class="cpath-item">
+                <p class="cpath-item-name">{{ concept.name }}
+                  <span class="cpath-state cpath-state-related">Prerequisite</span>
+                </p>
+                <p class="cpath-item-meta">Prerequisite of {{ concept.prerequisite_of|join:", " }}</p>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    {% if suggested %}
+      <section class="surface-card accent-card cpath-next" aria-labelledby="cpath-next-title">
+        <p class="card-label">Suggested concept to investigate</p>
+        {% if suggested.kind == "concept" %}
+          <h2 id="cpath-next-title">{{ suggested.concept }}</h2>
+          <p>{{ suggested.why }}</p>
+          {% if suggested.path|length > 1 %}
+            <p class="cpath-next-chain">
+              {% for node in suggested.path %}{% if not forloop.first %} &rarr; {% endif %}{{ node.name }}{% endfor %}
+            </p>
+          {% endif %}
+          <div class="form-actions">
+            <a class="button button-primary" href="{{ suggested.url }}">{{ suggested.url_label }}</a>
+            <a class="button button-secondary" href="{% url 'students:learning' %}">See my learning patterns</a>
+          </div>
+        {% else %}
+          <h2 id="cpath-next-title">A next step you could take</h2>
+          <p>{{ suggested.text }}</p>
+          <div class="form-actions">
+            <a class="button button-primary" href="{{ suggested.url }}">Go to {{ suggested.url_label }}</a>
+            <a class="button button-secondary" href="{% url 'students:learning' %}">See my learning patterns</a>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

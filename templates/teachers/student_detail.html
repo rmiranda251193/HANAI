@@ -229,6 +229,41 @@
     {% endif %}
   </section>
 
+  <section class="surface-card journey-section" aria-labelledby="tw-path-title">
+    <p class="card-label">Learning path</p>
+    <h2 id="tw-path-title">Where this student sits in the Physics concept graph</h2>
+    <p class="tw-signals-note">Concept relationships come from the seeded prerequisite graph; &ldquo;explored&rdquo; reuses the same conservative attribution as the patterns above. It maps how the concepts connect, not the student.</p>
+    {% if learning_path.has_explored %}
+      <h3 class="journey-subhead">Explored</h3>
+      <p>{% for concept in learning_path.explored %}<span class="journey-chip">{{ concept.name }}</span>{% endfor %}</p>
+
+      {% if learning_path.next_candidates %}
+        <h3 class="journey-subhead">Related next concepts</h3>
+        <ul class="content-list">
+          {% for concept in learning_path.next_candidates %}
+            <li>{{ concept.name }} &mdash; follows {{ concept.follows|join:", " }}{% if concept.missing_prereqs %} &middot; related prerequisite: {{ concept.missing_prereqs|join:", " }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if learning_path.related_prerequisites %}
+        <h3 class="journey-subhead">Related prerequisites not yet explored</h3>
+        <ul class="content-list">
+          {% for concept in learning_path.related_prerequisites %}
+            <li>{{ concept.name }} &mdash; prerequisite of {{ concept.prerequisite_of|join:", " }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if learning_path.walked_path|length > 1 %}
+        <h3 class="journey-subhead">Concept chain</h3>
+        <p class="tw-path-chain">{% for node in learning_path.walked_path %}{% if not forloop.first %} &rarr; {% endif %}{{ node.name }}{% if not node.explored %} (not yet explored){% endif %}{% endfor %}</p>
+      {% endif %}
+    {% else %}
+      <p>No learning path yet. It will appear once the student has activity connected to a Physics concept in the graph.</p>
+    {% endif %}
+  </section>
+
   <section class="journey-section" aria-labelledby="tw-signals-title">
     <p class="card-label">Possible learning signals</p>
     <h2 id="tw-signals-title">Candidate misconceptions &mdash; you decide</h2>

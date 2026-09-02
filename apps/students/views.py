@@ -24,6 +24,7 @@ from .models import (
     TutorMessage,
     TutorSession,
 )
+from .concept_path_services import build_student_concept_path
 from .pattern_services import build_student_learning_patterns
 from .practice_services import (
     AnswerValidationError,
@@ -178,6 +179,21 @@ def learning_patterns(request):
     context = build_student_learning_patterns(student=student)
     context["student"] = student
     return render(request, "students/learning.html", context)
+
+
+def concept_path(request):
+    """The Physics concept graph, keyed to what this student has explored.
+
+    Deterministic and read-only. The concept graph comes from
+    ``PhysicsConcept.prerequisites``; the "explored" set comes from the same
+    conservative attribution the learning-patterns page uses. The student is
+    resolved from the session only -- ``?student_id=`` is never authority.
+    """
+
+    student = _current_student(request)
+    context = build_student_concept_path(student=student)
+    context["student"] = student
+    return render(request, "students/path.html", context)
 
 
 def student_recommendations(request):

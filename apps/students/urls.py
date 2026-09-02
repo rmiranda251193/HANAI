@@ -9,6 +9,7 @@ urlpatterns = [
     path("lessons/", views.student_lessons, name="lessons"),
     path("progress/", views.student_progress, name="progress"),
     path("learning/", views.learning_patterns, name="learning"),
+    path("path/", views.concept_path, name="path"),
     path("recommendations/", views.student_recommendations, name="recommendations"),
     path(
         "recommendations/<int:intervention_id>/open/",

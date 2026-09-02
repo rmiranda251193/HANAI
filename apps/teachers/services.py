@@ -29,6 +29,7 @@ from apps.students.models import (
     StudentMisconception,
     StudentProfile,
 )
+from apps.students.concept_path_services import build_student_concept_path
 from apps.students.pattern_services import build_student_learning_patterns
 from apps.students.progress_services import build_student_learning_progress
 
@@ -245,6 +246,9 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
 
     progress = build_student_learning_progress(student=student)
     candidates = _candidate_rows(student)
+    learning_patterns = build_student_learning_patterns(
+        student=student, include_next_investigation=False
+    )
 
     concept_choices = list(
         PhysicsConcept.objects.filter(is_active=True)
@@ -266,8 +270,9 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "candidates": candidates,
             "candidate_status": StudentMisconception.Status.CANDIDATE,
             "practice_evidence": _practice_evidence(student),
-            "learning_patterns": build_student_learning_patterns(
-                student=student, include_next_investigation=False
+            "learning_patterns": learning_patterns,
+            "learning_path": build_student_concept_path(
+                student=student, patterns=learning_patterns, with_actions=False
             ),
             "interventions": _intervention_history(student),
             "action_choices": TeacherIntervention.ActionType.choices,

@@ -22,7 +22,9 @@
       </div>
     </section>
   {% else %}
-    <p class="patterns-window">Based on the Physics activities you&rsquo;ve completed, with recent activity from the last {{ recency_days }} days highlighted.</p>
+    <p class="patterns-window">Based on the Physics activities you&rsquo;ve completed, with recent activity from the last {{ recency_days }} days highlighted.
+      <a class="text-link" href="{% url 'students:path' %}">See how these concepts connect &rarr;</a>
+    </p>
 
     {% if recent_concepts %}
       <section class="surface-card patterns-section" aria-labelledby="patterns-recent-title">
