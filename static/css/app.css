@@ -316,7 +316,33 @@ a { color: inherit; }
 .journey-next { max-width: 64rem; margin-top: 1.5rem; }
 .journey-next h2 { margin: .55rem 0 .6rem; font-size: 1.2rem; }
 .journey-next p { color: #dbeaf1; line-height: 1.6; }
+/* Teacher student-evidence workspace */
+.tw-student-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 1rem; max-width: 66rem; margin-top: 1.5rem; }
+.tw-student-card h2 { margin: 0 0 .4rem; font-size: 1.15rem; }
+.tw-student-card h2 a { text-decoration: none; }
+.tw-student-card h2 a:hover, .tw-student-card h2 a:focus-visible { color: var(--cyan); }
+.tw-student-meta { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.tw-student-concepts { margin: .55rem 0 0; }
+.tw-student-card .text-link { margin-top: .8rem; }
+.tw-signals-note { max-width: 46rem; margin: .5rem 0 1.1rem; color: var(--muted); font-size: .88rem; line-height: 1.55; }
+.tw-quote { margin: .55rem 0 0; color: #dbeaf1; line-height: 1.55; }
+.tw-quote-label { display: inline-block; margin-right: .35rem; color: var(--cyan); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.tw-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; max-width: 60rem; margin-top: 1rem; }
+.tw-form .form-field-wide { grid-column: 1 / -1; }
+.tw-form .form-actions { grid-column: 1 / -1; margin-top: .25rem; }
+.tw-form select, .tw-form textarea { width: 100%; padding: .65rem .7rem; border: 1px solid var(--line); border-radius: .4rem; outline: none; color: var(--text); background: #0b1724; font: inherit; line-height: 1.5; }
+.tw-form textarea { resize: vertical; min-height: 5rem; }
+.tw-form select:focus, .tw-form textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(85, 215, 235, .14); }
+.tw-optional { color: var(--muted); font-weight: 400; font-size: .8rem; }
+.tw-history { display: grid; gap: .8rem; max-width: 60rem; margin-top: 1rem; }
+.tw-history-item { padding: 1rem 1.1rem; }
+.tw-history-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0; }
+.tw-history-date { color: var(--muted); font-size: .82rem; }
+.tw-history-target { margin: .5rem 0 0; color: var(--cyan); font-size: .86rem; }
+.tw-history-note { margin: .5rem 0 0; color: #dbeaf1; line-height: 1.55; }
+.tw-history-teacher { margin: .55rem 0 0; color: var(--muted); font-size: .8rem; }
 @media (prefers-reduced-motion: reduce) { .lab-cart-body, .lab-arrow line, .lab-trace { transition: none !important; } }
+@media (max-width: 720px) { .tw-form { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .tutor-layout { grid-template-columns: 1fr; } .insight-card-head { flex-direction: column; } .insight-badges { align-items: start; flex-direction: row; } .lab { grid-template-columns: 1fr; } .lab-experiment-grid { grid-template-columns: 1fr; } .lab-value-grid, .lab-motion { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { .generation-status::before { animation: none; } }
 @keyframes generation-pulse { 50% { opacity: .35; transform: scale(.8); } }

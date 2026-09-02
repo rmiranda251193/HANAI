@@ -25,6 +25,7 @@ urlpatterns = [
     path('lessons/', include('apps.lessons.urls')),
     path('student/', include('apps.students.urls')),
     path('physics-lab/', include('apps.physics.urls')),
+    path('teacher/', include('apps.teachers.urls')),
     path('admin/', admin.site.urls),
 ]
 

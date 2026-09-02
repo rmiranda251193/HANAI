@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Student Evidence &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Students</h1>
+      <p>Open a student to review their learning evidence and record an intervention. The system surfaces evidence &mdash; you decide what it means.</p>
+    </div>
+  </section>
+
+  {% if students %}
+    <section class="tw-student-list" aria-label="Students">
+      {% for row in students %}
+        <article class="surface-card tw-student-card">
+          <h2><a href="{% url 'teachers:student_detail' row.student.id %}">{{ row.student.display_name }}</a></h2>
+          <p class="tw-student-meta">
+            {% if row.last_activity_at %}Recent activity {{ row.last_activity_at|timesince }} ago{% else %}No recorded activity yet{% endif %}
+            &middot; {{ row.experiments }} experiment{{ row.experiments|pluralize }}
+          </p>
+          {% if row.recent_concepts %}
+            <p class="tw-student-concepts">
+              {% for name in row.recent_concepts %}<span class="journey-chip">{{ name }}</span>{% endfor %}
+            </p>
+          {% endif %}
+          <a class="text-link" href="{% url 'teachers:student_detail' row.student.id %}">Open evidence</a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No students yet</p>
+      <h1>No student records.</h1>
+      <p>Students appear here once they use the tutor or the Physics Lab.</p>
+    </section>
+  {% endif %}
+{% endblock %}

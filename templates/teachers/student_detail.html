@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Student Evidence &middot; {{ student.display_name }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Student evidence</h1>
+      <p>
+        <strong>{{ student.display_name }}</strong>
+        {% if student.user %} &middot; account: {{ student.user.get_username }}{% else %} &middot; guest / demo learner{% endif %}
+      </p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:student_list' %}">All students</a>
+  </section>
+
+  {% if intervention_error or decision_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Teacher workspace</p>
+      <p>{{ intervention_error }}{{ decision_error }}</p>
+    </section>
+  {% endif %}
+  {% if workflow_message %}
+    <section class="generation-message generation-message-success" role="status">
+      <p class="card-label">Teacher workspace</p>
+      <p>{{ workflow_message }}</p>
+    </section>
+  {% endif %}
+
+  {% if not has_activity %}
+    <section class="empty-state">
+      <p class="eyebrow">No activity yet</p>
+      <h1>This student has no recorded learning evidence.</h1>
+      <p>Once they use the tutor or the Physics Lab, their evidence will appear here.</p>
+    </section>
+  {% endif %}
+
+  <section class="journey-stats" aria-label="Activity summary">
+    <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.questions }}</span><span class="journey-stat-label">Questions asked</span></div>
+    <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.predictions }}</span><span class="journey-stat-label">Predictions</span></div>
+    <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.observations }}</span><span class="journey-stat-label">Observations</span></div>
+    <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.explanations }}</span><span class="journey-stat-label">Explanations</span></div>
+    <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.experiments_completed }}</span><span class="journey-stat-label">Experiments completed</span></div>
+    <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.concepts }}</span><span class="journey-stat-label">Concepts explored</span></div>
+  </section>
+
+  <section class="surface-card journey-section" aria-labelledby="tw-activity-title">
+    <p class="card-label">Recent learning activity</p>
+    <h2 id="tw-activity-title">Timeline of learning evidence</h2>
+    {% for day in recent_activity_days %}
+      <div class="journey-day">
+        <h3 class="journey-day-label">{{ day.label }}</h3>
+        <ol class="journey-timeline">
+          {% for entry in day.entries %}
+            <li class="journey-event">
+              <p class="journey-event-head">
+                <span class="journey-event-icon" aria-hidden="true">{{ entry.icon }}</span>
+                <span class="journey-event-tag">{{ entry.kind_label }}</span>
+                <span class="journey-event-title">{{ entry.title }}</span>
+                <time class="journey-event-time" datetime="{{ entry.when|date:'c' }}">{{ entry.when|date:"M j, g:i a" }}</time>
+              </p>
+              {% if entry.detail %}<p class="journey-event-detail">&ldquo;{{ entry.detail }}&rdquo;</p>{% endif %}
+              {% if entry.experiment %}
+                <dl class="journey-experiment">
+                  <div><dt>Simulation</dt><dd>{{ entry.experiment.simulation }}</dd></div>
+                  {% if entry.experiment.mass_kg is not None %}<div><dt>Mass</dt><dd>{{ entry.experiment.mass_kg|floatformat:1 }} kg</dd></div>{% endif %}
+                  {% if entry.experiment.force_n is not None %}<div><dt>Force</dt><dd>{{ entry.experiment.force_n|floatformat:1 }} N</dd></div>{% endif %}
+                  {% if entry.experiment.acceleration_m_s2 is not None %}<div><dt>Acceleration</dt><dd>{{ entry.experiment.acceleration_m_s2|floatformat:2 }} m/s&sup2;</dd></div>{% endif %}
+                </dl>
+              {% endif %}
+              {% if entry.lesson or entry.concepts %}
+                <p class="journey-event-meta">
+                  {% if entry.lesson %}Lesson: {{ entry.lesson.title }}{% endif %}
+                  {% if entry.concepts %}{% if entry.lesson %} &middot; {% endif %}{% for name in entry.concepts %}<span class="journey-chip">{{ name }}</span>{% endfor %}{% endif %}
+                </p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      </div>
+    {% empty %}
+      <p>No learning evidence recorded yet.</p>
+    {% endfor %}
+  </section>
+
+  <div class="detail-grid">
+    <section class="surface-card detail-card" aria-labelledby="tw-concepts-title">
+      <p class="card-label">Physics concepts explored</p>
+      <h2 id="tw-concepts-title">Concepts this student has interacted with</h2>
+      {% if concepts %}
+        <ul class="concept-list">
+          {% for concept in concepts %}
+            <li><strong>{{ concept.name }}</strong><span>{{ concept.topic }} &middot; {{ concept.count }} activit{{ concept.count|pluralize:"y,ies" }}</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No concept activity recorded yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="surface-card detail-card" aria-labelledby="tw-lab-title">
+      <p class="card-label">Physics Lab</p>
+      <h2 id="tw-lab-title">Experiments</h2>
+      <p class="journey-lab-count">
+        <span class="journey-stat-num">{{ experiment_summary.completed }}</span> completed
+        &middot; {{ experiment_summary.attempted }} attempted
+      </p>
+      {% with latest=experiment_summary.latest %}
+        {% if latest %}
+          <p class="journey-subhead">Latest experiment</p>
+          <dl class="journey-experiment">
+            {% if experiment_summary.latest_concept %}<div><dt>Concept</dt><dd>{{ experiment_summary.latest_concept.name }}</dd></div>{% endif %}
+            {% if latest.mass_kg is not None %}<div><dt>Mass</dt><dd>{{ latest.mass_kg|floatformat:1 }} kg</dd></div>{% endif %}
+            {% if latest.force_n is not None %}<div><dt>Force</dt><dd>{{ latest.force_n|floatformat:1 }} N</dd></div>{% endif %}
+            {% if latest.acceleration_m_s2 is not None %}<div><dt>Acceleration</dt><dd>{{ latest.acceleration_m_s2|floatformat:2 }} m/s&sup2;</dd></div>{% endif %}
+          </dl>
+          {% if latest.prediction %}<p class="tw-quote"><span class="tw-quote-label">Prediction</span> &ldquo;{{ latest.prediction }}&rdquo;</p>{% endif %}
+          {% if latest.observation %}<p class="tw-quote"><span class="tw-quote-label">Observation</span> &ldquo;{{ latest.observation }}&rdquo;</p>{% endif %}
+          {% if latest.explanation %}<p class="tw-quote"><span class="tw-quote-label">Explanation</span> &ldquo;{{ latest.explanation }}&rdquo;</p>{% endif %}
+        {% else %}
+          <p>No experiments recorded yet.</p>
+        {% endif %}
+      {% endwith %}
+    </section>
+
+    <section class="surface-card detail-card" aria-labelledby="tw-tutor-title">
+      <p class="card-label">Tutor activity</p>
+      <h2 id="tw-tutor-title">Physics Tutor</h2>
+      <p class="journey-lab-count">
+        <span class="journey-stat-num">{{ tutor_activity.messages }}</span> student question{{ tutor_activity.messages|pluralize }} and attempt{{ tutor_activity.messages|pluralize }}
+      </p>
+      {% if tutor_activity.last_lesson %}
+        <p class="journey-subhead">Last discussion</p>
+        <p>{{ tutor_activity.last_lesson.title }}{% if tutor_activity.last_at %} &middot; {{ tutor_activity.last_at|timesince }} ago{% endif %}</p>
+      {% else %}
+        <p>No tutor discussions yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="surface-card detail-card" aria-labelledby="tw-lessons-title">
+      <p class="card-label">Lessons</p>
+      <h2 id="tw-lessons-title">Recent lessons</h2>
+      {% if recent_lessons %}
+        <ul class="concept-list">
+          {% for item in recent_lessons %}
+            <li><strong>{{ item.lesson.title }}</strong><span>Last activity {{ item.last_activity_at|timesince }} ago</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No lesson activity recorded yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="journey-section" aria-labelledby="tw-signals-title">
+    <p class="card-label">Possible learning signals</p>
+    <h2 id="tw-signals-title">Candidate misconceptions &mdash; you decide</h2>
+    <p class="tw-signals-note">These are cautious, evidence-based signals, not diagnoses. Nothing here is confirmed until you confirm it.</p>
+    {% if candidates %}
+      <div class="insight-list">
+        {% for candidate in candidates %}
+          {% with obs=candidate.observation %}
+          <article class="surface-card insight-card">
+            <div class="insight-card-head">
+              <div>
+                <p class="card-label">{{ obs.misconception.physics_concept.name }}</p>
+                <h3>{{ obs.misconception.title }}</h3>
+                <p class="insight-meta">Observed {{ obs.observation_count }}&times; &middot; last seen {{ obs.last_observed_at|date:"M j, Y, g:i a" }}</p>
+              </div>
+              <div class="insight-badges">
+                <span class="confidence-badge confidence-{{ obs.confidence }}">{{ obs.get_confidence_display }} confidence</span>
+                <span class="status-badge status-{{ obs.status }}">{{ obs.get_status_display }}</span>
+              </div>
+            </div>
+
+            <p class="insight-description"><span class="insight-description-label">Why this appeared:</span> {{ candidate.why }}</p>
+
+            <div class="insight-evidence">
+              <p class="insight-description-label">Supporting evidence</p>
+              <ul class="content-list">
+                {% for item in candidate.evidence %}
+                  <li>
+                    <span class="insight-evidence-source">{{ item.source }}</span>
+                    {% if item.kind %}<span class="journey-chip">{{ item.kind }}</span> {% endif %}
+                    &ldquo;{{ item.excerpt }}&rdquo;
+                  </li>
+                {% empty %}
+                  <li>No stored excerpts.</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            {% if obs.status == candidate_status %}
+              <form method="post" action="{% url 'teachers:misconception_decision' student.id obs.id %}" class="insight-actions">
+                {% csrf_token %}
+                <label class="visually-hidden" for="tw-note-{{ obs.id }}">Optional decision note</label>
+                <input type="text" id="tw-note-{{ obs.id }}" name="note" placeholder="Optional note for the record" maxlength="500">
+                <button type="submit" name="decision" value="confirm" class="button button-primary">Confirm</button>
+                <button type="submit" name="decision" value="dismiss" class="button button-secondary">Dismiss</button>
+                <button type="submit" name="decision" value="resolve" class="button button-secondary">Mark resolved</button>
+              </form>
+            {% else %}
+              <p class="insight-decided">
+                Teacher decision: {{ obs.get_status_display }}
+                {% if obs.decided_at %} on {{ obs.decided_at|date:"M j, Y" }}{% endif %}
+                {% if obs.teacher_note %} &mdash; &ldquo;{{ obs.teacher_note }}&rdquo;{% endif %}
+              </p>
+            {% endif %}
+          </article>
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No possible misconception signals for this student.</p>
+    {% endif %}
+  </section>
+
+  <section class="surface-card journey-section" aria-labelledby="tw-intervention-title">
+    <p class="card-label">Teacher intervention</p>
+    <h2 id="tw-intervention-title">Record an intervention</h2>
+    <p class="tw-signals-note">{{ evidence_hint }}</p>
+    <form method="post" action="{% url 'teachers:create_intervention' student.id %}" class="tw-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="tw-action">Action</label>
+        <select id="tw-action" name="action_type" required>
+          {% for value, label in action_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="tw-lesson">Lesson <span class="tw-optional">(optional)</span></label>
+        <select id="tw-lesson" name="lesson_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, title in lesson_choices %}<option value="{{ pk }}">{{ title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="tw-concept">Physics concept <span class="tw-optional">(optional)</span></label>
+        <select id="tw-concept" name="concept_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, name in concept_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="tw-signal">Related possible learning signal <span class="tw-optional">(optional)</span></label>
+        <select id="tw-signal" name="misconception_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, label in misconception_choices %}<option value="{{ pk }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field form-field-wide">
+        <label for="tw-note">Teacher note</label>
+        <textarea id="tw-note" name="note" rows="3" placeholder="What you want this student to do next, and why."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="button button-primary">Save intervention</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="journey-section" aria-labelledby="tw-history-title">
+    <p class="card-label">Intervention history</p>
+    <h2 id="tw-history-title">Recorded interventions</h2>
+    {% if interventions %}
+      <div class="tw-history">
+        {% for iv in interventions %}
+          <article class="surface-card tw-history-item">
+            <p class="tw-history-head">
+              <span class="tw-history-date">{{ iv.created_at|date:"F j, Y, g:i a" }}</span>
+              <span class="status-badge">{{ iv.get_action_type_display }}</span>
+            </p>
+            {% if iv.target_label %}<p class="tw-history-target">{{ iv.target_label }}</p>{% endif %}
+            {% if iv.note %}<p class="tw-history-note">&ldquo;{{ iv.note }}&rdquo;</p>{% endif %}
+            <p class="tw-history-teacher">Teacher: {% if iv.teacher %}{{ iv.teacher.get_username }}{% else %}System{% endif %}</p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No interventions recorded yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}
