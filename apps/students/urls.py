@@ -20,6 +20,7 @@ urlpatterns = [
         name="recommendation_dismiss",
     ),
     path("tutor/<slug:slug>/", views.tutor_view, name="tutor"),
+    path("practice/<slug:slug>/", views.practice_view, name="practice"),
     path("insights/<slug:slug>/", views.lesson_insights, name="insights"),
     path(
         "insights/<slug:slug>/observations/<int:observation_id>/decision/",

@@ -36,6 +36,7 @@
 
     <section class="journey-stats" aria-label="Activity so far">
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.questions }}</span><span class="journey-stat-label">Questions asked</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.practice }}</span><span class="journey-stat-label">Practice attempts</span></div>
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.predictions }}</span><span class="journey-stat-label">Predictions made</span></div>
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.observations }}</span><span class="journey-stat-label">Observations recorded</span></div>
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.explanations }}</span><span class="journey-stat-label">Explanations written</span></div>
@@ -60,6 +61,11 @@
                 </p>
                 {% if entry.detail %}
                   <p class="journey-event-detail">&ldquo;{{ entry.detail }}&rdquo;</p>
+                {% endif %}
+                {% if entry.practice %}
+                  <p class="journey-practice">
+                    {% if entry.practice.concept %}{{ entry.practice.concept }} &middot; {% endif %}{{ entry.practice.result }}{% if entry.practice.attempt_number %} &middot; attempt {{ entry.practice.attempt_number }}{% endif %}
+                  </p>
                 {% endif %}
                 {% if entry.experiment %}
                   <dl class="journey-experiment">

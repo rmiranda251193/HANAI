@@ -358,3 +358,92 @@ class ExperimentAttempt(models.Model):
     @property
     def is_complete(self) -> bool:
         return self.completed_at is not None
+
+
+class PracticeAttempt(models.Model):
+    """One server-evaluated attempt at a lesson practice question.
+
+    The *question* lives in lesson content (``Lesson.problems``); this row is the
+    student's *attempt* at it. Correctness is decided by deterministic code
+    (numeric tolerance / choice match), never by an AI provider, and it is
+    evidence of engagement -- not a grade, score or mastery signal. A retry is a
+    new row; earlier attempts are never overwritten.
+    """
+
+    class QuestionType(models.TextChoices):
+        NUMERIC = "numeric", "Numeric"
+        MULTIPLE_CHOICE = "multiple_choice", "Multiple choice"
+        FREE_TEXT = "free_text", "Free text"
+
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="practice_attempts",
+    )
+    lesson = models.ForeignKey(
+        "lessons.Lesson",
+        on_delete=models.CASCADE,
+        related_name="practice_attempts",
+    )
+    session = models.ForeignKey(
+        TutorSession,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="practice_attempts",
+    )
+    concept = models.ForeignKey(
+        "physics.PhysicsConcept",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="practice_attempts",
+    )
+    evidence = models.ForeignKey(
+        LearningEvidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="practice_attempts",
+    )
+
+    question_key = models.CharField(max_length=100)
+    question_type = models.CharField(max_length=20, choices=QuestionType.choices)
+    question_prompt = models.CharField(
+        max_length=500,
+        help_text="Snapshot of the question as it was shown for this attempt.",
+    )
+    answer_text = models.CharField(
+        max_length=500,
+        help_text="Exactly what the student submitted (a number as text, or a choice label).",
+    )
+    is_correct = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Deterministic verdict. NULL for free-text questions that have no single answer.",
+    )
+    attempt_number = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="1-based, per (student, lesson, question_key). A retry increments it.",
+    )
+    expected_display = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text=(
+            "Human-readable expected answer resolved from trusted lesson data at "
+            "attempt time. A teacher reference only; never used to re-grade."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["student", "lesson", "question_key"]),
+            models.Index(fields=["lesson", "created_at"]),
+            models.Index(fields=["student", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Practice {self.question_key} for {self.student}"

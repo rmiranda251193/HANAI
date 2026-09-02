@@ -24,6 +24,13 @@ from .models import (
     TutorMessage,
     TutorSession,
 )
+from .practice_services import (
+    AnswerValidationError,
+    PracticeError,
+    build_practice_feedback,
+    build_practice_page,
+    record_practice_attempt,
+)
 from .progress_services import build_student_learning_progress
 from .requests import ExperimentContext
 from .services import run_tutor_turn
@@ -305,6 +312,58 @@ def tutor_view(request, slug):
         None,
     )
     return render(request, "students/tutor.html", context)
+
+
+PRACTICE_RECORD_ERROR = "Your answer could not be recorded. Please try again."
+
+
+def practice_view(request, slug):
+    """Deterministic Physics practice for one lesson and the current student.
+
+    Every question and its expected answer are resolved on the server from
+    trusted lesson data. The POST carries only ``question_key`` and ``answer``;
+    any other field (``expected_answer``, ``is_correct``, ``student_id`` ...) is
+    ignored. The acting student always comes from the session.
+    """
+
+    lesson = get_object_or_404(
+        Lesson.objects.prefetch_related("physics_concepts"), slug=slug
+    )
+    student = _current_student(request)
+    session = _active_session(student, lesson)
+
+    current_key = (request.GET.get("q") or "").strip() or None
+    last_feedback = None
+    error = ""
+
+    if request.method == "POST":
+        current_key = (request.POST.get("question_key") or "").strip() or None
+        try:
+            attempt = record_practice_attempt(
+                student=student,
+                lesson=lesson,
+                question_key=current_key or "",
+                submitted_answer=request.POST.get("answer", ""),
+                session=session,
+            )
+        except (AnswerValidationError, PracticeError) as exc:
+            error = str(exc)
+        except Exception:
+            logger.exception("Unexpected practice failure for lesson %s.", lesson.pk)
+            error = PRACTICE_RECORD_ERROR
+        else:
+            current_key = attempt.question_key
+            last_feedback = build_practice_feedback(attempt, lesson=lesson)
+
+    context = build_practice_page(
+        lesson=lesson,
+        student=student,
+        current_key=current_key,
+        last_feedback=last_feedback,
+        error=error,
+    )
+    context["student"] = student
+    return render(request, "students/practice.html", context)
 
 
 # --- Teacher-facing insight views -------------------------------------------------

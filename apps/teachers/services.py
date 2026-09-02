@@ -25,6 +25,7 @@ from apps.provenance.services import sanitize_provenance_metadata
 from apps.students.models import (
     ExperimentAttempt,
     LearningEvidence,
+    PracticeAttempt,
     StudentMisconception,
     StudentProfile,
 )
@@ -36,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 NOTE_LIMIT = 2000
 LESSON_CHOICE_LIMIT = 60
+PRACTICE_ATTEMPT_SCAN = 300
+PRACTICE_ATTEMPT_SHOWN = 20
 
 _VISIBLE = TeacherIntervention.STUDENT_VISIBLE_ACTIONS
 _ActionType = TeacherIntervention.ActionType
@@ -165,6 +168,61 @@ def _intervention_history(student: StudentProfile) -> list[TeacherIntervention]:
     )
 
 
+def _practice_evidence(student: StudentProfile) -> dict:
+    """Compact, factual practice record: question / answer / result / attempt N of M.
+
+    Counts are labelled as attempts, correct attempts and incorrect attempts --
+    never a score, mastery or performance rating. Correctness is the server's
+    deterministic verdict, shown as text.
+    """
+
+    attempts = list(
+        PracticeAttempt.objects.filter(student=student)
+        .select_related("lesson", "concept")
+        .order_by("-created_at", "-id")[:PRACTICE_ATTEMPT_SCAN]
+    )
+
+    totals_by_key: dict[tuple, int] = {}
+    for attempt in attempts:
+        totals_by_key[(attempt.lesson_id, attempt.question_key)] = max(
+            totals_by_key.get((attempt.lesson_id, attempt.question_key), 0),
+            attempt.attempt_number,
+        )
+
+    rows = []
+    for attempt in attempts[:PRACTICE_ATTEMPT_SHOWN]:
+        if attempt.is_correct is True:
+            result = "Correct"
+        elif attempt.is_correct is False:
+            result = "Incorrect"
+        else:
+            result = "Recorded"
+        rows.append(
+            {
+                "when": attempt.created_at,
+                "lesson": attempt.lesson,
+                "prompt": attempt.question_prompt,
+                "answer": attempt.answer_text,
+                "result": result,
+                "attempt_number": attempt.attempt_number,
+                "attempt_total": totals_by_key.get(
+                    (attempt.lesson_id, attempt.question_key), attempt.attempt_number
+                ),
+                "concept": attempt.concept.name if attempt.concept_id else "",
+                "expected_display": attempt.expected_display,
+            }
+        )
+
+    scored = [a for a in attempts if a.is_correct is not None]
+    return {
+        "rows": rows,
+        "attempts": len(attempts),
+        "correct_attempts": sum(1 for a in scored if a.is_correct),
+        "incorrect_attempts": sum(1 for a in scored if not a.is_correct),
+        "has_more": len(attempts) > len(rows),
+    }
+
+
 def _evidence_hint(exploring: list[str]) -> str:
     """A neutral, deterministic prompt for the teacher. Never an LLM call."""
 
@@ -206,6 +264,7 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
         {
             "candidates": candidates,
             "candidate_status": StudentMisconception.Status.CANDIDATE,
+            "practice_evidence": _practice_evidence(student),
             "interventions": _intervention_history(student),
             "action_choices": TeacherIntervention.ActionType.choices,
             "lesson_choices": lesson_choices,

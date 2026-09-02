@@ -531,7 +531,7 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
         )
 
         # Bounded and intentional: progress projection + candidates (+ prefetch)
-        # + form choice lists (lesson/concept/simulation) + intervention history.
-        # No per-row queries.
-        with self.assertNumQueries(12):
+        # + practice-attempt evidence + form choice lists
+        # (lesson/concept/simulation) + intervention history. No per-row queries.
+        with self.assertNumQueries(13):
             build_teacher_student_evidence(student=student)

@@ -43,6 +43,33 @@ _EXPERIMENT_KINDS = {
 }
 
 
+def _practice_snapshot(evidence: LearningEvidence) -> dict | None:
+    """Factual practice detail from a deterministic practice evidence row.
+
+    Only rows written by the practice engine carry ``context['practice']``.
+    Older tutor-reviewed practice evidence has no structured context and is left
+    as a plain timeline entry. Nothing here is a score or a mastery signal.
+    """
+
+    if evidence.kind != LearningEvidence.Kind.PRACTICE_ATTEMPTED:
+        return None
+    context = evidence.context if isinstance(evidence.context, dict) else {}
+    if not context.get("practice"):
+        return None
+    is_correct = context.get("is_correct")
+    if is_correct is True:
+        result = "Correct"
+    elif is_correct is False:
+        result = "Incorrect"
+    else:
+        result = "Recorded"
+    return {
+        "concept": context.get("concept") or "",
+        "result": result,
+        "attempt_number": context.get("attempt_number"),
+    }
+
+
 def _simulation_label(key: str) -> str:
     try:
         return PhysicsSimulation.SimulationType(key).label
@@ -102,6 +129,7 @@ def _timeline(evidence_rows) -> list[dict]:
             "lesson": evidence.lesson,
             "concepts": concepts,
             "experiment": _experiment_snapshot(evidence),
+            "practice": _practice_snapshot(evidence),
         }
         label = _day_label(evidence.created_at, today=today)
         if not days or days[-1]["label"] != label:
@@ -252,6 +280,16 @@ def build_student_learning_progress(*, student) -> dict:
     )
 
     by_kind = Counter(evidence.kind for evidence in evidence_rows)
+    practice_correct = 0
+    practice_incorrect = 0
+    for evidence in evidence_rows:
+        snapshot = _practice_snapshot(evidence)
+        if snapshot is None:
+            continue
+        if snapshot["result"] == "Correct":
+            practice_correct += 1
+        elif snapshot["result"] == "Incorrect":
+            practice_incorrect += 1
     experiment_summary = _experiment_summary(attempts)
     concepts = _concepts_explored(evidence_rows, attempts, sessions)
     tutor_activity = _tutor_activity(student, sessions)
@@ -274,6 +312,8 @@ def build_student_learning_progress(*, student) -> dict:
             "evidence": len(evidence_rows),
             "questions": by_kind[LearningEvidence.Kind.QUESTION_ASKED],
             "practice": by_kind[LearningEvidence.Kind.PRACTICE_ATTEMPTED],
+            "practice_correct": practice_correct,
+            "practice_incorrect": practice_incorrect,
             "predictions": by_kind[LearningEvidence.Kind.PREDICTION_SUBMITTED],
             "observations": by_kind[LearningEvidence.Kind.EXPERIMENT_OBSERVED],
             "explanations": by_kind[LearningEvidence.Kind.EXPLANATION_SUBMITTED],

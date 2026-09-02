@@ -132,6 +132,10 @@
                     placeholder="Show your reasoning, step by step..." required></textarea>
           <button type="submit" class="button button-secondary">Send attempt for feedback</button>
         </form>
+        <p class="tutor-practice-link">
+          <a class="text-link" href="{% url 'students:practice' lesson.slug %}">Practice this lesson &rarr;</a>
+          <span>Answer the lesson&rsquo;s questions one by one and get a checked result.</span>
+        </p>
       </section>
     </aside>
   </div>

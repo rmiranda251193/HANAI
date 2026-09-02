@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Practice &middot; {{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+      <h1>Physics Practice</h1>
+      <h2 class="practice-lesson-name">{{ lesson.title }}</h2>
+      <p>Work each question through on your own. Your answer is checked by the lesson&rsquo;s Physics, not by an AI &mdash; this is a record of your thinking, not a grade.</p>
+    </div>
+    <a class="text-link" href="{% url 'students:tutor' lesson.slug %}">Back to the lesson</a>
+  </section>
+
+  {% if practice_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Physics Practice</p>
+      <p>{{ practice_error }}</p>
+    </section>
+  {% endif %}
+
+  {% if not practice_has_questions %}
+    <section class="empty-state">
+      <p class="eyebrow">Nothing to practice yet</p>
+      <h1>This lesson has no practice questions.</h1>
+      <p>Ask your teacher to add practice problems, or head back to the Physics Tutor to keep working through the ideas.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:tutor' lesson.slug %}">Open the Physics Tutor</a>
+      </div>
+    </section>
+  {% else %}
+
+    <section class="practice-progress" aria-label="Practice progress">
+      <p class="practice-progress-count">
+        {% if current_question %}Question {{ current_question.number }} of {{ current_question.total }}{% else %}{{ practice_total }} question{{ practice_total|pluralize }}{% endif %}
+      </p>
+      <ol class="practice-nav">
+        {% for item in practice_nav %}
+          <li>
+            <a href="?q={{ item.key|urlencode }}"
+               class="practice-nav-dot{% if item.is_current %} is-current{% endif %}{% if item.correct %} is-correct{% elif item.answered %} is-answered{% endif %}"
+               {% if item.is_current %}aria-current="true"{% endif %}>
+              <span aria-hidden="true">{{ item.number }}</span>
+              <span class="visually-hidden">
+                Question {{ item.number }}{% if item.correct %} &mdash; answered correctly{% elif item.answered %} &mdash; attempted{% else %} &mdash; not attempted{% endif %}
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    {% if practice_complete %}
+      <section class="surface-card accent-card practice-complete" aria-labelledby="practice-complete-title">
+        <p class="card-label">Practice complete</p>
+        <h2 id="practice-complete-title">You attempted all {{ practice_total }} question{{ practice_total|pluralize }}</h2>
+        <p class="practice-complete-line">
+          {{ practice_correct }} answered correctly &middot; {{ practice_incorrect }} still to get right
+          &middot; {{ practice_attempt_total }} attempt{{ practice_attempt_total|pluralize }} in total
+        </p>
+        <p>This is a summary of the activity you have done, not a grade. You can revisit any question above and try again.</p>
+      </section>
+    {% else %}
+      <p class="practice-in-progress">Practice in progress &middot; {{ practice_answered }} of {{ practice_total }} question{{ practice_total|pluralize }} attempted.</p>
+    {% endif %}
+
+    {% if current_question %}
+      <div class="practice-layout">
+        <section class="surface-card practice-question" aria-labelledby="practice-question-title">
+          <p class="card-label">Question {{ current_question.number }}</p>
+          <h2 id="practice-question-title" class="practice-prompt">{{ current_question.prompt }}</h2>
+          {% if current_question.concept %}
+            <p class="practice-concept">Concept: {{ current_question.concept }}</p>
+          {% endif %}
+
+          <form method="post" action="" class="practice-form">
+            {% csrf_token %}
+            <input type="hidden" name="question_key" value="{{ current_question.key }}">
+
+            {% if current_question.type == "multiple_choice" %}
+              <fieldset class="practice-choices">
+                <legend>Choose one answer</legend>
+                {% for choice in current_question.choices %}
+                  <label class="practice-choice">
+                    <input type="radio" name="answer" value="{{ forloop.counter0 }}" required>
+                    <span>{{ choice }}</span>
+                  </label>
+                {% endfor %}
+              </fieldset>
+            {% elif current_question.type == "numeric" %}
+              <label for="answer">Your answer{% if current_question.unit %} (in {{ current_question.unit }}){% endif %}</label>
+              <input type="text" id="answer" name="answer" inputmode="decimal"
+                     autocomplete="off" spellcheck="false" required>
+              {% if current_question.unit %}<p class="practice-unit-note">Enter the number only; the unit is {{ current_question.unit }}.</p>{% endif %}
+            {% else %}
+              <label for="answer">Your answer</label>
+              <textarea id="answer" name="answer" rows="3"
+                        placeholder="Explain your reasoning in a sentence or two..." required></textarea>
+            {% endif %}
+
+            <button type="submit" class="button button-primary">Submit Answer</button>
+          </form>
+
+          <div class="practice-feedback-region" aria-live="polite">
+            {% if last_feedback %}
+              <section class="practice-feedback practice-feedback-{{ last_feedback.status }}">
+                <p class="practice-result-label">{{ last_feedback.headline }}</p>
+                <p class="practice-feedback-body">{{ last_feedback.body }}</p>
+                {% if last_feedback.hint %}
+                  <p class="practice-feedback-hint"><span class="practice-hint-label">Hint</span> {{ last_feedback.hint }}</p>
+                {% endif %}
+                {% if last_feedback.expected_display %}
+                  <p class="practice-feedback-expected">Expected answer: {{ last_feedback.expected_display }}</p>
+                {% endif %}
+                {% if discuss_url %}
+                  <a class="button button-secondary" href="{{ discuss_url }}">Discuss this question with Tutor</a>
+                {% endif %}
+              </section>
+            {% endif %}
+          </div>
+
+          {% if current_history %}
+            <div class="practice-history">
+              <p class="practice-history-label">Your attempts on this question</p>
+              <ol class="practice-history-list">
+                {% for past in current_history %}
+                  <li class="practice-history-item practice-history-{{ past.is_correct|yesno:'correct,incorrect,recorded' }}">
+                    <span class="practice-history-num">Attempt {{ past.attempt_number }}</span>
+                    <span class="practice-history-result">{{ past.is_correct|yesno:"Correct,Incorrect,Recorded" }}</span>
+                    <span class="practice-history-answer">&ldquo;{{ past.answer_text }}&rdquo;</span>
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
+          {% endif %}
+        </section>
+
+        <aside class="practice-side">
+          <section class="surface-card">
+            <p class="card-label">Move around</p>
+            <h2>Questions</h2>
+            <ul class="practice-side-list">
+              {% for item in practice_nav %}
+                <li>
+                  <a href="?q={{ item.key|urlencode }}" {% if item.is_current %}aria-current="true"{% endif %}>
+                    Question {{ item.number }}
+                  </a>
+                  <span class="practice-side-state">
+                    {% if item.correct %}Correct{% elif item.answered %}Attempted{% else %}Not started{% endif %}
+                  </span>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+        </aside>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}

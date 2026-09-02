@@ -153,6 +153,36 @@
     </section>
   </div>
 
+  <section class="surface-card journey-section" aria-labelledby="tw-practice-title">
+    <p class="card-label">Practice evidence</p>
+    <h2 id="tw-practice-title">Practice questions this student has attempted</h2>
+    <p class="journey-lab-count">
+      <span class="journey-stat-num">{{ practice_evidence.attempts }}</span> attempt{{ practice_evidence.attempts|pluralize }}
+      &middot; {{ practice_evidence.correct_attempts }} correct attempt{{ practice_evidence.correct_attempts|pluralize }}
+      &middot; {{ practice_evidence.incorrect_attempts }} incorrect attempt{{ practice_evidence.incorrect_attempts|pluralize }}
+    </p>
+    {% if practice_evidence.rows %}
+      <ul class="tw-practice-list">
+        {% for row in practice_evidence.rows %}
+          <li class="tw-practice-item">
+            <p class="tw-practice-question">{{ row.prompt }}</p>
+            <p class="tw-practice-meta">
+              <span class="tw-quote-label">Answer</span> &ldquo;{{ row.answer }}&rdquo;
+              &middot; <span class="tw-practice-result tw-practice-result-{{ row.result|lower }}">{{ row.result }}</span>
+              &middot; attempt {{ row.attempt_number }} of {{ row.attempt_total }}
+              {% if row.concept %}&middot; {{ row.concept }}{% endif %}
+              {% if row.expected_display %}&middot; expected {{ row.expected_display }}{% endif %}
+            </p>
+            {% if row.lesson %}<p class="tw-practice-lesson">Lesson: {{ row.lesson.title }}</p>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% if practice_evidence.has_more %}<p class="tw-signals-note">Showing the most recent {{ practice_evidence.rows|length }} attempts.</p>{% endif %}
+    {% else %}
+      <p>No practice questions attempted yet.</p>
+    {% endif %}
+  </section>
+
   <section class="journey-section" aria-labelledby="tw-signals-title">
     <p class="card-label">Possible learning signals</p>
     <h2 id="tw-signals-title">Candidate misconceptions &mdash; you decide</h2>
