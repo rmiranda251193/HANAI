@@ -284,6 +284,38 @@ a { color: inherit; }
 .experiment-evidence div { display: grid; gap: .2rem; }
 .experiment-evidence dt { color: var(--cyan); font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .experiment-evidence dd { margin: 0; color: #dbeaf1; line-height: 1.55; }
+/* Student learning-journey page */
+.journey-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; max-width: 64rem; margin-top: 1.5rem; }
+.journey-stat { display: grid; gap: .2rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: .6rem; background: rgba(17, 31, 46, .78); }
+.journey-stat-num { font-size: 1.6rem; font-weight: 700; color: var(--cyan); line-height: 1; }
+.journey-stat-label { color: var(--muted); font-size: .78rem; line-height: 1.35; }
+.journey-section { max-width: 64rem; margin-top: 1.5rem; }
+.journey-section > h2 { margin: .55rem 0 0; font-size: 1.2rem; }
+.journey-day { margin-top: 1.4rem; }
+.journey-day:first-of-type { margin-top: 1.15rem; }
+.journey-day-label { margin: 0 0 .7rem; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
+.journey-timeline { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.journey-event { position: relative; padding: 0 0 1.3rem 1.4rem; border-left: 1px solid var(--line); }
+.journey-event:last-child { padding-bottom: 0; }
+.journey-event::before { content: ""; position: absolute; left: -.42rem; top: .3rem; width: .7rem; height: .7rem; border-radius: 50%; background: var(--surface-strong); border: 2px solid var(--cyan); }
+.journey-event-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin: 0; }
+.journey-event-icon { font-size: .95rem; }
+.journey-event-tag { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); border: 1px solid var(--line); border-radius: 999px; padding: .05rem .5rem; }
+.journey-event-title { font-weight: 650; }
+.journey-event-time { margin-left: auto; color: var(--muted); font-size: .78rem; }
+.journey-event-detail { margin: .5rem 0 0; color: #dbeaf1; line-height: 1.55; }
+.journey-event-meta { margin: .5rem 0 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.journey-chip { display: inline-block; margin: .1rem .3rem .1rem 0; padding: .05rem .5rem; border-radius: .35rem; background: rgba(85, 215, 235, .12); color: #bfe9f2; font-size: .76rem; }
+.journey-experiment { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: .5rem .9rem; margin: .6rem 0 0; padding: .6rem .7rem; border-radius: .45rem; background: rgba(9, 18, 29, .42); }
+.journey-experiment div { display: grid; gap: .1rem; }
+.journey-experiment dt { color: var(--muted); font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.journey-experiment dd { margin: 0; font-size: .9rem; font-weight: 650; }
+.journey-exploring { margin: 1rem 0 0; color: #dbeaf1; line-height: 1.6; }
+.journey-lab-count { margin: .5rem 0 0; color: #dbeaf1; line-height: 1.5; }
+.journey-subhead { margin: 1rem 0 .3rem; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.journey-next { max-width: 64rem; margin-top: 1.5rem; }
+.journey-next h2 { margin: .55rem 0 .6rem; font-size: 1.2rem; }
+.journey-next p { color: #dbeaf1; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) { .lab-cart-body, .lab-arrow line, .lab-trace { transition: none !important; } }
 @media (max-width: 900px) { .tutor-layout { grid-template-columns: 1fr; } .insight-card-head { flex-direction: column; } .insight-badges { align-items: start; flex-direction: row; } .lab { grid-template-columns: 1fr; } .lab-experiment-grid { grid-template-columns: 1fr; } .lab-value-grid, .lab-motion { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { .generation-status::before { animation: none; } }

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}My Progress &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>My learning journey</h1>
+      <p>A record of the questions, experiments, explanations and Physics activities you have worked through. This is a journal of your thinking, not a report card.</p>
+    </div>
+  </section>
+
+  {% if not has_activity %}
+    <section class="empty-state">
+      <p class="eyebrow">Just getting started</p>
+      <h1>Your learning journey is just beginning.</h1>
+      <p>Ask a Physics question, study a lesson, or run an experiment to start building your learning record.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
+        <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Go to the Physics Lab</a>
+      </div>
+    </section>
+  {% else %}
+
+    <section class="journey-stats" aria-label="Activity so far">
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.questions }}</span><span class="journey-stat-label">Questions asked</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.predictions }}</span><span class="journey-stat-label">Predictions made</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.observations }}</span><span class="journey-stat-label">Observations recorded</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.explanations }}</span><span class="journey-stat-label">Explanations written</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.experiments_completed }}</span><span class="journey-stat-label">Experiments completed</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.concepts }}</span><span class="journey-stat-label">Concepts explored</span></div>
+    </section>
+
+    <section class="surface-card journey-section" aria-labelledby="journey-activity-title">
+      <p class="card-label">Recent activity</p>
+      <h2 id="journey-activity-title">What you have been working through</h2>
+      {% for day in recent_activity_days %}
+        <div class="journey-day">
+          <h3 class="journey-day-label">{{ day.label }}</h3>
+          <ol class="journey-timeline">
+            {% for entry in day.entries %}
+              <li class="journey-event">
+                <p class="journey-event-head">
+                  <span class="journey-event-icon" aria-hidden="true">{{ entry.icon }}</span>
+                  <span class="journey-event-tag">{{ entry.kind_label }}</span>
+                  <span class="journey-event-title">{{ entry.title }}</span>
+                  <time class="journey-event-time" datetime="{{ entry.when|date:'c' }}">{{ entry.when|date:"g:i a" }}</time>
+                </p>
+                {% if entry.detail %}
+                  <p class="journey-event-detail">&ldquo;{{ entry.detail }}&rdquo;</p>
+                {% endif %}
+                {% if entry.experiment %}
+                  <dl class="journey-experiment">
+                    <div><dt>Simulation</dt><dd>{{ entry.experiment.simulation }}</dd></div>
+                    {% if entry.experiment.mass_kg is not None %}<div><dt>Mass</dt><dd>{{ entry.experiment.mass_kg|floatformat:1 }} kg</dd></div>{% endif %}
+                    {% if entry.experiment.force_n is not None %}<div><dt>Force</dt><dd>{{ entry.experiment.force_n|floatformat:1 }} N</dd></div>{% endif %}
+                    {% if entry.experiment.acceleration_m_s2 is not None %}<div><dt>Acceleration</dt><dd>{{ entry.experiment.acceleration_m_s2|floatformat:2 }} m/s&sup2;</dd></div>{% endif %}
+                  </dl>
+                {% endif %}
+                {% if entry.lesson or entry.concepts %}
+                  <p class="journey-event-meta">
+                    {% if entry.lesson %}Lesson: {{ entry.lesson.title }}{% endif %}
+                    {% if entry.concepts %}
+                      {% if entry.lesson %} &middot; {% endif %}
+                      {% for name in entry.concepts %}<span class="journey-chip">{{ name }}</span>{% endfor %}
+                    {% endif %}
+                  </p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      {% endfor %}
+    </section>
+
+    <div class="detail-grid">
+      <section class="surface-card detail-card" aria-labelledby="journey-concepts-title">
+        <p class="card-label">Concepts explored</p>
+        <h2 id="journey-concepts-title">Physics you have interacted with</h2>
+        {% if concepts %}
+          <ul class="concept-list">
+            {% for concept in concepts %}
+              <li>
+                <strong>{{ concept.name }}</strong>
+                <span>{{ concept.topic }} &middot; {{ concept.count }} activit{{ concept.count|pluralize:"y,ies" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No concepts recorded yet. Open a lesson or run an experiment to begin.</p>
+        {% endif %}
+        {% if exploring %}
+          <p class="journey-exploring">You have recently worked with
+            {% for name in exploring %}<strong>{{ name }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
+          </p>
+        {% endif %}
+      </section>
+
+      <section class="surface-card detail-card" aria-labelledby="journey-lessons-title">
+        <p class="card-label">Lessons</p>
+        <h2 id="journey-lessons-title">Recent lessons</h2>
+        {% if recent_lessons %}
+          <ul class="concept-list">
+            {% for item in recent_lessons %}
+              <li>
+                <strong>{{ item.lesson.title }}</strong>
+                <span>Last activity {{ item.last_activity_at|timesince }} ago</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No lesson activity recorded yet.</p>
+        {% endif %}
+      </section>
+
+      <section class="surface-card detail-card" aria-labelledby="journey-lab-title">
+        <p class="card-label">Physics Lab</p>
+        <h2 id="journey-lab-title">Experiments</h2>
+        <p class="journey-lab-count">
+          <span class="journey-stat-num">{{ experiment_summary.completed }}</span>
+          experiment{{ experiment_summary.completed|pluralize }} completed
+          {% if experiment_summary.attempted != experiment_summary.completed %}
+            &middot; {{ experiment_summary.attempted }} started
+          {% endif %}
+        </p>
+        {% if experiment_summary.latest %}
+          <p class="journey-subhead">Latest experiment</p>
+          <dl class="journey-experiment">
+            {% if experiment_summary.latest_concept %}<div><dt>Concept</dt><dd>{{ experiment_summary.latest_concept.name }}</dd></div>{% endif %}
+            {% if experiment_summary.latest.force_n is not None %}<div><dt>Force</dt><dd>{{ experiment_summary.latest.force_n|floatformat:1 }} N</dd></div>{% endif %}
+            {% if experiment_summary.latest.mass_kg is not None %}<div><dt>Mass</dt><dd>{{ experiment_summary.latest.mass_kg|floatformat:1 }} kg</dd></div>{% endif %}
+            {% if experiment_summary.latest.acceleration_m_s2 is not None %}<div><dt>Acceleration</dt><dd>{{ experiment_summary.latest.acceleration_m_s2|floatformat:2 }} m/s&sup2;</dd></div>{% endif %}
+          </dl>
+        {% else %}
+          <p>No experiments yet. <a class="text-link" href="{% url 'physics_lab:index' %}">Open the Physics Lab</a>.</p>
+        {% endif %}
+      </section>
+
+      <section class="surface-card detail-card" aria-labelledby="journey-tutor-title">
+        <p class="card-label">Tutor activity</p>
+        <h2 id="journey-tutor-title">Physics Tutor</h2>
+        {% if tutor_activity.messages %}
+          <p class="journey-lab-count">
+            <span class="journey-stat-num">{{ tutor_activity.messages }}</span>
+            question{{ tutor_activity.messages|pluralize }} and attempt{{ tutor_activity.messages|pluralize }} raised
+          </p>
+          {% if tutor_activity.last_lesson %}
+            <p class="journey-subhead">Last discussion</p>
+            <p>{{ tutor_activity.last_lesson.title }}{% if tutor_activity.last_at %} &middot; {{ tutor_activity.last_at|timesince }} ago{% endif %}</p>
+          {% endif %}
+        {% else %}
+          <p>You have not talked with the Physics Tutor yet.</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="surface-card accent-card journey-next" aria-labelledby="journey-next-title">
+      <p class="card-label">Next investigation</p>
+      <h2 id="journey-next-title">Where to go next</h2>
+      <p>{{ next_step }}</p>
+      <div class="form-actions">
+        <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Physics Lab</a>
+        <a class="button button-secondary" href="{% url 'students:lessons' %}">Lessons &amp; tutor</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

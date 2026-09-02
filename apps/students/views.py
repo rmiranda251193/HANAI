@@ -15,6 +15,7 @@ from .models import (
     TutorMessage,
     TutorSession,
 )
+from .progress_services import build_student_learning_progress
 from .requests import ExperimentContext
 from .services import run_tutor_turn
 
@@ -132,6 +133,19 @@ def student_home(request):
 def student_lessons(request):
     lessons = Lesson.objects.prefetch_related("physics_concepts")
     return render(request, "students/lessons.html", {"lessons": lessons})
+
+
+def student_progress(request):
+    """A scientific learning journal for the current student only.
+
+    The student is always resolved from the existing session mechanism; a
+    ``?student_id=`` (or any other) query parameter is never used as authority.
+    """
+
+    student = _current_student(request)
+    context = build_student_learning_progress(student=student)
+    context["student"] = student
+    return render(request, "students/progress.html", context)
 
 
 def tutor_view(request, slug):
