@@ -10,13 +10,17 @@ evidence, the intervention form's real target choices, a deterministic
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from datetime import datetime
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Q
+from django.urls import reverse
+from django.utils import timezone
 
 from apps.lessons.models import Lesson
-from apps.physics.models import PhysicsConcept
+from apps.physics.models import PhysicsConcept, PhysicsSimulation
 from apps.provenance.services import sanitize_provenance_metadata
 from apps.students.models import (
     ExperimentAttempt,
@@ -33,9 +37,21 @@ logger = logging.getLogger(__name__)
 NOTE_LIMIT = 2000
 LESSON_CHOICE_LIMIT = 60
 
+_VISIBLE = TeacherIntervention.STUDENT_VISIBLE_ACTIONS
+_ActionType = TeacherIntervention.ActionType
+_Status = TeacherIntervention.Status
+
 
 class InterventionError(ValueError):
     """A teacher intervention submission was missing or inconsistent."""
+
+
+class RecommendationError(ValueError):
+    """A student recommendation action was invalid for its current state."""
+
+
+class RecommendationNotFound(RecommendationError):
+    """The recommendation does not exist or does not belong to this student."""
 
 
 # --- student list ----------------------------------------------------------
@@ -179,6 +195,11 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
     lesson_choices = list(
         Lesson.objects.order_by("title").values_list("pk", "title")[:LESSON_CHOICE_LIMIT]
     )
+    simulation_choices = list(
+        PhysicsSimulation.objects.filter(is_active=True)
+        .order_by("title")
+        .values_list("pk", "title")
+    )
 
     context = dict(progress)
     context.update(
@@ -189,6 +210,7 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "action_choices": TeacherIntervention.ActionType.choices,
             "lesson_choices": lesson_choices,
             "concept_choices": concept_choices,
+            "simulation_choices": simulation_choices,
             "misconception_choices": [
                 (
                     row["observation"].pk,
@@ -249,6 +271,20 @@ def _resolve_misconception(raw_id, *, student):
     return observation
 
 
+def _resolve_simulation(raw_id):
+    if not raw_id:
+        return None
+    try:
+        simulation = PhysicsSimulation.objects.filter(
+            pk=int(raw_id), is_active=True
+        ).first()
+    except (TypeError, ValueError):
+        simulation = None
+    if simulation is None:
+        raise InterventionError("That simulation could not be found.")
+    return simulation
+
+
 @transaction.atomic
 def create_teacher_intervention(
     *,
@@ -259,6 +295,7 @@ def create_teacher_intervention(
     lesson_id=None,
     concept_id=None,
     misconception_id=None,
+    simulation_id=None,
 ) -> TeacherIntervention:
     """Validate and persist one teacher intervention.
 
@@ -272,12 +309,22 @@ def create_teacher_intervention(
         raise InterventionError("Choose a valid intervention action.")
 
     note = (note or "").strip()[:NOTE_LIMIT]
-    if action == TeacherIntervention.ActionType.TEACHER_NOTE and not note:
+    if action == _ActionType.TEACHER_NOTE and not note:
         raise InterventionError("A teacher note needs some text.")
 
     lesson = _resolve_lesson(lesson_id)
     concept = _resolve_concept(concept_id)
+    simulation = _resolve_simulation(simulation_id)
     misconception = _resolve_misconception(misconception_id, student=student)
+
+    if action == _ActionType.RECOMMEND_LESSON and not (lesson or concept):
+        raise InterventionError(
+            "Pick a lesson or a Physics concept for a lesson recommendation."
+        )
+    if action == _ActionType.RECOMMEND_EXPERIMENT and not (simulation or concept):
+        raise InterventionError(
+            "Pick a simulation or a Physics concept for an experiment recommendation."
+        )
 
     metadata = sanitize_provenance_metadata(
         {
@@ -288,6 +335,7 @@ def create_teacher_intervention(
             "student_id": student.pk,
             "lesson_id": str(lesson.pk) if lesson else None,
             "concept_id": concept.pk if concept else None,
+            "simulation_id": simulation.pk if simulation else None,
             "misconception_id": misconception.pk if misconception else None,
         }
     )
@@ -297,8 +345,293 @@ def create_teacher_intervention(
         teacher=teacher if getattr(teacher, "is_authenticated", False) else None,
         lesson=lesson,
         concept=concept,
+        simulation=simulation,
         misconception=misconception,
         action_type=action,
+        status=_Status.PENDING,
         note=note,
         metadata=metadata,
     )
+
+
+# --- student recommendation inbox ------------------------------------
+
+
+@dataclass(frozen=True)
+class StudentRecommendation:
+    """A deliberately narrow, student-safe view of one teacher recommendation.
+
+    It carries only fields chosen for the student. The teacher's private note,
+    any misconception link, confidence, detector or metadata never appear here.
+    """
+
+    id: int
+    action_key: str
+    action_badge: str
+    title: str
+    description: str
+    target_label: str
+    status: str
+    status_label: str
+    created_at: datetime
+    acted_at: datetime | None
+    destination_url: str
+    open_url: str
+    dismiss_url: str
+
+
+_ACTION_BADGE = {
+    _ActionType.RECOMMEND_LESSON: "Lesson",
+    _ActionType.RECOMMEND_EXPERIMENT: "Physics Lab",
+    _ActionType.TUTOR_FOLLOW_UP: "Physics Tutor",
+}
+_ACTION_BUTTON = {
+    _ActionType.RECOMMEND_LESSON: "Open the lesson",
+    _ActionType.RECOMMEND_EXPERIMENT: "Open the Physics Lab",
+    _ActionType.TUTOR_FOLLOW_UP: "Talk to the Tutor",
+}
+
+
+def _lesson_for_concept(concept):
+    if concept is None:
+        return None
+    return (
+        Lesson.objects.filter(physics_concepts=concept)
+        .order_by("-updated_at")
+        .first()
+    )
+
+
+def _simulation_for_concept(concept):
+    if concept is None:
+        return None
+    return (
+        PhysicsSimulation.objects.filter(concept=concept, is_active=True)
+        .order_by("title")
+        .first()
+    )
+
+
+def _recommendation_view(intervention: TeacherIntervention) -> dict:
+    """Build the controlled, student-safe title / description / destination.
+
+    All text is generated from the action and the target's *own* name -- never
+    from the teacher's note. Destination URLs are always server-reversed.
+    """
+
+    action = intervention.action_type
+    lesson = intervention.lesson
+    concept = intervention.concept
+    simulation = intervention.simulation
+
+    destination = ""
+    title = "A next step from your teacher"
+    description = ""
+    target_label = ""
+
+    if action == _ActionType.RECOMMEND_LESSON:
+        target_lesson = lesson or _lesson_for_concept(concept)
+        if target_lesson is not None:
+            destination = reverse("students:tutor", args=[target_lesson.slug])
+            title = f"Review {target_lesson.title}"
+            target_label = target_lesson.title
+            description = (
+                f"Open the lesson “{target_lesson.title}” and work "
+                "through it with your Physics Tutor."
+            )
+        else:
+            destination = reverse("students:lessons")
+            title = "Review a lesson"
+            description = "Open your lessons and study the one your teacher had in mind."
+        if concept is not None and not target_label:
+            target_label = concept.name
+
+    elif action == _ActionType.RECOMMEND_EXPERIMENT:
+        target_sim = simulation or _simulation_for_concept(concept)
+        if target_sim is not None:
+            destination = reverse("physics_lab:detail", args=[target_sim.slug])
+            title = f"Explore {concept.name if concept else target_sim.title}"
+            target_label = target_sim.title
+            description = (
+                f"Open the {target_sim.title} in the Physics Lab. Change the "
+                "setup, predict what will happen, then observe and explain."
+            )
+        else:
+            destination = reverse("physics_lab:index")
+            title = "Run an experiment"
+            description = "Open the Physics Lab and run the experiment your teacher suggested."
+        if concept is not None and not target_label:
+            target_label = concept.name
+
+    elif action == _ActionType.TUTOR_FOLLOW_UP:
+        target_lesson = lesson or _lesson_for_concept(concept)
+        focus = (
+            target_lesson.title
+            if target_lesson is not None
+            else (concept.name if concept is not None else "this topic")
+        )
+        if target_lesson is not None:
+            destination = reverse("students:tutor", args=[target_lesson.slug])
+            target_label = target_lesson.title
+        else:
+            destination = reverse("students:lessons")
+            target_label = concept.name if concept is not None else ""
+        title = "Continue the Tutor discussion"
+        description = f"Continue exploring {focus} with your Physics Tutor."
+
+    return {
+        "title": title,
+        "description": description,
+        "target_label": target_label,
+        "destination_url": destination,
+    }
+
+
+def _to_student_recommendation(intervention: TeacherIntervention) -> StudentRecommendation:
+    view = _recommendation_view(intervention)
+    return StudentRecommendation(
+        id=intervention.pk,
+        action_key=intervention.action_type,
+        action_badge=_ACTION_BADGE.get(intervention.action_type, "Recommendation"),
+        title=view["title"],
+        description=view["description"],
+        target_label=view["target_label"],
+        status=intervention.status,
+        status_label=intervention.get_status_display(),
+        created_at=intervention.created_at,
+        acted_at=intervention.acted_at,
+        destination_url=view["destination_url"],
+        open_url=reverse("students:recommendation_open", args=[intervention.pk]),
+        dismiss_url=reverse("students:recommendation_dismiss", args=[intervention.pk]),
+    )
+
+
+def list_student_recommendations(*, student: StudentProfile) -> dict:
+    """Return the student-safe pending list and history for one student."""
+
+    rows = list(
+        TeacherIntervention.objects.filter(
+            student=student, action_type__in=_VISIBLE
+        )
+        .select_related("lesson", "concept", "simulation")
+        .order_by("-created_at")
+    )
+    pending, history = [], []
+    for row in rows:
+        item = _to_student_recommendation(row)
+        (pending if row.status == _Status.PENDING else history).append(item)
+    history.sort(key=lambda r: r.acted_at or r.created_at, reverse=True)
+    return {"pending": pending, "history": history}
+
+
+def count_pending_recommendations(student: StudentProfile) -> int:
+    return TeacherIntervention.objects.filter(
+        student=student, action_type__in=_VISIBLE, status=_Status.PENDING
+    ).count()
+
+
+def _owned_recommendation(intervention_id, *, student):
+    return TeacherIntervention.objects.select_related(
+        "lesson", "concept", "simulation"
+    ).filter(
+        pk=intervention_id, student=student, action_type__in=_VISIBLE
+    ).first()
+
+
+@transaction.atomic
+def open_recommendation(*, intervention_id, student: StudentProfile) -> str:
+    """Mark a pending recommendation opened and return its safe destination URL."""
+
+    rec = _owned_recommendation(intervention_id, student=student)
+    if rec is None or rec.status == _Status.DISMISSED:
+        raise RecommendationNotFound("That recommendation is not available.")
+    if rec.status == _Status.PENDING:
+        rec.status = _Status.OPENED
+        rec.acted_at = rec.acted_at or timezone.now()
+        rec.save(update_fields=["status", "acted_at"])
+    return _recommendation_view(rec)["destination_url"]
+
+
+@transaction.atomic
+def dismiss_recommendation(*, intervention_id, student: StudentProfile) -> TeacherIntervention:
+    """Let the student clear a recommendation. Never deletes the history row."""
+
+    rec = _owned_recommendation(intervention_id, student=student)
+    if rec is None:
+        raise RecommendationNotFound("That recommendation is not available.")
+    if rec.status not in (_Status.PENDING, _Status.OPENED):
+        raise RecommendationError("That recommendation can no longer be dismissed.")
+    rec.status = _Status.DISMISSED
+    rec.acted_at = rec.acted_at or timezone.now()
+    rec.save(update_fields=["status", "acted_at"])
+    return rec
+
+
+# --- honest automatic completion (driven by real activity signals) -----
+
+
+@transaction.atomic
+def sync_experiment_recommendation(attempt) -> TeacherIntervention | None:
+    """A finished experiment completes the latest matching recommendation.
+
+    Deterministic: same student, same simulation, action ``recommend_experiment``,
+    still pending or opened -- only the most recent one, never a broad sweep.
+    """
+
+    if attempt.completed_at is None or attempt.simulation_id is None:
+        return None
+    rec = (
+        TeacherIntervention.objects.select_for_update()
+        .filter(
+            student_id=attempt.student_id,
+            simulation_id=attempt.simulation_id,
+            action_type=_ActionType.RECOMMEND_EXPERIMENT,
+            status__in=[_Status.PENDING, _Status.OPENED],
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if rec is None:
+        return None
+    rec.status = _Status.COMPLETED
+    rec.acted_at = rec.acted_at or timezone.now()
+    rec.save(update_fields=["status", "acted_at"])
+    return rec
+
+
+@transaction.atomic
+def sync_tutor_recommendation(message) -> TeacherIntervention | None:
+    """A student tutor message after opening a follow-up recommendation completes it.
+
+    Requires the recommendation to have been explicitly *opened* first, and the
+    message to belong to the same student (and lesson, when the recommendation
+    targets one). Otherwise the recommendation stays honestly ``opened``.
+    """
+
+    from apps.students.models import TutorSession
+
+    session = (
+        TutorSession.objects.filter(pk=message.session_id)
+        .values_list("student_id", "lesson_id")
+        .first()
+    )
+    if session is None:
+        return None
+    student_id, lesson_id = session
+    rec = (
+        TeacherIntervention.objects.select_for_update()
+        .filter(
+            student_id=student_id,
+            action_type=_ActionType.TUTOR_FOLLOW_UP,
+            status=_Status.OPENED,
+            acted_at__lte=message.created_at,
+        )
+        .filter(Q(lesson__isnull=True) | Q(lesson_id=lesson_id))
+        .order_by("-created_at")
+        .first()
+    )
+    if rec is None:
+        return None
+    rec.status = _Status.COMPLETED
+    rec.save(update_fields=["status"])
+    return rec

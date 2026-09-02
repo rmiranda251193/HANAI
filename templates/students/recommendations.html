@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Recommendations &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Your learning recommendations</h1>
+      <p>Recommendations from your teacher for what to explore next. You choose whether and how to engage.</p>
+    </div>
+  </section>
+
+  {% if recommendation_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Recommendations</p>
+      <p>{{ recommendation_error }}</p>
+    </section>
+  {% endif %}
+
+  <section aria-labelledby="rec-pending-title">
+    <h2 id="rec-pending-title" class="rec-section-title">Your next steps</h2>
+    {% if pending %}
+      <div class="rec-list">
+        {% for rec in pending %}
+          <article class="surface-card rec-card">
+            <p class="card-label">{{ rec.action_badge }}</p>
+            <h3>{{ rec.title }}</h3>
+            <p class="rec-by">Recommended by your teacher</p>
+            {% if rec.description %}<p class="rec-description">{{ rec.description }}</p>{% endif %}
+            {% if rec.target_label %}<p class="rec-target">{{ rec.target_label }}</p>{% endif %}
+            <p class="rec-meta">Suggested {{ rec.created_at|timesince }} ago</p>
+            <div class="rec-actions">
+              <form method="post" action="{{ rec.open_url }}">
+                {% csrf_token %}
+                <button type="submit" class="button button-primary">
+                  {% if rec.action_key == "recommend_lesson" %}Open Lesson{% elif rec.action_key == "recommend_experiment" %}Open Physics Lab{% else %}Talk to Tutor{% endif %}
+                </button>
+              </form>
+              <form method="post" action="{{ rec.dismiss_url }}">
+                {% csrf_token %}
+                <button type="submit" class="button button-secondary">Dismiss</button>
+              </form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <section class="empty-state">
+        <p class="eyebrow">All clear</p>
+        <h1>No pending recommendations.</h1>
+        <p>When your teacher recommends a lesson, an experiment, or a tutor follow-up, it will appear here.</p>
+        <div class="form-actions">
+          <a class="button button-primary" href="{% url 'students:progress' %}">Open My Progress</a>
+          <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Physics Lab</a>
+        </div>
+      </section>
+    {% endif %}
+  </section>
+
+  {% if history %}
+    <section aria-labelledby="rec-history-title">
+      <h2 id="rec-history-title" class="rec-section-title">Past recommendations</h2>
+      <ul class="rec-history">
+        {% for rec in history %}
+          <li class="rec-history-item">
+            <span class="status-badge status-{{ rec.status }}">{{ rec.status_label }}</span>
+            <span class="rec-history-title">{{ rec.action_badge }} &mdash; {{ rec.title }}</span>
+            {% if rec.acted_at %}<span class="rec-history-time">{{ rec.acted_at|date:"M j, Y" }}</span>{% endif %}
+            {% if rec.status == "opened" and rec.destination_url %}
+              <a class="text-link" href="{{ rec.destination_url }}">Go back to it</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

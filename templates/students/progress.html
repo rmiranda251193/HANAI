@@ -11,6 +11,17 @@
     </div>
   </section>
 
+  {% if recommendations_pending %}
+    <section class="surface-card accent-card journey-next" aria-label="Teacher recommendations" style="margin-top:1.25rem;">
+      <p class="card-label">Teacher recommendations</p>
+      <h2>{{ recommendations_pending }} pending recommendation{{ recommendations_pending|pluralize }}</h2>
+      <p>Your teacher suggested a next step. Open your recommendations to see what to explore.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:recommendations' %}">View recommendations</a>
+      </div>
+    </section>
+  {% endif %}
+
   {% if not has_activity %}
     <section class="empty-state">
       <p class="eyebrow">Just getting started</p>

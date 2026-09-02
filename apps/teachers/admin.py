@@ -8,12 +8,15 @@ class TeacherInterventionAdmin(admin.ModelAdmin):
     list_display = (
         "student",
         "action_type",
+        "status",
         "teacher",
         "lesson",
+        "simulation",
         "concept",
         "created_at",
+        "acted_at",
     )
-    list_filter = ("action_type", "created_at")
+    list_filter = ("action_type", "status", "created_at")
     search_fields = (
         "student__display_name",
         "teacher__username",
@@ -21,7 +24,7 @@ class TeacherInterventionAdmin(admin.ModelAdmin):
         "lesson__title",
         "concept__name",
     )
-    list_select_related = ("student", "teacher", "lesson", "concept")
+    list_select_related = ("student", "teacher", "lesson", "concept", "simulation")
     date_hierarchy = "created_at"
 
     def has_add_permission(self, request):

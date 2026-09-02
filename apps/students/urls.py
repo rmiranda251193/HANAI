@@ -8,6 +8,17 @@ urlpatterns = [
     path("", views.student_home, name="home"),
     path("lessons/", views.student_lessons, name="lessons"),
     path("progress/", views.student_progress, name="progress"),
+    path("recommendations/", views.student_recommendations, name="recommendations"),
+    path(
+        "recommendations/<int:intervention_id>/open/",
+        views.recommendation_open,
+        name="recommendation_open",
+    ),
+    path(
+        "recommendations/<int:intervention_id>/dismiss/",
+        views.recommendation_dismiss,
+        name="recommendation_dismiss",
+    ),
     path("tutor/<slug:slug>/", views.tutor_view, name="tutor"),
     path("insights/<slug:slug>/", views.lesson_insights, name="insights"),
     path(

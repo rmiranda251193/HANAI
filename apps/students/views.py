@@ -1,10 +1,19 @@
 import logging
 
-from django.shortcuts import get_object_or_404, render
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.ai.exceptions import AIError
 from apps.lessons.models import Lesson
+from apps.teachers.services import (
+    RecommendationError,
+    RecommendationNotFound,
+    count_pending_recommendations,
+    dismiss_recommendation,
+    list_student_recommendations,
+    open_recommendation,
+)
 
 from .exceptions import EmptyTutorMessageError, MisconceptionDecisionError, TutorError
 from .misconception_services import apply_teacher_decision
@@ -145,7 +154,62 @@ def student_progress(request):
     student = _current_student(request)
     context = build_student_learning_progress(student=student)
     context["student"] = student
+    context["recommendations_pending"] = count_pending_recommendations(student)
     return render(request, "students/progress.html", context)
+
+
+def student_recommendations(request):
+    """The current student's own recommendation inbox. No cross-student access."""
+
+    student = _current_student(request)
+    data = list_student_recommendations(student=student)
+    return render(
+        request,
+        "students/recommendations.html",
+        {
+            "student": student,
+            "pending": data["pending"],
+            "history": data["history"],
+        },
+    )
+
+
+@require_POST
+def recommendation_open(request, intervention_id):
+    """Record pending -> opened, then redirect to the server-chosen destination."""
+
+    student = _current_student(request)
+    try:
+        destination = open_recommendation(
+            intervention_id=intervention_id, student=student
+        )
+    except RecommendationNotFound:
+        raise Http404("That recommendation is not available.")
+    return redirect(destination or "students:recommendations")
+
+
+@require_POST
+def recommendation_dismiss(request, intervention_id):
+    """Let the student dismiss one of their own pending/opened recommendations."""
+
+    student = _current_student(request)
+    try:
+        dismiss_recommendation(intervention_id=intervention_id, student=student)
+    except RecommendationNotFound:
+        raise Http404("That recommendation is not available.")
+    except RecommendationError as exc:
+        data = list_student_recommendations(student=student)
+        return render(
+            request,
+            "students/recommendations.html",
+            {
+                "student": student,
+                "pending": data["pending"],
+                "history": data["history"],
+                "recommendation_error": str(exc),
+            },
+        )
+    return redirect("students:recommendations")
 
 
 def tutor_view(request, slug):

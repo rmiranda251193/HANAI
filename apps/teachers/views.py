@@ -55,6 +55,7 @@ def create_intervention(request, student_id):
             note=request.POST.get("note", ""),
             lesson_id=request.POST.get("lesson_id") or None,
             concept_id=request.POST.get("concept_id") or None,
+            simulation_id=request.POST.get("simulation_id") or None,
             misconception_id=request.POST.get("misconception_id") or None,
         )
     except InterventionError as exc:

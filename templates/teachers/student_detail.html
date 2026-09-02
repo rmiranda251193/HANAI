@@ -243,6 +243,13 @@
         </select>
       </div>
       <div class="form-field">
+        <label for="tw-simulation">Physics Lab simulation <span class="tw-optional">(for an experiment)</span></label>
+        <select id="tw-simulation" name="simulation_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, title in simulation_choices %}<option value="{{ pk }}">{{ title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
         <label for="tw-signal">Related possible learning signal <span class="tw-optional">(optional)</span></label>
         <select id="tw-signal" name="misconception_id">
           <option value="">&mdash; none &mdash;</option>
@@ -269,9 +276,17 @@
             <p class="tw-history-head">
               <span class="tw-history-date">{{ iv.created_at|date:"F j, Y, g:i a" }}</span>
               <span class="status-badge">{{ iv.get_action_type_display }}</span>
+              {% if iv.is_student_visible %}
+                <span class="status-badge status-{{ iv.status }}">{{ iv.get_status_display }}</span>
+              {% else %}
+                <span class="status-badge">Teacher-only</span>
+              {% endif %}
             </p>
             {% if iv.target_label %}<p class="tw-history-target">{{ iv.target_label }}</p>{% endif %}
-            {% if iv.note %}<p class="tw-history-note">&ldquo;{{ iv.note }}&rdquo;</p>{% endif %}
+            {% if iv.is_student_visible and iv.acted_at %}
+              <p class="tw-history-target">Student acted: {{ iv.acted_at|date:"F j, Y, g:i a" }}</p>
+            {% endif %}
+            {% if iv.note %}<p class="tw-history-note">Teacher note: &ldquo;{{ iv.note }}&rdquo;</p>{% endif %}
             <p class="tw-history-teacher">Teacher: {% if iv.teacher %}{{ iv.teacher.get_username }}{% else %}System{% endif %}</p>
           </article>
         {% endfor %}
