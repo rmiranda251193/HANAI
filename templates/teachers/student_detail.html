@@ -183,6 +183,52 @@
     {% endif %}
   </section>
 
+  <section class="surface-card journey-section" aria-labelledby="tw-patterns-title">
+    <p class="card-label">Learning patterns</p>
+    <h2 id="tw-patterns-title">Synthesis of this student&rsquo;s recent Physics activity</h2>
+    <p class="tw-signals-note">A factual synthesis of the student&rsquo;s recorded activity. It does not rate, rank, or diagnose the student.</p>
+    {% if learning_patterns.has_activity %}
+      {% if learning_patterns.recent_concepts %}
+        <h3 class="journey-subhead">Recently explored</h3>
+        <p>{% for name in learning_patterns.recent_concepts %}<span class="journey-chip">{{ name }}</span>{% endfor %}</p>
+      {% endif %}
+
+      {% if learning_patterns.concept_activity %}
+        <ul class="tw-pattern-list" role="list">
+          {% for c in learning_patterns.concept_activity %}
+            <li class="tw-pattern-item">
+              <p class="tw-pattern-concept">{{ c.concept }}{% if c.topic %} <span class="tw-optional">&middot; {{ c.topic }}</span>{% endif %}</p>
+              {% if c.practice.attempts %}
+                <p class="tw-pattern-meta">Practice: {{ c.practice.attempts }} attempt{{ c.practice.attempts|pluralize }}
+                  &middot; {{ c.practice.correct }} correct attempt{{ c.practice.correct|pluralize }}
+                  &middot; {{ c.practice.incorrect }} incorrect attempt{{ c.practice.incorrect|pluralize }}
+                  {% if c.practice.retry_correct %}&middot; {{ c.practice.retry_correct }} correct after retry{% endif %}</p>
+              {% endif %}
+              {% if c.experiment.attempted %}
+                <p class="tw-pattern-meta">Physics Lab: {{ c.experiment.completed }} completed of {{ c.experiment.attempted }} attempted
+                  &middot; predictions {{ c.experiment.predictions }}
+                  &middot; observations {{ c.experiment.observations }}
+                  &middot; explanations {{ c.experiment.explanations }}</p>
+              {% endif %}
+              {% if c.tutor.student_messages %}
+                <p class="tw-pattern-meta">Tutor: {{ c.tutor.student_messages }} student question{{ c.tutor.student_messages|pluralize }}</p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if learning_patterns.signals %}
+        <h3 class="journey-subhead">Observed activity</h3>
+        <ul class="content-list">
+          {% for signal in learning_patterns.signals %}<li>{{ signal.text }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    {% else %}
+      <p>No learning patterns yet. Learning activity will appear here as the student studies, practices, experiments, and talks with the Tutor.</p>
+    {% endif %}
+  </section>
+
   <section class="journey-section" aria-labelledby="tw-signals-title">
     <p class="card-label">Possible learning signals</p>
     <h2 id="tw-signals-title">Candidate misconceptions &mdash; you decide</h2>

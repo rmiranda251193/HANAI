@@ -513,6 +513,8 @@ class StudentListTests(WorkspaceDataMixin, TestCase):
 
 class QueryBudgetTests(WorkspaceDataMixin, TestCase):
     def test_build_teacher_student_evidence_query_budget(self):
+        from apps.students.models import PracticeAttempt
+
         concept = self.make_concept("Acceleration")
         lesson = self.make_lesson(concept)
         simulation = self.make_simulation(concept)
@@ -522,6 +524,16 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
             self.add_evidence(student, Kind.QUESTION_ASKED, lesson=lesson, detail=f"q{i}")
         self.add_experiment(student, simulation, lesson=lesson, completed=True,
                             mass=2.0, force=20.0, accel=10.0)
+        # A representative fixture exercises every source table, so no prefetch
+        # is silently suppressed by an empty queryset.
+        for i in range(3):
+            PracticeAttempt.objects.create(
+                student=student, lesson=lesson, concept=concept,
+                question_key=f"q{i}",
+                question_type=PracticeAttempt.QuestionType.NUMERIC,
+                question_prompt="p", answer_text="10", is_correct=bool(i % 2),
+                attempt_number=1,
+            )
         obs = self.add_candidate(student, misconception)
         self.add_candidate_evidence(obs)
         self.add_tutor(student, lesson, student_turns=2, tutor_turns=2)
@@ -531,7 +543,9 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
         )
 
         # Bounded and intentional: progress projection + candidates (+ prefetch)
-        # + practice-attempt evidence + form choice lists
-        # (lesson/concept/simulation) + intervention history. No per-row queries.
-        with self.assertNumQueries(13):
+        # + practice-attempt evidence + learning-pattern synthesis (practice /
+        # experiment / tutor reads, each with one prefetch) + form choice lists
+        # (lesson/concept/simulation) + intervention history. No per-row queries;
+        # the number does not grow with student history size.
+        with self.assertNumQueries(19):
             build_teacher_student_evidence(student=student)

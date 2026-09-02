@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Your Learning Patterns &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Your Learning Patterns</h1>
+      <p>A factual view of the Physics activities you&rsquo;ve recently worked through. These are observations from your own activity, not an assessment.</p>
+    </div>
+  </section>
+
+  {% if not has_activity %}
+    <section class="empty-state" aria-labelledby="patterns-empty-title">
+      <p class="eyebrow">Nothing to show yet</p>
+      <h2 id="patterns-empty-title">Your learning patterns will appear here as you explore Physics.</h2>
+      <p>Start with a lesson, a practice problem, the Physics Lab, or a Tutor question.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
+        <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Go to the Physics Lab</a>
+      </div>
+    </section>
+  {% else %}
+    <p class="patterns-window">Based on the Physics activities you&rsquo;ve completed, with recent activity from the last {{ recency_days }} days highlighted.</p>
+
+    {% if recent_concepts %}
+      <section class="surface-card patterns-section" aria-labelledby="patterns-recent-title">
+        <p class="card-label">Recently explored</p>
+        <h2 id="patterns-recent-title">Concepts you&rsquo;ve worked with lately</h2>
+        <ul class="patterns-chip-list" role="list">
+          {% for name in recent_concepts %}<li class="patterns-chip">{{ name }}</li>{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if practice_patterns %}
+      <section class="surface-card patterns-section" aria-labelledby="patterns-practice-title">
+        <p class="card-label">Physics practice</p>
+        <h2 id="patterns-practice-title">What your practice records show</h2>
+        <ul class="patterns-list" role="list">
+          {% for pattern in practice_patterns %}
+            <li class="patterns-item">
+              <p class="patterns-item-concept">{{ pattern.concept }}</p>
+              <p class="patterns-item-body">
+                {{ pattern.attempts }} attempt{{ pattern.attempts|pluralize }}
+                &middot; {{ pattern.correct }} correct
+                &middot; {{ pattern.incorrect }} incorrect
+                &middot; {{ pattern.questions }} question{{ pattern.questions|pluralize }}
+              </p>
+              {% if pattern.retry_correct %}
+                <p class="patterns-item-note">Correct after retry: {{ pattern.retry_correct }} question{{ pattern.retry_correct|pluralize }}.</p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if experiment_patterns %}
+      <section class="surface-card patterns-section" aria-labelledby="patterns-lab-title">
+        <p class="card-label">Physics Lab</p>
+        <h2 id="patterns-lab-title">What your experiment records show</h2>
+        <ul class="patterns-list" role="list">
+          {% for pattern in experiment_patterns %}
+            <li class="patterns-item">
+              <p class="patterns-item-concept">{{ pattern.concept }}</p>
+              <p class="patterns-item-body">
+                {{ pattern.completed }} experiment{{ pattern.completed|pluralize }} completed
+                {% if pattern.attempted != pattern.completed %}&middot; {{ pattern.attempted }} started{% endif %}
+              </p>
+              <p class="patterns-item-body">
+                Predictions: {{ pattern.predictions }}
+                &middot; Observations: {{ pattern.observations }}
+                &middot; Explanations: {{ pattern.explanations }}
+              </p>
+              {% if pattern.latest_acceleration is not None %}
+                <p class="patterns-item-note">
+                  Latest recorded values:
+                  {% if pattern.latest_mass is not None %}mass {{ pattern.latest_mass|floatformat:1 }} kg &middot; {% endif %}
+                  {% if pattern.latest_force is not None %}force {{ pattern.latest_force|floatformat:1 }} N &middot; {% endif %}
+                  acceleration {{ pattern.latest_acceleration|floatformat:2 }} m/s&sup2;
+                </p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if tutor_patterns %}
+      <section class="surface-card patterns-section" aria-labelledby="patterns-tutor-title">
+        <p class="card-label">Physics Tutor</p>
+        <h2 id="patterns-tutor-title">What your Tutor records show</h2>
+        <ul class="patterns-list" role="list">
+          {% for pattern in tutor_patterns %}
+            <li class="patterns-item">
+              <p class="patterns-item-concept">{{ pattern.concept }}</p>
+              <p class="patterns-item-body">
+                {{ pattern.student_messages }} question{{ pattern.student_messages|pluralize }} discussed{% if pattern.lesson %} &middot; {{ pattern.lesson }}{% endif %}
+              </p>
+              {% if pattern.recent_question %}
+                <p class="patterns-item-note">Most recent: &ldquo;{{ pattern.recent_question }}&rdquo;</p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if signals %}
+      <section class="surface-card patterns-section" aria-labelledby="patterns-signals-title">
+        <p class="card-label">What you&rsquo;ve been exploring</p>
+        <h2 id="patterns-signals-title">Activity we noticed in your records</h2>
+        <ul class="patterns-signal-list" role="list">
+          {% for signal in signals %}<li>{{ signal.text }}</li>{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if next_investigation %}
+      <section class="surface-card accent-card patterns-next" aria-labelledby="patterns-next-title">
+        <p class="card-label">Suggested next investigation</p>
+        <h2 id="patterns-next-title">A next step you could take</h2>
+        <p>{{ next_investigation.text }}</p>
+        <div class="form-actions">
+          <a class="button button-primary" href="{{ next_investigation.url }}">Go to {{ next_investigation.url_label }}</a>
+          <a class="button button-secondary" href="{% url 'students:progress' %}">See my full timeline</a>
+        </div>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

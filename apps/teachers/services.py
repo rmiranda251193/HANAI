@@ -29,6 +29,7 @@ from apps.students.models import (
     StudentMisconception,
     StudentProfile,
 )
+from apps.students.pattern_services import build_student_learning_patterns
 from apps.students.progress_services import build_student_learning_progress
 
 from .models import TeacherIntervention
@@ -265,6 +266,9 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "candidates": candidates,
             "candidate_status": StudentMisconception.Status.CANDIDATE,
             "practice_evidence": _practice_evidence(student),
+            "learning_patterns": build_student_learning_patterns(
+                student=student, include_next_investigation=False
+            ),
             "interventions": _intervention_history(student),
             "action_choices": TeacherIntervention.ActionType.choices,
             "lesson_choices": lesson_choices,

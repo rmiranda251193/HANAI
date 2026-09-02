@@ -24,6 +24,7 @@ from .models import (
     TutorMessage,
     TutorSession,
 )
+from .pattern_services import build_student_learning_patterns
 from .practice_services import (
     AnswerValidationError,
     PracticeError,
@@ -163,6 +164,20 @@ def student_progress(request):
     context["student"] = student
     context["recommendations_pending"] = count_pending_recommendations(student)
     return render(request, "students/progress.html", context)
+
+
+def learning_patterns(request):
+    """A factual synthesis of the current student's recent Physics activity.
+
+    Deterministic and read-only: the same records always produce the same
+    patterns, and no AI provider is involved. The student is resolved from the
+    session only -- ``?student_id=`` is never authority.
+    """
+
+    student = _current_student(request)
+    context = build_student_learning_patterns(student=student)
+    context["student"] = student
+    return render(request, "students/learning.html", context)
 
 
 def student_recommendations(request):

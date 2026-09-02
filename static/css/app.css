@@ -441,3 +441,28 @@ a { color: inherit; }
 .tw-practice-lesson { margin: .3rem 0 0; color: var(--cyan); font-size: .82rem; }
 @media (max-width: 900px) { .practice-layout { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .app-shell { grid-template-columns: 1fr; } .sidebar { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); } .navigation { margin-top: 1.5rem; } .sidebar-status { display: none; } .hero { padding-top: 4rem; } .foundation-grid { grid-template-columns: 1fr; } }
+
+/* Learning patterns (deterministic activity synthesis) */
+/* Keyboard focus must be visible on every button, not conveyed by colour alone. */
+.button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.empty-state h2 { margin: .55rem 0; font-size: 1.7rem; }
+.patterns-teaser { margin-top: 1.25rem; }
+.patterns-teaser h2 { margin: .5rem 0 .4rem; font-size: 1.15rem; }
+.patterns-window { max-width: 64rem; margin: 1rem 0 0; color: var(--muted); font-size: .9rem; line-height: 1.55; }
+.patterns-section { max-width: 64rem; margin-top: 1rem; }
+.patterns-section h2 { margin: .5rem 0 .9rem; font-size: 1.15rem; }
+.patterns-chip-list { list-style: none; display: flex; flex-wrap: wrap; gap: .45rem; margin: 0; padding: 0; }
+.patterns-chip { display: inline-flex; padding: .3rem .65rem; border: 1px solid var(--line); border-radius: 999px; background: rgba(85, 215, 235, .08); color: #cfe7ef; font-size: .82rem; font-weight: 650; }
+.patterns-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
+.patterns-item { padding: .8rem .9rem; border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.patterns-item-concept { margin: 0 0 .3rem; font-weight: 700; color: #edf6fb; }
+.patterns-item-body { margin: .15rem 0 0; color: #dbeaf1; font-size: .9rem; line-height: 1.55; }
+.patterns-item-note { margin: .35rem 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.patterns-signal-list { margin: 0; padding-left: 1.15rem; display: grid; gap: .45rem; }
+.patterns-signal-list li { color: #dbeaf1; line-height: 1.55; }
+.patterns-next { margin-top: 1rem; }
+.patterns-next h2 { margin: .5rem 0 .4rem; font-size: 1.15rem; }
+.tw-pattern-list { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .6rem; max-width: 60rem; }
+.tw-pattern-item { padding: .75rem .9rem; border: 1px solid var(--line); border-radius: .5rem; background: rgba(17, 31, 46, .5); }
+.tw-pattern-concept { margin: 0 0 .3rem; font-weight: 700; color: #edf6fb; }
+.tw-pattern-meta { margin: .15rem 0 0; color: var(--muted); font-size: .84rem; line-height: 1.6; }
