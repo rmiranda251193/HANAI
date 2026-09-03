@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Your Next Physics Activity &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Your Next Physics Activity</h1>
+      <p>A focused next step based on your current learning activity and, when available, your teacher&rsquo;s selected goal.</p>
+    </div>
+  </section>
+
+  {% if teacher_goal %}
+    <section class="surface-card accent-card plan-goal" aria-labelledby="plan-goal-title">
+      <p class="card-label">Teacher-selected goal</p>
+      <h2 id="plan-goal-title">{{ teacher_goal.concept }}</h2>
+      <p>Your teacher selected this concept for your current Physics work.{% if teacher_goal.target_label %} ({{ teacher_goal.target_label }}){% endif %}</p>
+      <div class="form-actions">
+        <a class="text-link" href="{% url 'students:goals' %}">See your learning goals</a>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if next_activity %}
+    <section class="surface-card plan-next" aria-labelledby="plan-next-title">
+      <p class="card-label">Suggested next activity</p>
+      <h2 id="plan-next-title">{{ next_activity.title }}</h2>
+      {% if next_activity.description %}<p class="plan-next-desc">{{ next_activity.description }}</p>{% endif %}
+      {% if next_activity.target_label %}<p class="plan-next-target">{{ next_activity.target_label }}</p>{% endif %}
+      <div class="form-actions">
+        <a class="button button-primary" href="{{ next_activity.url }}">{{ next_activity.cta }}</a>
+      </div>
+      <p class="plan-note">{{ planner_note }}</p>
+    </section>
+
+    <section class="surface-card plan-why" aria-labelledby="plan-why-title">
+      <p class="card-label">Why this activity?</p>
+      <h2 id="plan-why-title">{{ reason }}</h2>
+    </section>
+
+    {% if alternatives %}
+      <section class="surface-card plan-alts" aria-labelledby="plan-alts-title">
+        <p class="card-label">Other ways to explore</p>
+        <h2 id="plan-alts-title">Up to two related activities</h2>
+        <ul class="plan-alt-list" role="list">
+          {% for alt in alternatives %}
+            <li class="plan-alt-item">
+              <p class="plan-alt-title">{{ alt.title }}</p>
+              {% if alt.target_label %}<p class="plan-alt-target">{{ alt.target_label }}</p>{% endif %}
+              <a class="button button-secondary" href="{{ alt.url }}">{{ alt.cta }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% else %}
+    <section class="empty-state" aria-labelledby="plan-empty-title">
+      <p class="eyebrow">Nothing to plan yet</p>
+      <h2 id="plan-empty-title">{{ reason }}</h2>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
+        <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Go to the Physics Lab</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

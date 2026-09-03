@@ -36,6 +36,7 @@
   {% else %}
     <p class="patterns-window">Based on the Physics activities you&rsquo;ve completed, with recent activity from the last {{ recency_days }} days highlighted.
       <a class="text-link" href="{% url 'students:path' %}">See how these concepts connect &rarr;</a>
+      <a class="text-link" href="{% url 'students:plan' %}">Your next activity &rarr;</a>
     </p>
 
     {% if recent_concepts %}

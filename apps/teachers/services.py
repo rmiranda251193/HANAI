@@ -30,6 +30,7 @@ from apps.students.models import (
     StudentProfile,
 )
 from apps.physics.concept_graph import build_physics_concept_graph
+from apps.students.activity_planner import build_adaptive_activity_plan
 from apps.students.concept_path_services import build_student_concept_path
 from apps.students.pattern_services import build_student_learning_patterns
 from apps.students.progress_services import build_student_learning_progress
@@ -283,6 +284,11 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "learning_goals": build_teacher_learning_goals(
                 student=student,
                 learning_patterns=learning_patterns,
+                graph=concept_graph,
+            ),
+            "activity_plan": build_adaptive_activity_plan(
+                student=student,
+                patterns=learning_patterns,
                 graph=concept_graph,
             ),
             "interventions": _intervention_history(student),

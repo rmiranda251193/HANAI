@@ -545,8 +545,10 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
         # Bounded and intentional: progress projection + candidates (+ prefetch)
         # + practice-attempt evidence + learning-pattern synthesis (practice /
         # experiment / tutor reads, each with one prefetch) + one shared
-        # concept-graph read + learning-goals read + form choice lists
+        # concept-graph read + learning-goals read + activity planner
+        # (concept destination maps + goal / recommendation / unfinished-lab
+        # reads + a few bounded activity-signal checks) + form choice lists
         # (lesson/concept/simulation) + intervention history. No per-row queries;
         # the number does not grow with student history size.
-        with self.assertNumQueries(21):
+        with self.assertNumQueries(29):
             build_teacher_student_evidence(student=student)

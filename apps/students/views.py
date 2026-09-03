@@ -29,6 +29,7 @@ from .models import (
     TutorMessage,
     TutorSession,
 )
+from .activity_planner import build_adaptive_activity_plan
 from .concept_path_services import build_student_concept_path
 from .pattern_services import build_student_learning_patterns
 from .practice_services import (
@@ -215,6 +216,20 @@ def student_goals(request):
     context = list_student_visible_goals(student=student)
     context["student"] = student
     return render(request, "students/goals.html", context)
+
+
+def activity_plan(request):
+    """One deterministic next Physics activity for the current student.
+
+    Read-only: the planner reads goals, recommendations, evidence and the
+    concept graph and never writes any of them. The student is resolved from
+    the session only -- ``?student_id=`` is never authority.
+    """
+
+    student = _current_student(request)
+    context = build_adaptive_activity_plan(student=student)
+    context["student"] = student
+    return render(request, "students/plan.html", context)
 
 
 def student_recommendations(request):

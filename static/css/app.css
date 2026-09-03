@@ -516,3 +516,18 @@ a { color: inherit; }
 .tw-goal-actions { margin: .8rem 0 0; }
 .status-active { background: rgba(85, 215, 235, .13); color: var(--cyan); }
 .status-closed { background: rgba(153, 173, 187, .16); color: var(--muted); }
+
+/* Adaptive activity planner */
+.plan-goal, .plan-next, .plan-why, .plan-alts { max-width: 64rem; margin-top: 1rem; }
+.plan-goal h2 { margin: .5rem 0 .4rem; font-size: 1.2rem; }
+.plan-next h2 { margin: .5rem 0 .5rem; font-size: 1.35rem; line-height: 1.3; }
+.plan-next-desc { margin: 0 0 .5rem; color: #dbeaf1; line-height: 1.6; }
+.plan-next-target { margin: .2rem 0 0; color: var(--muted); font-size: .86rem; }
+.plan-note { margin: .9rem 0 0; padding-top: .8rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; line-height: 1.55; }
+.plan-why h2 { margin: .5rem 0 0; font-size: 1.05rem; font-weight: 600; color: #dbeaf1; line-height: 1.55; }
+.plan-alts h2 { margin: .5rem 0 .8rem; font-size: 1.05rem; }
+.plan-alt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
+.plan-alt-item { padding: .8rem .9rem; border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.plan-alt-title { margin: 0 0 .3rem; font-weight: 650; color: #edf6fb; }
+.plan-alt-target { margin: 0 0 .5rem; color: var(--muted); font-size: .82rem; }
+.tw-plan-line { margin: .35rem 0 0; color: #dbeaf1; font-size: .88rem; line-height: 1.6; }
