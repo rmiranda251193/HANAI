@@ -234,6 +234,11 @@ def create_learning_goal(
     if simulation is not None and simulation.concept_id != concept.pk:
         raise GoalError("That simulation is not linked to the selected concept.")
 
+    # Serialise goal creation for this student so the duplicate check below and
+    # the create cannot be raced (the partial unique index can't cover a
+    # concept-only goal, whose lesson/simulation targets are NULL).
+    StudentProfile.objects.select_for_update().filter(pk=student.pk).first()
+
     duplicate = TeacherLearningGoal.objects.filter(
         student=student,
         concept=concept,
@@ -285,35 +290,45 @@ def close_learning_goal(*, goal_id, student: StudentProfile) -> TeacherLearningG
 # --- honest completion (signal-driven, forward-only) ----------------
 
 
+def _experiment_target_met(goal: TeacherLearningGoal) -> bool:
+    return ExperimentAttempt.objects.filter(
+        student_id=goal.student_id,
+        simulation_id=goal.simulation_id,
+        completed_at__isnull=False,
+        completed_at__gte=goal.created_at,
+    ).exists()
+
+
+def _practice_target_met(goal: TeacherLearningGoal) -> bool:
+    questions = {q.key for q in get_practice_questions(goal.lesson)}
+    if not questions:
+        return False  # no stable lesson-completion mechanism -> stay active
+    attempted = set(
+        PracticeAttempt.objects.filter(
+            student_id=goal.student_id, lesson_id=goal.lesson_id
+        ).values_list("question_key", flat=True)
+    )
+    if not questions.issubset(attempted):
+        return False
+    return PracticeAttempt.objects.filter(
+        student_id=goal.student_id,
+        lesson_id=goal.lesson_id,
+        created_at__gte=goal.created_at,
+    ).exists()
+
+
 def _goal_completion_met(goal: TeacherLearningGoal) -> bool:
-    """True only when a real target activity finished *after* the goal was set."""
+    """True when *any* of the goal's target activities finished after it was set.
 
-    if goal.simulation_id:
-        return ExperimentAttempt.objects.filter(
-            student_id=goal.student_id,
-            simulation_id=goal.simulation_id,
-            completed_at__isnull=False,
-            completed_at__gte=goal.created_at,
-        ).exists()
+    A goal may carry both a lesson and a simulation; either one being genuinely
+    completed completes the goal. A concept-only goal has no reliable automatic
+    signal and never auto-completes.
+    """
 
-    if goal.lesson_id:
-        questions = {q.key for q in get_practice_questions(goal.lesson)}
-        if not questions:
-            return False  # no stable lesson-completion mechanism -> stay active
-        attempted = set(
-            PracticeAttempt.objects.filter(
-                student_id=goal.student_id, lesson_id=goal.lesson_id
-            ).values_list("question_key", flat=True)
-        )
-        if not questions.issubset(attempted):
-            return False
-        return PracticeAttempt.objects.filter(
-            student_id=goal.student_id,
-            lesson_id=goal.lesson_id,
-            created_at__gte=goal.created_at,
-        ).exists()
-
-    # Concept-only goal: no reliable automatic completion signal.
+    if goal.simulation_id and _experiment_target_met(goal):
+        return True
+    if goal.lesson_id and _practice_target_met(goal):
+        return True
     return False
 
 
@@ -323,17 +338,20 @@ def sync_learning_goal_completion(goal: TeacherLearningGoal) -> bool:
 
     Idempotent and centralised: every completion path (the experiment signal,
     the practice signal) goes through here, so the rules live in one place.
-    A closed or already-completed goal is never touched.
+    The write is conditional on ``status=active`` at the database, so a teacher
+    close committing in the same window can never be flipped to ``completed``.
     """
 
     if goal.status != _Status.ACTIVE:
         return False
     if not _goal_completion_met(goal):
         return False
-    goal.status = _Status.COMPLETED
-    goal.completed_at = timezone.now()
-    goal.save(update_fields=["status", "completed_at"])
-    return True
+    updated = TeacherLearningGoal.objects.filter(
+        pk=goal.pk, status=_Status.ACTIVE
+    ).update(status=_Status.COMPLETED, completed_at=timezone.now())
+    if updated:
+        goal.refresh_from_db(fields=["status", "completed_at"])
+    return bool(updated)
 
 
 def sync_learning_goals_for_experiment(attempt) -> None:
@@ -427,7 +445,6 @@ def active_goal_concepts(student: StudentProfile) -> list[str]:
     names: list[str] = []
     for name in (
         TeacherLearningGoal.objects.filter(student=student, status=_Status.ACTIVE)
-        .select_related("concept")
         .order_by("-created_at")
         .values_list("concept__name", flat=True)
     ):

@@ -531,6 +531,45 @@ class GoalCompletionTests(GoalMixin, TestCase):
         self.complete_experiment(self.student, self.sim)
         self.assertEqual(self._status(goal), TeacherLearningGoal.Status.ACTIVE)
 
+    def test_dual_target_goal_completes_via_either_activity(self):
+        lesson = self.make_lesson(self.concept, problems=self.numeric_problems("q1"))
+        # goal targets BOTH a lesson (practice) and a simulation (experiment)
+        practice_goal = self.goal(
+            self.student, self.teacher, self.concept, lesson=lesson, simulation=self.sim
+        )
+        self.add_practice(self.student, lesson, "q1")
+        self.assertEqual(self._status(practice_goal), TeacherLearningGoal.Status.COMPLETED)
+
+        # a second dual-target goal (different concept) completes via the lab
+        c2 = self.make_concept("Force")
+        lesson2 = self.make_lesson(c2, problems=self.numeric_problems("q1"))
+        sim2 = self.make_simulation(c2)
+        lab_goal = self.goal(
+            self.student, self.teacher, c2, lesson=lesson2, simulation=sim2
+        )
+        self.complete_experiment(self.student, sim2)
+        self.assertEqual(self._status(lab_goal), TeacherLearningGoal.Status.COMPLETED)
+
+    def test_teacher_close_wins_a_race_with_completion(self):
+        # A close that lands first must not be flipped to completed by a later
+        # sync working from a stale in-memory instance (the write is conditional
+        # on status=active at the database).
+        from .goal_services import sync_learning_goal_completion
+
+        goal = self.goal(self.student, self.teacher, self.concept, simulation=self.sim)
+        close_learning_goal(goal_id=goal.pk, student=self.student)
+        # The target activity does finish afterwards (signal is a no-op: goal not active).
+        self.complete_experiment(self.student, self.sim)
+        goal.refresh_from_db()
+        self.assertEqual(goal.status, TeacherLearningGoal.Status.CLOSED)
+
+        goal.status = TeacherLearningGoal.Status.ACTIVE  # pretend the caller is stale
+        changed = sync_learning_goal_completion(goal)
+        self.assertFalse(changed)
+        goal.refresh_from_db()
+        self.assertEqual(goal.status, TeacherLearningGoal.Status.CLOSED)
+        self.assertIsNone(goal.completed_at)
+
     def test_closed_goal_does_not_auto_reopen(self):
         goal = self.goal(self.student, self.teacher, self.concept, simulation=self.sim)
         close_learning_goal(goal_id=goal.pk, student=self.student)
