@@ -11,6 +11,17 @@
     </div>
   </section>
 
+  {% if active_goal_count %}
+    <section class="surface-card accent-card journey-next" aria-label="Teacher learning goals" style="margin-top:1.25rem;">
+      <p class="card-label">Teacher learning goal{{ active_goal_count|pluralize }}</p>
+      <h2>{{ active_goal_count }} active learning goal{{ active_goal_count|pluralize }}</h2>
+      <p>Your teacher has selected {{ active_goal_count|pluralize:"a concept,concepts" }} for you to focus on.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:goals' %}">View learning goals</a>
+      </div>
+    </section>
+  {% endif %}
+
   {% if recommendations_pending %}
     <section class="surface-card accent-card journey-next" aria-label="Teacher recommendations" style="margin-top:1.25rem;">
       <p class="card-label">Teacher recommendations</p>

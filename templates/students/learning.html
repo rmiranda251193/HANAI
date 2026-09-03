@@ -11,6 +11,18 @@
     </div>
   </section>
 
+  {% if teacher_goal_concepts %}
+    <section class="surface-card accent-card patterns-goal" aria-labelledby="patterns-goal-title">
+      <p class="card-label">Teacher-selected goal</p>
+      <h2 id="patterns-goal-title">Your teacher asked you to focus on
+        {% for name in teacher_goal_concepts %}{{ name }}{% if not forloop.last %}, {% endif %}{% endfor %}</h2>
+      <p>This is your teacher&rsquo;s decision. It is separate from the observed activity below, which is only a record of what you have done.</p>
+      <div class="form-actions">
+        <a class="button button-secondary" href="{% url 'students:goals' %}">Open your learning goals</a>
+      </div>
+    </section>
+  {% endif %}
+
   {% if not has_activity %}
     <section class="empty-state" aria-labelledby="patterns-empty-title">
       <p class="eyebrow">Nothing to show yet</p>

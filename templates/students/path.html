@@ -11,6 +11,18 @@
     </div>
   </section>
 
+  {% if teacher_goal_concepts %}
+    <section class="surface-card accent-card cpath-goal" aria-labelledby="cpath-goal-title">
+      <p class="card-label">Teacher-selected goal</p>
+      <h2 id="cpath-goal-title">Your teacher wants you to focus on
+        {% for name in teacher_goal_concepts %}{{ name }}{% if not forloop.last %}, {% endif %}{% endfor %}</h2>
+      <p>This is your teacher&rsquo;s choice, shown above the concept map below. It does not change the map.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:goals' %}">Open your learning goals</a>
+      </div>
+    </section>
+  {% endif %}
+
   {% if not graph_available %}
     <section class="empty-state" aria-labelledby="cpath-nograph-title">
       <p class="eyebrow">Concept map unavailable</p>
@@ -47,7 +59,7 @@
       <section class="surface-card cpath-section" aria-labelledby="cpath-chain-title">
         <p class="card-label">Concept chain</p>
         <h2 id="cpath-chain-title">From your most foundational explored concept to your most advanced</h2>
-        <ol class="cpath-chain">
+        <ol class="cpath-chain" role="list">
           {% for node in walked_path %}
             <li class="cpath-chain-node{% if node.explored %} is-explored{% endif %}">
               {% if not forloop.first %}<span class="cpath-chain-arrow" aria-hidden="true">&darr;</span> {% endif %}
@@ -106,9 +118,9 @@
           <h2 id="cpath-next-title">{{ suggested.concept }}</h2>
           <p>{{ suggested.why }}</p>
           {% if suggested.path|length > 1 %}
-            <p class="cpath-next-chain">
-              {% for node in suggested.path %}{% if not forloop.first %} &rarr; {% endif %}{{ node.name }}{% endfor %}
-            </p>
+            <ol class="cpath-next-chain" role="list">
+              {% for node in suggested.path %}<li>{% if not forloop.first %}<span aria-hidden="true">&rarr;</span> <span class="visually-hidden">then</span> {% endif %}{{ node.name }}</li>{% endfor %}
+            </ol>
           {% endif %}
           <div class="form-actions">
             <a class="button button-primary" href="{{ suggested.url }}">{{ suggested.url_label }}</a>

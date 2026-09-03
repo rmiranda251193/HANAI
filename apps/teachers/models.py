@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 
 class TeacherIntervention(models.Model):
@@ -119,3 +120,114 @@ class TeacherIntervention(models.Model):
         if self.misconception_id:
             return f"Signal: {self.misconception.misconception.title}"
         return ""
+
+
+class TeacherLearningGoal(models.Model):
+    """A Physics concept a teacher has explicitly chosen as this student's focus.
+
+    A learning goal is the teacher's *instructional decision* -- deliberately
+    distinct from a :class:`TeacherIntervention` recommendation ("an activity you
+    may want to do") and from the observed learning patterns / concept graph
+    ("what the data shows" / "how Physics connects"). Nothing but a teacher ever
+    creates one. Its targets are immutable once created; only the workflow
+    ``status`` and its timestamps change. ``teacher_note`` is private and is
+    never exposed to the student.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CLOSED = "closed", "Closed"
+
+    student = models.ForeignKey(
+        "students.StudentProfile",
+        on_delete=models.CASCADE,
+        related_name="learning_goals",
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="learning_goals",
+        help_text="The authenticated teacher who set this goal.",
+    )
+    concept = models.ForeignKey(
+        "physics.PhysicsConcept",
+        on_delete=models.PROTECT,
+        related_name="learning_goals",
+        help_text="The Physics concept the teacher wants the student to focus on.",
+    )
+    lesson = models.ForeignKey(
+        "lessons.Lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="learning_goals",
+    )
+    simulation = models.ForeignKey(
+        "physics.PhysicsSimulation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="learning_goals",
+    )
+    misconception = models.ForeignKey(
+        "students.StudentMisconception",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="learning_goals",
+        help_text="An optional possible-misconception this goal responds to. Teacher-only.",
+    )
+    teacher_note = models.TextField(
+        blank=True,
+        default="",
+        help_text="Private teacher reasoning. Never shown to the student.",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        help_text="Workflow state -- not a mastery signal.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Set only when a real target-activity completion signal fired.",
+    )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Set when a teacher explicitly closes the goal.",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["student", "status", "-created_at"]),
+            models.Index(fields=["student", "-created_at"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "concept", "lesson", "simulation"],
+                condition=Q(status="active"),
+                name="uniq_active_learning_goal",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Goal: {self.concept.name} for {self.student}"
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == self.Status.ACTIVE
+
+    @property
+    def target_label(self) -> str:
+        if self.lesson_id:
+            return f"Lesson: {self.lesson.title}"
+        if self.simulation_id:
+            return f"Physics Lab: {self.simulation.title}"
+        return f"Concept: {self.concept.name}"

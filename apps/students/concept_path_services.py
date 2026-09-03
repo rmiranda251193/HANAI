@@ -43,8 +43,11 @@ def _node_sort_key(node):
     return (DIFFICULTY_RANK.get(node.difficulty, 99), node.name.lower(), node.slug)
 
 
-def _build_destination_maps():
-    """concept-slug -> best existing lesson / simulation. Two bounded queries."""
+def build_concept_destination_maps():
+    """``(lesson_by_concept_slug, sim_by_concept_slug)`` -- the best existing
+    lesson / active simulation for each Physics concept, published-first, in a
+    stable total order. Three bounded queries regardless of how many concepts
+    are looked up. Shared with the learning-goal destination resolver."""
 
     lessons = list(
         Lesson.objects.prefetch_related("physics_concepts").order_by(
@@ -124,13 +127,24 @@ def _explored_from_patterns(patterns: dict, graph) -> list[dict]:
 
 
 def build_student_concept_path(
-    *, student, now=None, patterns: dict | None = None, with_actions: bool = True
+    *,
+    student,
+    now=None,
+    patterns: dict | None = None,
+    with_actions: bool = True,
+    graph=None,
 ) -> dict:
-    """Everything ``students/path.html`` (and the teacher panel) needs."""
+    """Everything ``students/path.html`` (and the teacher panel) needs.
+
+    ``graph`` may be supplied by a caller that already built one (e.g. the
+    teacher workspace, which also renders learning goals) to avoid a second
+    identical concept read.
+    """
 
     if patterns is None:
         patterns = build_student_learning_patterns(student=student, now=now)
-    graph = build_physics_concept_graph()  # active concepts only
+    if graph is None:
+        graph = build_physics_concept_graph()  # active concepts only
 
     explored = _explored_from_patterns(patterns, graph)
     explored_slugs = {e["slug"] for e in explored}
@@ -226,7 +240,7 @@ def build_student_concept_path(
     lesson_by_slug: dict = {}
     sim_by_slug: dict = {}
     if with_actions:
-        lesson_by_slug, sim_by_slug = _build_destination_maps()
+        lesson_by_slug, sim_by_slug = build_concept_destination_maps()
 
     next_investigation = patterns.get("next_investigation")
     suggested = None

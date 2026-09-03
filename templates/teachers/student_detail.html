@@ -15,10 +15,10 @@
     <a class="text-link" href="{% url 'teachers:student_list' %}">All students</a>
   </section>
 
-  {% if intervention_error or decision_error %}
+  {% if intervention_error or decision_error or goal_error %}
     <section class="generation-message generation-message-error" role="alert">
       <p class="card-label">Teacher workspace</p>
-      <p>{{ intervention_error }}{{ decision_error }}</p>
+      <p>{{ intervention_error }}{{ decision_error }}{{ goal_error }}</p>
     </section>
   {% endif %}
   {% if workflow_message %}
@@ -233,7 +233,9 @@
     <p class="card-label">Learning path</p>
     <h2 id="tw-path-title">Where this student sits in the Physics concept graph</h2>
     <p class="tw-signals-note">Concept relationships come from the seeded prerequisite graph; &ldquo;explored&rdquo; reuses the same conservative attribution as the patterns above. It maps how the concepts connect, not the student.</p>
-    {% if learning_path.has_explored %}
+    {% if not learning_path.graph_available %}
+      <p>The Physics concept graph is not set up yet, so no learning path can be shown.</p>
+    {% elif learning_path.has_explored %}
       <h3 class="journey-subhead">Explored</h3>
       <p>{% for concept in learning_path.explored %}<span class="journey-chip">{{ concept.name }}</span>{% endfor %}</p>
 
@@ -257,11 +259,96 @@
 
       {% if learning_path.walked_path|length > 1 %}
         <h3 class="journey-subhead">Concept chain</h3>
-        <p class="tw-path-chain">{% for node in learning_path.walked_path %}{% if not forloop.first %} &rarr; {% endif %}{{ node.name }}{% if not node.explored %} (not yet explored){% endif %}{% endfor %}</p>
+        <p class="tw-path-chain">{% for node in learning_path.walked_path %}{% if not forloop.first %} <span aria-hidden="true">&rarr;</span> {% endif %}{{ node.name }}{% if not node.explored %} (not yet explored){% endif %}{% endfor %}</p>
       {% endif %}
     {% else %}
       <p>No learning path yet. It will appear once the student has activity connected to a Physics concept in the graph.</p>
     {% endif %}
+  </section>
+
+  <section class="surface-card journey-section" aria-labelledby="tw-goals-title">
+    <p class="card-label">Learning goals</p>
+    <h2 id="tw-goals-title">Concepts you have set as this student&rsquo;s focus</h2>
+    <p class="tw-signals-note">A learning goal is your explicit instructional decision. Status is a workflow state (active / completed / closed), not a judgement about the student. Your note is private and is never shown to the student.</p>
+
+    {% if learning_goals.goals_active %}
+      <h3 class="journey-subhead">Active</h3>
+      <div class="tw-goal-list">
+        {% for goal in learning_goals.goals_active %}
+          <article class="surface-card tw-goal-card">
+            <p class="tw-goal-head">
+              <span class="tw-goal-concept">Explore {{ goal.concept }}</span>
+              <span class="status-badge status-{{ goal.status }}">{{ goal.status_label }}</span>
+            </p>
+            <p class="tw-goal-meta">{{ goal.target_label }} &middot; set {{ goal.created|date:"M j, Y" }} by {{ goal.teacher }}</p>
+            {% if goal.teacher_note %}<p class="tw-goal-note">Private note: &ldquo;{{ goal.teacher_note }}&rdquo;</p>{% endif %}
+            <p class="tw-goal-activity">Student activity for {{ goal.concept }}:
+              practice {{ goal.activity.practice }} attempt{{ goal.activity.practice|pluralize }}
+              &middot; lab {{ goal.activity.experiments }} completed
+              &middot; tutor {{ goal.activity.tutor }} question{{ goal.activity.tutor|pluralize }}</p>
+            {% if goal.connected_concepts %}
+              <p class="tw-goal-connected">Connected concepts: {% for name in goal.connected_concepts %}{{ name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+            {% endif %}
+            {% if goal.can_close %}
+              <form method="post" action="{% url 'teachers:close_goal' student.id goal.id %}" class="tw-goal-actions">
+                {% csrf_token %}
+                <button type="submit" class="button button-secondary">Close goal</button>
+              </form>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No active learning goals for this student.</p>
+    {% endif %}
+
+    {% if learning_goals.goals_history %}
+      <h3 class="journey-subhead">History</h3>
+      <ul class="content-list">
+        {% for goal in learning_goals.goals_history %}
+          <li>
+            <span class="status-badge status-{{ goal.status }}">{{ goal.status_label }}</span>
+            {{ goal.concept }} &mdash; {{ goal.target_label }}
+            &middot; set {{ goal.created|date:"M j, Y" }}
+            {% if goal.completed_at %}&middot; completed {{ goal.completed_at|date:"M j, Y" }}{% endif %}
+            {% if goal.closed_at %}&middot; closed {{ goal.closed_at|date:"M j, Y" }}{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <h3 class="journey-subhead">Set a learning goal</h3>
+    <form method="post" action="{% url 'teachers:create_goal' student.id %}" class="tw-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="tw-goal-concept">Physics concept</label>
+        <select id="tw-goal-concept" name="concept_id" required>
+          <option value="">&mdash; choose a concept &mdash;</option>
+          {% for pk, name in concept_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="tw-goal-lesson">Lesson <span class="tw-optional">(optional)</span></label>
+        <select id="tw-goal-lesson" name="lesson_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, title in lesson_choices %}<option value="{{ pk }}">{{ title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="tw-goal-simulation">Physics Lab simulation <span class="tw-optional">(optional)</span></label>
+        <select id="tw-goal-simulation" name="simulation_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, title in simulation_choices %}<option value="{{ pk }}">{{ title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field form-field-wide">
+        <label for="tw-goal-note">Teacher note <span class="tw-optional">(private &mdash; never shown to the student)</span></label>
+        <textarea id="tw-goal-note" name="teacher_note" rows="3" placeholder="Why this concept, and what you want the student to focus on."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="button button-primary">Create learning goal</button>
+      </div>
+    </form>
   </section>
 
   <section class="journey-section" aria-labelledby="tw-signals-title">

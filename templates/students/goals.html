@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Your Learning Goals &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Your Learning Goals</h1>
+      <p>Learning goals your teacher has selected for you. Each one points to a Physics concept to focus on next.</p>
+    </div>
+  </section>
+
+  {% if not goals_has_any %}
+    <section class="empty-state" aria-labelledby="goals-empty-title">
+      <p class="eyebrow">Nothing set yet</p>
+      <h2 id="goals-empty-title">Your teacher hasn&rsquo;t set a learning goal for you yet.</h2>
+      <p>When they do, it will appear here with a lesson, experiment, or Tutor discussion to try.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
+        <a class="button button-secondary" href="{% url 'students:path' %}">See your learning path</a>
+      </div>
+    </section>
+  {% else %}
+    {% if goals_active %}
+      <section class="goal-section" aria-labelledby="goals-active-title">
+        <h2 id="goals-active-title" class="goal-section-title">Active goal{{ goals_active|length|pluralize }}</h2>
+        {% for goal in goals_active %}
+          <article class="surface-card accent-card goal-card">
+            <p class="card-label">Teacher-selected goal</p>
+            <h3 class="goal-card-title">Explore {{ goal.concept }}</h3>
+            <p class="goal-card-message">{{ goal.message }}</p>
+            {% if goal.lesson %}<p class="goal-card-target">Related lesson: {{ goal.lesson }}</p>{% endif %}
+            {% if goal.simulation %}<p class="goal-card-target">Physics Lab: {{ goal.simulation }}</p>{% endif %}
+            <p class="goal-card-status">Status: <span class="cpath-state cpath-state-next">{{ goal.status_label }}</span></p>
+            <div class="form-actions">
+              <a class="button button-primary" href="{{ goal.primary_url }}">{{ goal.primary_label }}</a>
+              {% if goal.secondary_url %}<a class="button button-secondary" href="{{ goal.secondary_url }}">{{ goal.secondary_label }}</a>{% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% if goals_history %}
+      <section class="goal-section" aria-labelledby="goals-history-title">
+        <h2 id="goals-history-title" class="goal-section-title">Past goals</h2>
+        <ul class="goal-history" role="list">
+          {% for goal in goals_history %}
+            <li class="goal-history-item">
+              <span class="cpath-state {% if goal.status == 'completed' %}cpath-state-explored{% else %}cpath-state-related{% endif %}">{{ goal.status_label }}</span>
+              <span class="goal-history-concept">{{ goal.concept }}</span>
+              {% if goal.lesson %}<span class="goal-history-meta">&middot; {{ goal.lesson }}</span>{% endif %}
+              <span class="goal-history-meta">&middot; set {{ goal.created|date:"M j, Y" }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

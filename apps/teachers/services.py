@@ -29,10 +29,12 @@ from apps.students.models import (
     StudentMisconception,
     StudentProfile,
 )
+from apps.physics.concept_graph import build_physics_concept_graph
 from apps.students.concept_path_services import build_student_concept_path
 from apps.students.pattern_services import build_student_learning_patterns
 from apps.students.progress_services import build_student_learning_progress
 
+from .goal_services import build_teacher_learning_goals
 from .models import TeacherIntervention
 
 logger = logging.getLogger(__name__)
@@ -249,6 +251,7 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
     learning_patterns = build_student_learning_patterns(
         student=student, include_next_investigation=False
     )
+    concept_graph = build_physics_concept_graph()
 
     concept_choices = list(
         PhysicsConcept.objects.filter(is_active=True)
@@ -272,7 +275,15 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "practice_evidence": _practice_evidence(student),
             "learning_patterns": learning_patterns,
             "learning_path": build_student_concept_path(
-                student=student, patterns=learning_patterns, with_actions=False
+                student=student,
+                patterns=learning_patterns,
+                with_actions=False,
+                graph=concept_graph,
+            ),
+            "learning_goals": build_teacher_learning_goals(
+                student=student,
+                learning_patterns=learning_patterns,
+                graph=concept_graph,
             ),
             "interventions": _intervention_history(student),
             "action_choices": TeacherIntervention.ActionType.choices,

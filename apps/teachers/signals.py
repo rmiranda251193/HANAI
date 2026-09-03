@@ -13,8 +13,12 @@ import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from apps.students.models import ExperimentAttempt, TutorMessage
+from apps.students.models import ExperimentAttempt, PracticeAttempt, TutorMessage
 
+from .goal_services import (
+    sync_learning_goals_for_experiment,
+    sync_learning_goals_for_practice,
+)
 from .services import sync_experiment_recommendation, sync_tutor_recommendation
 
 logger = logging.getLogger(__name__)
@@ -36,6 +40,12 @@ def _on_experiment_saved(sender, instance, created, update_fields=None, **kwargs
         logger.exception(
             "Experiment recommendation sync failed for attempt %s.", instance.pk
         )
+    try:
+        sync_learning_goals_for_experiment(instance)
+    except Exception:  # pragma: no cover - defensive; must not break the lab flow
+        logger.exception(
+            "Learning-goal experiment sync failed for attempt %s.", instance.pk
+        )
 
 
 @receiver(post_save, sender=TutorMessage, dispatch_uid="teachers.tutor_recommendation")
@@ -47,4 +57,16 @@ def _on_tutor_message_saved(sender, instance, created, **kwargs):
     except Exception:  # pragma: no cover - defensive; must not break the tutor flow
         logger.exception(
             "Tutor recommendation sync failed for message %s.", instance.pk
+        )
+
+
+@receiver(post_save, sender=PracticeAttempt, dispatch_uid="teachers.practice_learning_goal")
+def _on_practice_attempt_saved(sender, instance, created, **kwargs):
+    if not created:
+        return
+    try:
+        sync_learning_goals_for_practice(instance)
+    except Exception:  # pragma: no cover - defensive; must not break practice
+        logger.exception(
+            "Learning-goal practice sync failed for attempt %s.", instance.pk
         )

@@ -6,6 +6,11 @@ from django.views.decorators.http import require_POST
 
 from apps.ai.exceptions import AIError
 from apps.lessons.models import Lesson
+from apps.teachers.goal_services import (
+    active_goal_concepts,
+    active_goal_count,
+    list_student_visible_goals,
+)
 from apps.teachers.services import (
     RecommendationError,
     RecommendationNotFound,
@@ -164,6 +169,7 @@ def student_progress(request):
     context = build_student_learning_progress(student=student)
     context["student"] = student
     context["recommendations_pending"] = count_pending_recommendations(student)
+    context["active_goal_count"] = active_goal_count(student)
     return render(request, "students/progress.html", context)
 
 
@@ -178,6 +184,7 @@ def learning_patterns(request):
     student = _current_student(request)
     context = build_student_learning_patterns(student=student)
     context["student"] = student
+    context["teacher_goal_concepts"] = active_goal_concepts(student)
     return render(request, "students/learning.html", context)
 
 
@@ -193,7 +200,21 @@ def concept_path(request):
     student = _current_student(request)
     context = build_student_concept_path(student=student)
     context["student"] = student
+    context["teacher_goal_concepts"] = active_goal_concepts(student)
     return render(request, "students/path.html", context)
+
+
+def student_goals(request):
+    """Learning goals the current student's teacher has explicitly set.
+
+    Read-only and student-scoped: the teacher's private note and any linked
+    misconception never reach this view. ``?student_id=`` is never authority.
+    """
+
+    student = _current_student(request)
+    context = list_student_visible_goals(student=student)
+    context["student"] = student
+    return render(request, "students/goals.html", context)
 
 
 def student_recommendations(request):

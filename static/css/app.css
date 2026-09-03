@@ -488,4 +488,31 @@ a { color: inherit; }
 .cpath-chain-name { font-weight: 650; color: #edf6fb; }
 .cpath-next { margin-top: 1rem; }
 .cpath-next h2 { margin: .5rem 0 .4rem; font-size: 1.2rem; }
-.cpath-next-chain { margin: .5rem 0 0; color: #dbeaf1; font-weight: 650; line-height: 1.6; }
+.cpath-next-chain { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem .5rem; color: #dbeaf1; font-weight: 650; line-height: 1.6; }
+.cpath-next-chain li { display: inline-flex; align-items: center; gap: .4rem; }
+.cpath-goal, .patterns-goal { margin-top: 1.25rem; max-width: 64rem; }
+.cpath-goal h2, .patterns-goal h2 { margin: .5rem 0 .4rem; font-size: 1.15rem; }
+
+/* Teacher-guided learning goals */
+.goal-section { max-width: 64rem; margin-top: 1.25rem; }
+.goal-section-title { margin: 0 0 .75rem; font-size: 1.2rem; }
+.goal-card { margin-bottom: 1rem; }
+.goal-card-title { margin: .5rem 0 .5rem; font-size: 1.3rem; }
+.goal-card-message { margin: 0 0 .6rem; color: #dbeaf1; line-height: 1.6; }
+.goal-card-target { margin: .2rem 0 0; color: var(--muted); font-size: .88rem; }
+.goal-card-status { margin: .7rem 0 .2rem; color: var(--muted); font-size: .88rem; }
+.goal-history { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.goal-history-item { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .5rem; background: rgba(17, 31, 46, .5); font-size: .9rem; }
+.goal-history-concept { font-weight: 650; color: #edf6fb; }
+.goal-history-meta { color: var(--muted); font-size: .84rem; }
+.tw-goal-list { display: grid; gap: .8rem; max-width: 60rem; margin-top: .5rem; }
+.tw-goal-card { padding: .9rem 1rem; }
+.tw-goal-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0 0 .3rem; }
+.tw-goal-concept { font-weight: 700; color: #edf6fb; font-size: 1.02rem; }
+.tw-goal-meta { margin: .1rem 0 0; color: var(--muted); font-size: .84rem; }
+.tw-goal-note { margin: .5rem 0 0; padding: .5rem .65rem; border-left: 3px solid var(--amber); background: rgba(242, 180, 102, .08); color: #dbeaf1; font-size: .88rem; line-height: 1.5; }
+.tw-goal-activity { margin: .5rem 0 0; color: #cfe0e8; font-size: .86rem; line-height: 1.6; }
+.tw-goal-connected { margin: .35rem 0 0; color: var(--muted); font-size: .82rem; }
+.tw-goal-actions { margin: .8rem 0 0; }
+.status-active { background: rgba(85, 215, 235, .13); color: var(--cyan); }
+.status-closed { background: rgba(153, 173, 187, .16); color: var(--muted); }

@@ -13,6 +13,16 @@ urlpatterns = [
         name="create_intervention",
     ),
     path(
+        "students/<int:student_id>/goals/create/",
+        views.create_goal,
+        name="create_goal",
+    ),
+    path(
+        "students/<int:student_id>/goals/<int:goal_id>/close/",
+        views.close_goal,
+        name="close_goal",
+    ),
+    path(
         "students/<int:student_id>/signals/<int:observation_id>/decision/",
         views.misconception_decision,
         name="misconception_decision",

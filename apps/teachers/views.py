@@ -1,5 +1,6 @@
 import logging
 
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
@@ -8,6 +9,12 @@ from apps.students.misconception_services import apply_teacher_decision
 from apps.students.models import StudentMisconception, StudentProfile
 
 from .access import teacher_required
+from .goal_services import (
+    GoalError,
+    GoalNotFound,
+    close_learning_goal,
+    create_learning_goal,
+)
 from .services import (
     InterventionError,
     build_teacher_student_evidence,
@@ -19,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 INTERVENTION_SAVED = "Intervention recorded."
 DECISION_SAVED = "Your decision was recorded."
+GOAL_SAVED = "Learning goal created."
+GOAL_CLOSED = "Learning goal closed."
 
 
 def _render_detail(request, student: StudentProfile, **extra):
@@ -97,3 +106,49 @@ def misconception_decision(request, student_id, observation_id):
             decision_error="Your decision could not be saved. Please try again.",
         )
     return _render_detail(request, student, workflow_message=DECISION_SAVED)
+
+
+@teacher_required
+@require_POST
+def create_goal(request, student_id):
+    student = get_object_or_404(StudentProfile, pk=student_id)
+    try:
+        create_learning_goal(
+            student=student,
+            teacher=request.user,
+            concept_id=request.POST.get("concept_id") or None,
+            lesson_id=request.POST.get("lesson_id") or None,
+            simulation_id=request.POST.get("simulation_id") or None,
+            misconception_id=request.POST.get("misconception_id") or None,
+            teacher_note=request.POST.get("teacher_note", ""),
+        )
+    except GoalError as exc:
+        return _render_detail(request, student, goal_error=str(exc))
+    except Exception:
+        logger.exception("Unexpected learning-goal failure for student %s.", student.pk)
+        return _render_detail(
+            request,
+            student,
+            goal_error="The learning goal could not be saved. Please try again.",
+        )
+    return _render_detail(request, student, workflow_message=GOAL_SAVED)
+
+
+@teacher_required
+@require_POST
+def close_goal(request, student_id, goal_id):
+    student = get_object_or_404(StudentProfile, pk=student_id)
+    try:
+        close_learning_goal(goal_id=goal_id, student=student)
+    except GoalNotFound:
+        raise Http404("That learning goal was not found.")
+    except GoalError as exc:
+        return _render_detail(request, student, goal_error=str(exc))
+    except Exception:
+        logger.exception("Unexpected goal-close failure for student %s.", student.pk)
+        return _render_detail(
+            request,
+            student,
+            goal_error="The learning goal could not be closed. Please try again.",
+        )
+    return _render_detail(request, student, workflow_message=GOAL_CLOSED)
