@@ -123,6 +123,29 @@
       </section>
     {% endif %}
 
+    {% if assessment_summary.completed or assessment_summary.in_progress %}
+      <section class="surface-card patterns-section" aria-labelledby="patterns-assessment-title">
+        <p class="card-label">Assessment activity</p>
+        <h2 id="patterns-assessment-title">A separate record: structured assessments</h2>
+        <p>{{ assessment_summary.completed }} assessment{{ assessment_summary.completed|pluralize }} completed
+          {% if assessment_summary.in_progress %} &middot; {{ assessment_summary.in_progress }} in progress{% endif %}
+          &middot; {{ assessment_summary.questions_answered }} question{{ assessment_summary.questions_answered|pluralize }} answered.</p>
+        {% if assessment_summary.recent %}
+          <ul class="patterns-list" role="list">
+            {% for row in assessment_summary.recent %}
+              <li class="patterns-item">
+                <p class="patterns-item-concept">Completed a Physics assessment</p>
+                <p class="patterns-item-body">{{ row.title }}{% if row.when %} &middot; {{ row.when|timesince }} ago{% endif %}</p>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <div class="form-actions">
+          <a class="text-link" href="{% url 'students:assessment_list' %}">Open Assessments</a>
+        </div>
+      </section>
+    {% endif %}
+
     {% if signals %}
       <section class="surface-card patterns-section" aria-labelledby="patterns-signals-title">
         <p class="card-label">What you&rsquo;ve been exploring</p>

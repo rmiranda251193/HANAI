@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Assessments &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Assessments</h1>
+      <p>An ordered set of question-bank questions. Students only ever see a published assessment.</p>
+    </div>
+    <a class="button button-primary" href="{% url 'teachers:assessment_create' %}">Create assessment</a>
+  </section>
+
+  {% if assessments %}
+    <section class="qb-list" aria-label="Assessments">
+      {% for a in assessments %}
+        <article class="surface-card qb-card">
+          <p class="qb-meta">
+            <span class="status-badge status-{{ a.status }}">{{ a.status_label }}</span>
+            {% if a.concept %}<span class="journey-chip">{{ a.concept }}</span>{% endif %}
+          </p>
+          <h2><a href="{% url 'teachers:assessment_detail_teacher' a.id %}">{{ a.title }}</a></h2>
+          <p class="qb-key">{{ a.question_count }} question{{ a.question_count|pluralize }}</p>
+          <a class="text-link" href="{% url 'teachers:assessment_detail_teacher' a.id %}">Open builder</a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No assessments yet</p>
+      <h1>No assessments have been created.</h1>
+      <p>Create one, then add questions from the Question Bank.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'teachers:assessment_create' %}">Create assessment</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

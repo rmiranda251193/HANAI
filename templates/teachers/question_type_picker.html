@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Create Question &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Create a question</h1>
+      <p>Choose a question type. Both are graded deterministically -- there is no AI grading.</p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:question_bank' %}">Back to Question Bank</a>
+  </section>
+
+  <section class="qb-type-picker" aria-label="Question type">
+    <a class="surface-card qb-type-option" href="{% url 'teachers:question_create' %}?type=numeric">
+      <h2>Numeric</h2>
+      <p>A question with a single trusted expected value, unit and tolerance -- e.g. &ldquo;What is the acceleration?&rdquo;</p>
+    </a>
+    <a class="surface-card qb-type-option" href="{% url 'teachers:question_create' %}?type=multiple_choice">
+      <h2>Multiple choice</h2>
+      <p>A question with two or more choices and one correct option.</p>
+    </a>
+  </section>
+{% endblock %}

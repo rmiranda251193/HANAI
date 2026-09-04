@@ -52,6 +52,7 @@
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.observations }}</span><span class="journey-stat-label">Observations recorded</span></div>
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.explanations }}</span><span class="journey-stat-label">Explanations written</span></div>
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.experiments_completed }}</span><span class="journey-stat-label">Experiments completed</span></div>
+      <div class="journey-stat"><span class="journey-stat-num">{{ assessment_summary.completed }}</span><span class="journey-stat-label">Assessments completed</span></div>
       <div class="journey-stat"><span class="journey-stat-num">{{ summary_counts.concepts }}</span><span class="journey-stat-label">Concepts explored</span></div>
     </section>
 
@@ -94,6 +95,13 @@
                 {% if entry.practice %}
                   <p class="journey-practice">
                     {% if entry.practice.concept %}{{ entry.practice.concept }} &middot; {% endif %}{{ entry.practice.result }}{% if entry.practice.attempt_number %} &middot; attempt {{ entry.practice.attempt_number }}{% endif %}
+                  </p>
+                {% endif %}
+                {% if entry.assessment %}
+                  <p class="journey-practice">
+                    {{ entry.assessment.assessment }}
+                    {% if entry.assessment.concept %} &middot; {{ entry.assessment.concept }}{% endif %}
+                    &middot; {{ entry.assessment.result }}
                   </p>
                 {% endif %}
                 {% if entry.experiment %}
@@ -180,6 +188,21 @@
           </dl>
         {% else %}
           <p>No experiments yet. <a class="text-link" href="{% url 'physics_lab:index' %}">Open the Physics Lab</a>.</p>
+        {% endif %}
+      </section>
+
+      <section class="surface-card detail-card" aria-labelledby="journey-assessments-title">
+        <p class="card-label">Assessments</p>
+        <h2 id="journey-assessments-title">Structured assessments</h2>
+        {% if assessment_summary.completed or assessment_summary.in_progress %}
+          <p class="journey-lab-count">
+            <span class="journey-stat-num">{{ assessment_summary.completed }}</span>
+            assessment{{ assessment_summary.completed|pluralize }} completed
+            {% if assessment_summary.in_progress %} &middot; {{ assessment_summary.in_progress }} in progress{% endif %}
+          </p>
+          <p class="journey-subhead">{{ assessment_summary.questions_answered }} question{{ assessment_summary.questions_answered|pluralize }} answered</p>
+        {% else %}
+          <p>No assessments started yet. <a class="text-link" href="{% url 'students:assessment_list' %}">Open Assessments</a>.</p>
         {% endif %}
       </section>
 

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Physics Assessments &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Physics Assessments</h1>
+      <p>A structured set of questions your teacher has published. Answering every question completes an assessment &mdash; this is a record of what you have covered, not a grade.</p>
+    </div>
+  </section>
+
+  {% if assessments %}
+    <section class="qb-list" aria-label="Assessments">
+      {% for a in assessments %}
+        <article class="surface-card qb-card">
+          <p class="qb-meta">
+            {% if a.status == "completed" %}
+              <span class="status-badge status-completed">Completed</span>
+            {% elif a.status == "in_progress" %}
+              <span class="status-badge">In progress</span>
+            {% else %}
+              <span class="status-badge status-closed">Not started</span>
+            {% endif %}
+            {% if a.concept %}<span class="journey-chip">{{ a.concept }}</span>{% endif %}
+          </p>
+          <h2><a href="{% url 'students:assessment_detail' a.id %}">{{ a.title }}</a></h2>
+          {% if a.description %}<p>{{ a.description }}</p>{% endif %}
+          <p class="qb-key">{{ a.question_count }} question{{ a.question_count|pluralize }}</p>
+          <a class="button button-secondary" href="{% url 'students:assessment_detail' a.id %}">
+            {% if a.status == "not_started" %}Start assessment{% else %}Continue assessment{% endif %}
+          </a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">Nothing published yet</p>
+      <h1>No assessments are available right now.</h1>
+      <p>Your teacher has not published a Physics assessment yet. Check back later, or open a lesson to keep practicing.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

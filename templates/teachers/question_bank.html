@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Question Bank &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Question Bank</h1>
+      <p>Reusable Physics questions, each graded deterministically on the server. A question can be added to any number of assessments.</p>
+    </div>
+    <a class="button button-primary" href="{% url 'teachers:question_create' %}">Create question</a>
+  </section>
+
+  {% if questions %}
+    <section class="qb-list" aria-label="Question bank">
+      {% for q in questions %}
+        <article class="surface-card qb-card {% if not q.is_active %}qb-card-inactive{% endif %}">
+          <p class="qb-meta">
+            <span class="status-badge">{{ q.get_question_type_display }}</span>
+            {% if q.concept %}<span class="journey-chip">{{ q.concept.name }}</span>{% endif %}
+            <span class="qb-difficulty">{{ q.get_difficulty_display }}</span>
+            {% if not q.is_active %}<span class="status-badge status-closed">Inactive</span>{% endif %}
+          </p>
+          <h2 class="qb-prompt">{{ q.prompt }}</h2>
+          <p class="qb-key">Key: {{ q.key }}</p>
+          <div class="form-actions">
+            <a class="text-link" href="{% url 'teachers:question_edit' q.id %}">Edit</a>
+            <form method="post" action="{% url 'teachers:question_deactivate' q.id %}">
+              {% csrf_token %}
+              <button type="submit" class="button button-secondary">
+                {% if q.is_active %}Deactivate{% else %}Activate{% endif %}
+              </button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No questions yet</p>
+      <h1>The question bank is empty.</h1>
+      <p>Create a numeric or multiple-choice question to start building reusable assessments.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'teachers:question_create' %}">Create question</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

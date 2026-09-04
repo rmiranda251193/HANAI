@@ -183,6 +183,34 @@
     {% endif %}
   </section>
 
+  <section class="surface-card journey-section" aria-labelledby="tw-assessment-title">
+    <p class="card-label">Assessment evidence</p>
+    <h2 id="tw-assessment-title">Structured assessments this student has answered</h2>
+    <p class="journey-lab-count">
+      <span class="journey-stat-num">{{ assessment_evidence.assessments_completed }}</span> assessment{{ assessment_evidence.assessments_completed|pluralize }} completed
+      &middot; {{ assessment_evidence.questions_answered }} question{{ assessment_evidence.questions_answered|pluralize }} answered
+      &middot; {{ assessment_evidence.correct_answers }} correct answer{{ assessment_evidence.correct_answers|pluralize }}
+      &middot; {{ assessment_evidence.incorrect_answers }} incorrect answer{{ assessment_evidence.incorrect_answers|pluralize }}
+    </p>
+    {% if assessment_evidence.rows %}
+      <ul class="tw-practice-list">
+        {% for row in assessment_evidence.rows %}
+          <li class="tw-practice-item">
+            <p class="tw-practice-question">{{ row.prompt }}</p>
+            <p class="tw-practice-meta">
+              <span class="tw-quote-label">Answer</span> &ldquo;{{ row.answer }}&rdquo;
+              &middot; <span class="tw-practice-result tw-practice-result-{{ row.result|lower }}">{{ row.result }}</span>
+              &middot; {{ row.assessment }}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if assessment_evidence.has_more %}<p class="tw-signals-note">Showing the most recent {{ assessment_evidence.rows|length }} answers.</p>{% endif %}
+    {% else %}
+      <p>No assessment questions answered yet.</p>
+    {% endif %}
+  </section>
+
   <section class="surface-card journey-section" aria-labelledby="tw-patterns-title">
     <p class="card-label">Learning patterns</p>
     <h2 id="tw-patterns-title">Synthesis of this student&rsquo;s recent Physics activity</h2>

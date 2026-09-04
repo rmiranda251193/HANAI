@@ -13,7 +13,11 @@ It composes existing systems rather than duplicating them:
 * a pending / opened :class:`TeacherIntervention` recommendation is surfaced but
   never mutated (Step 17);
 * the concept graph supplies a fallback focus (Step 20);
-* ``build_student_learning_patterns`` supplies the ultimate fallback (Step 19).
+* ``build_student_learning_patterns`` supplies the ultimate fallback (Step 19);
+* a published :class:`Assessment` for the concept is offered as an optional,
+  last-resort capstone activity once its lesson/practice/lab/tutor are all
+  done (Step 23). Completion is checked factually (every question answered);
+  it is never treated as a correctness or mastery signal.
 
 Priority the primary activity is chosen with (documented + tested):
 
@@ -37,6 +41,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlencode
 
+from apps.assessments.models import AssessmentAttempt
+from apps.assessments.services import build_published_assessment_destination_map
 from apps.physics.concept_graph import build_physics_concept_graph
 from apps.students.concept_path_services import (
     build_concept_destination_maps,
@@ -58,7 +64,7 @@ PLANNER_NOTE = (
 
 @dataclass(frozen=True)
 class PlannedActivity:
-    type: str  # lesson | practice | lab | tutor | recommendation | explore
+    type: str  # lesson | practice | lab | tutor | assessment | recommendation | explore
     title: str
     description: str
     url: str
@@ -97,6 +103,7 @@ def _load_context(student, now, patterns=None, graph=None):
         student=student, now=now, patterns=patterns, with_actions=False, graph=graph
     )
     lesson_by_slug, sim_by_slug = build_concept_destination_maps()
+    assessment_by_slug = build_published_assessment_destination_map()
 
     goal = (
         TeacherLearningGoal.objects.filter(
@@ -135,6 +142,7 @@ def _load_context(student, now, patterns=None, graph=None):
         concept_path=concept_path,
         lesson_by_slug=lesson_by_slug,
         sim_by_slug=sim_by_slug,
+        assessment_by_slug=assessment_by_slug,
         goal=goal,
         recommendation=recommendation,
         incomplete_experiment=incomplete_experiment,
@@ -145,6 +153,7 @@ def _load_context(student, now, patterns=None, graph=None):
         _practice_done={},
         _experiment_done={},
         _gradeable={},
+        _assessment_done={},
     )
 
 
@@ -209,6 +218,18 @@ def _experiment_completed(ctx, simulation_id) -> bool:
 def _tutor_discussed(ctx, concept_name) -> bool:
     row = ctx.activity_by_concept.get(concept_name)
     return bool(row and row.get("tutor", {}).get("student_messages", 0) > 0)
+
+
+def _assessment_completed(ctx, assessment) -> bool:
+    """Factual only: every question of this assessment has an answer for this
+    student. Never checks whether those answers were correct -- a completed
+    assessment is not a mastery claim, only coverage."""
+
+    if assessment.pk not in ctx._assessment_done:
+        ctx._assessment_done[assessment.pk] = AssessmentAttempt.objects.filter(
+            student=ctx.student, assessment_id=assessment.pk, completed_at__isnull=False
+        ).exists()
+    return ctx._assessment_done[assessment.pk]
 
 
 def _concept_of(obj):
@@ -276,13 +297,30 @@ def _tutor_activity(lesson, concept_name) -> PlannedActivity:
     )
 
 
+def _assessment_activity(assessment, concept_name) -> PlannedActivity:
+    return PlannedActivity(
+        type="assessment",
+        title=f"Take the {assessment.title} assessment",
+        description=f"Answer the {assessment.title} assessment questions about {concept_name}.",
+        url=reverse("students:assessment_detail", args=[assessment.pk]),
+        cta="Open Assessment",
+        target_label=f"Assessment: {assessment.title}",
+    )
+
+
 def _concept_activity_options(ctx, concept_name, concept_slug):
     """Every existing activity for a concept, in resolution order, each tagged
-    with whether the student has already done it."""
+    with whether the student has already done it.
+
+    A published assessment for the concept is appended last -- an optional
+    capstone check, offered only once lesson / practice / lab / tutor have all
+    been surfaced first (Section 43: a completed assessment means "prefer
+    another activity", never a claim about how well the student did)."""
 
     options: list[tuple[PlannedActivity, bool]] = []
     lesson = ctx.lesson_by_slug.get(concept_slug)
     simulation = ctx.sim_by_slug.get(concept_slug)
+    assessment = ctx.assessment_by_slug.get(concept_slug)
 
     if lesson is not None:
         options.append((_lesson_activity(lesson, concept_name), _engaged_with_lesson(ctx, lesson.pk)))
@@ -296,6 +334,10 @@ def _concept_activity_options(ctx, concept_name, concept_slug):
         )
     if lesson is not None:
         options.append((_tutor_activity(lesson, concept_name), _tutor_discussed(ctx, concept_name)))
+    if assessment is not None:
+        options.append(
+            (_assessment_activity(assessment, concept_name), _assessment_completed(ctx, assessment))
+        )
     return options
 
 
@@ -369,6 +411,8 @@ def _goal_reason(activity_type: str) -> str:
         return "The Physics Lab is the activity your teacher selected for this goal."
     if activity_type == "tutor":
         return "You have worked through this goal's lesson and practice -- talking it through is a good next step."
+    if activity_type == "assessment":
+        return "You have worked through this goal's lesson and practice -- this assessment checks it all together."
     return "This activity matches your teacher-selected learning goal."
 
 

@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.assessments.urls import teacher_patterns as assessment_teacher_patterns
+
 from . import views
 
 app_name = "teachers"
@@ -27,4 +29,4 @@ urlpatterns = [
         views.misconception_decision,
         name="misconception_decision",
     ),
-]
+] + assessment_teacher_patterns

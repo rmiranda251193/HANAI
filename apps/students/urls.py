@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.assessments.urls import student_patterns as assessment_student_patterns
+
 from . import views
 
 app_name = "students"
@@ -31,4 +33,4 @@ urlpatterns = [
         views.misconception_decision,
         name="misconception_decision",
     ),
-]
+] + assessment_student_patterns

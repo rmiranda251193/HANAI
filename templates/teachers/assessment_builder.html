@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}{{ assessment.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>{{ assessment.title }}</h1>
+      <p>
+        <span class="status-badge status-{{ assessment.status }}">{{ assessment.get_status_display }}</span>
+        {% if assessment.concept %} &middot; {{ assessment.concept.name }}{% endif %}
+        &middot; {{ question_count }} question{{ question_count|pluralize }}
+      </p>
+      {% if assessment.description %}<p>{{ assessment.description }}</p>{% endif %}
+    </div>
+    <a class="text-link" href="{% url 'teachers:assessment_list_teacher' %}">All assessments</a>
+  </section>
+
+  {% if error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Assessments</p>
+      <p>{{ error }}</p>
+    </section>
+  {% endif %}
+
+  <section class="surface-card journey-section" aria-labelledby="ab-questions-title">
+    <p class="card-label">Assessment questions</p>
+    <h2 id="ab-questions-title">Ordered questions</h2>
+    {% if rows %}
+      <ol class="qb-builder-list">
+        {% for row in rows %}
+          <li class="qb-builder-row">
+            <span class="qb-builder-position">{{ forloop.counter }}</span>
+            <span class="qb-builder-prompt">{{ row.question.prompt }}</span>
+            <span class="status-badge">{{ row.question.get_question_type_display }}</span>
+            {% if assessment.status == "draft" %}
+              <form method="post" action="{% url 'teachers:assessment_remove_question' assessment.id row.question.id %}">
+                {% csrf_token %}
+                <button type="submit" class="button button-secondary">Remove</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p>No questions added yet.</p>
+    {% endif %}
+
+    {% if assessment.status == "draft" %}
+      <h3 class="journey-subhead">Add a question</h3>
+      {% if available_questions %}
+        <form method="post" action="{% url 'teachers:assessment_add_question' assessment.id %}" class="tw-form">
+          {% csrf_token %}
+          <div class="form-field form-field-wide">
+            <label for="ab-question">Question</label>
+            <select id="ab-question" name="question_id" required>
+              <option value="">&mdash; choose a question &mdash;</option>
+              {% for q in available_questions %}
+                <option value="{{ q.id }}">{{ q.prompt|truncatechars:80 }} ({{ q.get_question_type_display }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="button button-secondary">Add question</button>
+          </div>
+        </form>
+      {% else %}
+        <p>Every active question is already part of this assessment. <a class="text-link" href="{% url 'teachers:question_create' %}">Create another question</a>.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="surface-card journey-section" aria-labelledby="ab-publish-title">
+    <p class="card-label">Publishing</p>
+    <h2 id="ab-publish-title">Make this assessment visible to students</h2>
+    <p class="tw-signals-note">A draft assessment is teacher-only. Publishing requires at least one question, and every question must be active.</p>
+    <div class="form-actions">
+      {% if can_publish %}
+        <form method="post" action="{% url 'teachers:assessment_publish' assessment.id %}">
+          {% csrf_token %}
+          <button type="submit" class="button button-primary">Publish</button>
+        </form>
+      {% endif %}
+      {% if can_archive %}
+        <form method="post" action="{% url 'teachers:assessment_archive' assessment.id %}">
+          {% csrf_token %}
+          <button type="submit" class="button button-secondary">Archive</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

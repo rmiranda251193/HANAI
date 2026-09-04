@@ -120,6 +120,7 @@ class LearningEvidence(models.Model):
         PREDICTION_SUBMITTED = "prediction_submitted", "Prediction submitted"
         EXPERIMENT_OBSERVED = "experiment_observed", "Experiment observed"
         EXPLANATION_SUBMITTED = "explanation_submitted", "Explanation submitted"
+        ASSESSMENT_ATTEMPTED = "assessment_attempted", "Assessment attempted"
 
     student = models.ForeignKey(
         StudentProfile,

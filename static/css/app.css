@@ -533,3 +533,27 @@ a { color: inherit; }
 .plan-alt-title { margin: 0 0 .3rem; font-weight: 650; color: #edf6fb; }
 .plan-alt-target { margin: 0 0 .5rem; color: var(--muted); font-size: .82rem; }
 .tw-plan-line { margin: .35rem 0 0; color: #dbeaf1; font-size: .88rem; line-height: 1.6; }
+
+/* Question bank / assessments */
+.status-draft { background: rgba(153, 173, 187, .16); color: var(--muted); }
+.status-published { background: rgba(117, 213, 158, .16); color: #8be7af; }
+.status-archived { background: rgba(153, 173, 187, .12); color: var(--muted); }
+.qb-list { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); margin-top: 1rem; }
+.qb-card { display: flex; flex-direction: column; gap: .4rem; }
+.qb-card-inactive { opacity: .6; }
+.qb-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: 0; }
+.qb-difficulty { color: var(--muted); font-size: .8rem; text-transform: capitalize; }
+.qb-prompt { margin: .2rem 0 0; font-size: 1.05rem; line-height: 1.45; }
+.qb-key { margin: 0; color: var(--muted); font-size: .78rem; }
+.qb-type-picker { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); max-width: 50rem; margin-top: 1rem; }
+.qb-type-option { display: block; padding: 1.1rem 1.2rem; text-decoration: none; color: inherit; }
+.qb-type-option:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.qb-type-option h2 { margin: 0 0 .4rem; font-size: 1.1rem; color: #edf6fb; }
+.qb-type-option p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.qf-choice-row { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+.qf-choice-row input[type="text"] { flex: 1; }
+.qf-choice-correct { display: flex; align-items: center; gap: .3rem; white-space: nowrap; font-size: .84rem; color: var(--muted); }
+.qb-builder-list { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .6rem; }
+.qb-builder-row { display: flex; align-items: center; gap: .7rem; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.qb-builder-position { font-weight: 700; color: var(--cyan); min-width: 1.4rem; }
+.qb-builder-prompt { flex: 1; }

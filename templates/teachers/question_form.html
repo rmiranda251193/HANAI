@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}{% if question %}Edit Question{% else %}Create Question{% endif %} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>{% if question %}Edit question{% else %}Create question{% endif %}</h1>
+      <p>{% if question_type == "numeric" %}Numeric question{% else %}Multiple-choice question{% endif %} &middot; graded deterministically on the server.</p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:question_bank' %}">Back to Question Bank</a>
+  </section>
+
+  {% if error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Question Bank</p>
+      <p>{{ error }}</p>
+    </section>
+  {% endif %}
+
+  {% if is_used %}
+    <section class="generation-message" role="status">
+      <p class="card-label">Question Bank</p>
+      <p>A student has already answered this question, so its trusted answer definition (expected value, tolerance, choices, correct choice) is locked. The prompt, hint and explanation can still be edited. To change the answer definition, create a new question.</p>
+    </section>
+  {% endif %}
+
+  <section class="surface-card">
+    <form method="post" action="{% if question %}{% url 'teachers:question_edit' question.id %}{% else %}{% url 'teachers:question_create' %}?type={{ question_type }}{% endif %}" class="tw-form">
+      {% csrf_token %}
+      <input type="hidden" name="question_type" value="{{ question_type }}">
+
+      <div class="form-field form-field-wide">
+        <label for="qf-prompt">Prompt</label>
+        <textarea id="qf-prompt" name="prompt" rows="3" required>{{ values.prompt }}</textarea>
+      </div>
+
+      <div class="form-field">
+        <label for="qf-concept">Physics concept <span class="tw-optional">(optional)</span></label>
+        <select id="qf-concept" name="concept_id">
+          <option value="">&mdash; none &mdash;</option>
+          {% for pk, name in concept_choices %}
+            <option value="{{ pk }}" {% if values.concept_id|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label for="qf-difficulty">Difficulty</label>
+        <select id="qf-difficulty" name="difficulty">
+          {% for value, label in difficulty_choices %}
+            <option value="{{ value }}" {% if values.difficulty == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if question_type == "numeric" %}
+        {% if is_used %}
+          <div class="form-field">
+            <p class="tw-optional">Expected value</p>
+            <p>{{ question.expected_value }}{% if question.expected_unit %} {{ question.expected_unit }}{% endif %}</p>
+          </div>
+          <div class="form-field">
+            <p class="tw-optional">Tolerance</p>
+            <p>{{ question.tolerance|default:"(default)" }}</p>
+          </div>
+        {% else %}
+          <div class="form-field">
+            <label for="qf-expected-value">Expected value</label>
+            <input type="text" id="qf-expected-value" name="expected_value" inputmode="decimal" value="{{ values.expected_value }}" required>
+          </div>
+          <div class="form-field">
+            <label for="qf-unit">Unit <span class="tw-optional">(optional)</span></label>
+            <input type="text" id="qf-unit" name="expected_unit" value="{{ values.expected_unit }}">
+          </div>
+          <div class="form-field">
+            <label for="qf-tolerance">Tolerance <span class="tw-optional">(optional -- a sensible default is used otherwise)</span></label>
+            <input type="text" id="qf-tolerance" name="tolerance" inputmode="decimal" value="{{ values.tolerance }}">
+          </div>
+        {% endif %}
+      {% else %}
+        {% if is_used %}
+          <div class="form-field form-field-wide">
+            <p class="tw-optional">Choices</p>
+            <ul class="content-list">
+              {% for choice in question.choices %}
+                <li>{{ choice }}{% if forloop.counter0 == question.correct_choice %} &mdash; <strong>correct</strong>{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <fieldset class="form-field form-field-wide">
+            <legend>Choices</legend>
+            {% for choice in values.choices %}
+              <div class="qf-choice-row">
+                <input type="text" name="choice" value="{{ choice }}" placeholder="Choice {{ forloop.counter }}">
+                <label class="qf-choice-correct">
+                  <input type="radio" name="correct_choice" value="{{ forloop.counter0 }}" {% if values.correct_choice|stringformat:"s" == forloop.counter0|stringformat:"s" %}checked{% endif %} required>
+                  Correct
+                </label>
+              </div>
+            {% endfor %}
+          </fieldset>
+        {% endif %}
+      {% endif %}
+
+      <div class="form-field form-field-wide">
+        <label for="qf-hint">Hint <span class="tw-optional">(optional)</span></label>
+        <textarea id="qf-hint" name="hint" rows="2">{{ values.hint }}</textarea>
+      </div>
+      <div class="form-field form-field-wide">
+        <label for="qf-explanation">Explanation <span class="tw-optional">(optional)</span></label>
+        <textarea id="qf-explanation" name="explanation" rows="2">{{ values.explanation }}</textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="button button-primary">Save</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

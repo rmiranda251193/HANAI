@@ -531,7 +531,38 @@ class PlannerQueryBudgetTests(PlannerMixin, TestCase):
         self.sim(c)
         self.goal(student, teacher, c, lesson=les)
         self.practice(student, les, "q1", when=self.recent)
-        with self.assertNumQueries(16):
+        # +1 vs. Step 22's original 16: one bounded read of published
+        # assessments per concept (Step 23's assessment_by_slug map). This
+        # fixture has no published assessment on the focus concept, so the
+        # conditional _assessment_completed check below never fires.
+        with self.assertNumQueries(17):
+            build_adaptive_activity_plan(student=student, now=self.now)
+
+    def test_planner_query_count_with_a_published_assessment_on_focus_concept(self):
+        """A published assessment matching the focus concept adds exactly one
+        more query (_assessment_completed) -- memoised, so it is not paid
+        twice even though the primary and alternatives resolution both ask."""
+
+        from apps.assessments import services as assessment_services
+        from apps.assessments.models import QuestionBankItem
+
+        teacher = self.make_user(staff=True)
+        student = self.make_student()
+        c = self.concept("Newton's Third Law")
+        les = self.lesson(c, title="N3L Lesson", problems=self.problems("q1", "q2"))
+        self.sim(c)
+        self.goal(student, teacher, c, lesson=les)
+        self.practice(student, les, "q1", when=self.recent)
+
+        q = assessment_services.create_question(
+            teacher=teacher, question_type=QuestionBankItem.QuestionType.NUMERIC,
+            prompt="N3L assessment question", concept_id=c.pk, expected_value=1,
+        )
+        a = assessment_services.create_assessment(teacher=teacher, title="N3L Check", concept_id=c.pk)
+        assessment_services.add_question_to_assessment(assessment_id=a.pk, teacher=teacher, question_id=q.pk)
+        assessment_services.publish_assessment(assessment_id=a.pk, teacher=teacher)
+
+        with self.assertNumQueries(18):
             build_adaptive_activity_plan(student=student, now=self.now)
 
     def test_history_size_does_not_scale_query_count(self):

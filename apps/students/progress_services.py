@@ -35,6 +35,7 @@ _KIND_PRESENTATION = {
     LearningEvidence.Kind.PREDICTION_SUBMITTED: ("Prediction", "Submitted an experiment prediction", "\U0001f52e"),
     LearningEvidence.Kind.EXPERIMENT_OBSERVED: ("Observation", "Recorded an experiment observation", "\U0001f52c"),
     LearningEvidence.Kind.EXPLANATION_SUBMITTED: ("Explanation", "Explained the experiment", "\U0001f4a1"),
+    LearningEvidence.Kind.ASSESSMENT_ATTEMPTED: ("Assessment", "Answered an assessment question", "\U0001f4dd"),
 }
 _EXPERIMENT_KINDS = {
     LearningEvidence.Kind.PREDICTION_SUBMITTED,
@@ -67,6 +68,33 @@ def _practice_snapshot(evidence: LearningEvidence) -> dict | None:
         "concept": context.get("concept") or "",
         "result": result,
         "attempt_number": context.get("attempt_number"),
+    }
+
+
+def _assessment_snapshot(evidence: LearningEvidence) -> dict | None:
+    """Factual assessment-answer detail from a structured assessment evidence row.
+
+    Mirrors ``_practice_snapshot`` exactly, for the same reason: only the
+    server's own deterministic verdict is ever shown, and only what was
+    actually recorded -- never an answer key, never a mastery judgement.
+    """
+
+    if evidence.kind != LearningEvidence.Kind.ASSESSMENT_ATTEMPTED:
+        return None
+    context = evidence.context if isinstance(evidence.context, dict) else {}
+    if not context.get("assessment"):
+        return None
+    is_correct = context.get("is_correct")
+    if is_correct is True:
+        result = "Correct"
+    elif is_correct is False:
+        result = "Incorrect"
+    else:
+        result = "Recorded"
+    return {
+        "assessment": context.get("assessment") or "",
+        "concept": context.get("concept") or "",
+        "result": result,
     }
 
 
@@ -130,6 +158,7 @@ def _timeline(evidence_rows) -> list[dict]:
             "concepts": concepts,
             "experiment": _experiment_snapshot(evidence),
             "practice": _practice_snapshot(evidence),
+            "assessment": _assessment_snapshot(evidence),
         }
         label = _day_label(evidence.created_at, today=today)
         if not days or days[-1]["label"] != label:
@@ -144,6 +173,11 @@ def _concepts_explored(evidence_rows, attempts, sessions) -> list[dict]:
     Sources are existing relationships only: a lesson attached to a piece of
     evidence or a tutor session, and the concept behind an experiment's
     simulation. No concept is invented and none is shown just for existing.
+
+    A structured assessment may have no lesson at all (Section 17: lesson is
+    optional) -- its evidence still names the concept in ``context['concept']``
+    (see :func:`_assessment_snapshot`), so that case is resolved separately in
+    one batched query rather than being silently dropped.
     """
 
     tally: dict[str, dict] = {}
@@ -152,10 +186,23 @@ def _concepts_explored(evidence_rows, attempts, sessions) -> list[dict]:
         entry = tally.setdefault(concept.name, {"concept": concept, "count": 0})
         entry["count"] += 1
 
+    lessonless_assessment_names: set[str] = set()
     for evidence in evidence_rows:
         if evidence.lesson_id:
             for concept in evidence.lesson.physics_concepts.all():
                 bump(concept)
+        elif evidence.kind == LearningEvidence.Kind.ASSESSMENT_ATTEMPTED:
+            context = evidence.context if isinstance(evidence.context, dict) else {}
+            name = context.get("concept")
+            if name:
+                lessonless_assessment_names.add(name)
+
+    if lessonless_assessment_names:
+        from apps.physics.models import PhysicsConcept
+
+        for concept in PhysicsConcept.objects.filter(name__in=lessonless_assessment_names):
+            bump(concept)
+
     for attempt in attempts:
         concept = getattr(attempt.simulation, "concept", None)
         if concept is not None:
@@ -317,6 +364,7 @@ def build_student_learning_progress(*, student) -> dict:
             "predictions": by_kind[LearningEvidence.Kind.PREDICTION_SUBMITTED],
             "observations": by_kind[LearningEvidence.Kind.EXPERIMENT_OBSERVED],
             "explanations": by_kind[LearningEvidence.Kind.EXPLANATION_SUBMITTED],
+            "assessment_questions": by_kind[LearningEvidence.Kind.ASSESSMENT_ATTEMPTED],
             "experiments_completed": experiment_summary["completed"],
             "experiments_attempted": experiment_summary["attempted"],
             "concepts": len(concepts),

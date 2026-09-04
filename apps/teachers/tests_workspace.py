@@ -543,13 +543,64 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
         )
 
         # Bounded and intentional: progress projection + candidates (+ prefetch)
-        # + practice-attempt evidence + learning-pattern synthesis (practice /
-        # experiment / tutor reads, each with one prefetch, plus the shared
-        # next-step rules: one active-simulation read + one pending-recommendation
-        # count) + one shared concept-graph read + learning-goals read + activity
-        # planner (concept destination maps + goal / recommendation / unfinished-
-        # lab reads + a few bounded activity-signal checks) + form choice lists
-        # (lesson/concept/simulation) + intervention history. No per-row queries;
-        # the number does not grow with student history size.
-        with self.assertNumQueries(31):
+        # + practice-attempt evidence + assessment evidence (answers + completed-
+        # attempts count) + learning-pattern synthesis (practice / experiment /
+        # tutor reads, each with one prefetch, plus the shared next-step rules:
+        # one active-simulation read + one pending-recommendation count) + one
+        # shared concept-graph read + learning-goals read + activity planner
+        # (concept destination maps + published-assessment map + goal /
+        # recommendation / unfinished-lab reads + a few bounded activity-signal
+        # checks) + form choice lists (lesson/concept/simulation) + intervention
+        # history. No per-row queries; the number does not grow with student
+        # history size.
+        with self.assertNumQueries(34):
+            build_teacher_student_evidence(student=student)
+
+    def test_query_budget_with_a_published_assessment_on_the_focus_concept(self):
+        """The +1 for build_published_assessment_destination_map is fixed and
+        already covered above; this pins the *additional* conditional query
+        _assessment_completed fires only when the planner's focus concept
+        actually has a published assessment attached to it."""
+
+        from apps.assessments import services as assessment_services
+        from apps.assessments.models import QuestionBankItem
+        from apps.students.models import PracticeAttempt
+
+        concept = self.make_concept("Acceleration")
+        lesson = self.make_lesson(concept)
+        simulation = self.make_simulation(concept)
+        misconception = self.make_misconception(concept)
+        student = self.make_student("Alex")
+        for i in range(8):
+            self.add_evidence(student, Kind.QUESTION_ASKED, lesson=lesson, detail=f"q{i}")
+        self.add_experiment(student, simulation, lesson=lesson, completed=True,
+                            mass=2.0, force=20.0, accel=10.0)
+        for i in range(3):
+            PracticeAttempt.objects.create(
+                student=student, lesson=lesson, concept=concept,
+                question_key=f"q{i}",
+                question_type=PracticeAttempt.QuestionType.NUMERIC,
+                question_prompt="p", answer_text="10", is_correct=bool(i % 2),
+                attempt_number=1,
+            )
+        obs = self.add_candidate(student, misconception)
+        self.add_candidate_evidence(obs)
+        self.add_tutor(student, lesson, student_turns=2, tutor_turns=2)
+        teacher = self.make_teacher()
+        TeacherIntervention.objects.create(
+            student=student, teacher=teacher, action_type="teacher_note", note="n",
+        )
+        q = assessment_services.create_question(
+            teacher=teacher, question_type=QuestionBankItem.QuestionType.NUMERIC,
+            prompt="Acceleration check question", concept_id=concept.pk, expected_value=1,
+        )
+        a = assessment_services.create_assessment(
+            teacher=teacher, title="Acceleration Check", concept_id=concept.pk
+        )
+        assessment_services.add_question_to_assessment(
+            assessment_id=a.pk, teacher=teacher, question_id=q.pk
+        )
+        assessment_services.publish_assessment(assessment_id=a.pk, teacher=teacher)
+
+        with self.assertNumQueries(35):
             build_teacher_student_evidence(student=student)

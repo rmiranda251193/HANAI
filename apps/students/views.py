@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.ai.exceptions import AIError
+from apps.assessments.services import get_student_assessment_summary
 from apps.lessons.models import Lesson
 from apps.teachers.goal_services import (
     active_goal_concepts,
@@ -171,6 +172,7 @@ def student_progress(request):
     context["student"] = student
     context["recommendations_pending"] = count_pending_recommendations(student)
     context["active_goal_count"] = active_goal_count(student)
+    context["assessment_summary"] = get_student_assessment_summary(student=student)
     return render(request, "students/progress.html", context)
 
 
@@ -186,6 +188,9 @@ def learning_patterns(request):
     context = build_student_learning_patterns(student=student)
     context["student"] = student
     context["teacher_goal_concepts"] = active_goal_concepts(student)
+    # A distinct, separately-composed section -- assessment activity is never
+    # blended into the practice/experiment/tutor pattern counts above.
+    context["assessment_summary"] = get_student_assessment_summary(student=student)
     return render(request, "students/learning.html", context)
 
 
