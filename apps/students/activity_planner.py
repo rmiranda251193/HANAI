@@ -79,6 +79,17 @@ def _load_context(student, now, patterns=None, graph=None):
 
     if patterns is None:
         patterns = build_student_learning_patterns(student=student, now=now)
+    if patterns.get("next_investigation") is None:
+        # A shared patterns dict must still carry the Step 19 next-step so the
+        # plan is identical whichever page asks for it. Callers that reuse
+        # patterns are expected to build them with next_investigation; this
+        # re-derives it defensively rather than silently degrading rule 5.
+        patterns = {
+            **patterns,
+            "next_investigation": build_student_learning_patterns(
+                student=student, now=now
+            )["next_investigation"],
+        }
     if graph is None:
         graph = build_physics_concept_graph()
 
@@ -104,7 +115,7 @@ def _load_context(student, now, patterns=None, graph=None):
                 TeacherIntervention.Status.OPENED,
             ],
         )
-        .select_related("concept", "lesson", "simulation")
+        .select_related("concept", "lesson", "simulation", "simulation__concept")
         .prefetch_related("lesson__physics_concepts")
         .order_by("-created_at", "-id")
         .first()
@@ -133,6 +144,7 @@ def _load_context(student, now, patterns=None, graph=None):
         _engaged={},
         _practice_done={},
         _experiment_done={},
+        _gradeable={},
     )
 
 
@@ -165,17 +177,23 @@ def _practice_fully_attempted(ctx, lesson) -> bool:
         if not keys:
             ctx._practice_done[lesson.pk] = False
         else:
+            # A lesson has at most a few dozen distinct question keys; the cap
+            # only guards against a pathological retry history.
             attempted = set(
                 PracticeAttempt.objects.filter(
                     student=ctx.student, lesson_id=lesson.pk
-                ).values_list("question_key", flat=True)
+                ).values_list("question_key", flat=True)[:2000]
             )
             ctx._practice_done[lesson.pk] = keys.issubset(attempted)
     return ctx._practice_done[lesson.pk]
 
 
-def _has_gradeable_practice(lesson) -> bool:
-    return any(q.type in _GRADEABLE_TYPES for q in get_practice_questions(lesson))
+def _has_gradeable_practice(ctx, lesson) -> bool:
+    if lesson.pk not in ctx._gradeable:
+        ctx._gradeable[lesson.pk] = any(
+            q.type in _GRADEABLE_TYPES for q in get_practice_questions(lesson)
+        )
+    return ctx._gradeable[lesson.pk]
 
 
 def _experiment_completed(ctx, simulation_id) -> bool:
@@ -268,7 +286,7 @@ def _concept_activity_options(ctx, concept_name, concept_slug):
 
     if lesson is not None:
         options.append((_lesson_activity(lesson, concept_name), _engaged_with_lesson(ctx, lesson.pk)))
-        if _has_gradeable_practice(lesson):
+        if _has_gradeable_practice(ctx, lesson):
             options.append(
                 (_practice_activity(lesson, concept_name), _practice_fully_attempted(ctx, lesson))
             )
@@ -285,13 +303,13 @@ def _pick(options) -> PlannedActivity | None:
     for activity, done in options:
         if not done:
             return activity
-    # Everything the concept offers is already done -- keep pointing at the
-    # Tutor (there is always more to discuss) rather than repeating a finished
-    # activity.
+    # Everything the concept offers is already done. The Tutor is always a
+    # useful next step (there is more to discuss); otherwise return None so the
+    # caller can fall through rather than re-suggesting finished work.
     for activity, _done in options:
         if activity.type == "tutor":
             return activity
-    return options[0][0] if options else None
+    return None
 
 
 # --- focus + primary + alternatives -----------------------------------
@@ -322,7 +340,7 @@ def _goal_activity(ctx, goal, focus_slug) -> PlannedActivity | None:
         lesson = goal.lesson
         if not _engaged_with_lesson(ctx, lesson.pk):
             return _lesson_activity(lesson, concept_name)
-        if _has_gradeable_practice(lesson) and not _practice_fully_attempted(ctx, lesson):
+        if _has_gradeable_practice(ctx, lesson) and not _practice_fully_attempted(ctx, lesson):
             return _practice_activity(lesson, concept_name)
         # lesson engaged and its practice done / absent -> fall through to
         # whatever else the concept offers (a lab, the Tutor).
@@ -418,12 +436,14 @@ def _resolve_primary(ctx, focus, focus_slug):
 
 
 def _resolve_alternatives(ctx, focus, focus_slug, primary):
+    """Up to two other, not-yet-done activities for the same focus concept."""
+
     if primary is None or not (focus["concept"] and focus_slug):
         return []
     seen = {primary.type}
     alternatives: list[PlannedActivity] = []
-    for activity, _done in _concept_activity_options(ctx, focus["concept"], focus_slug):
-        if activity.type in seen:
+    for activity, done in _concept_activity_options(ctx, focus["concept"], focus_slug):
+        if done or activity.type in seen:
             continue
         seen.add(activity.type)
         alternatives.append(activity)

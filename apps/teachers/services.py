@@ -249,9 +249,9 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
 
     progress = build_student_learning_progress(student=student)
     candidates = _candidate_rows(student)
-    learning_patterns = build_student_learning_patterns(
-        student=student, include_next_investigation=False
-    )
+    # next_investigation is needed by the shared activity planner so the
+    # teacher's plan matches the student's own /student/plan/ view exactly.
+    learning_patterns = build_student_learning_patterns(student=student)
     concept_graph = build_physics_concept_graph()
 
     concept_choices = list(

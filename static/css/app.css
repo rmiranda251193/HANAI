@@ -524,7 +524,9 @@ a { color: inherit; }
 .plan-next-desc { margin: 0 0 .5rem; color: #dbeaf1; line-height: 1.6; }
 .plan-next-target { margin: .2rem 0 0; color: var(--muted); font-size: .86rem; }
 .plan-note { margin: .9rem 0 0; padding-top: .8rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; line-height: 1.55; }
-.plan-why h2 { margin: .5rem 0 0; font-size: 1.05rem; font-weight: 600; color: #dbeaf1; line-height: 1.55; }
+.plan-why h2 { margin: .5rem 0 .5rem; font-size: 1.05rem; }
+.plan-why-reason { margin: 0; color: #dbeaf1; line-height: 1.6; }
+.plan-empty-reason { margin: .4rem 0 1rem; color: #dbeaf1; line-height: 1.6; }
 .plan-alts h2 { margin: .5rem 0 .8rem; font-size: 1.05rem; }
 .plan-alt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
 .plan-alt-item { padding: .8rem .9rem; border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: .5rem; background: rgba(9, 18, 29, .42); }

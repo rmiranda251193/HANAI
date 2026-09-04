@@ -35,8 +35,8 @@
     </section>
 
     <section class="surface-card plan-why" aria-labelledby="plan-why-title">
-      <p class="card-label">Why this activity?</p>
-      <h2 id="plan-why-title">{{ reason }}</h2>
+      <h2 id="plan-why-title">Why this activity?</h2>
+      <p class="plan-why-reason">{{ reason }}</p>
     </section>
 
     {% if alternatives %}
@@ -55,9 +55,14 @@
       </section>
     {% endif %}
   {% else %}
+    {# Defensive only: the student view always asks the planner for a plan that
+       includes the Step 19 next-step, so next_activity is always set on this page
+       and this branch is unreachable from /student/plan/. Kept so the template
+       still renders an honest empty state if a plan ever arrives with no next
+       activity. #}
     <section class="empty-state" aria-labelledby="plan-empty-title">
-      <p class="eyebrow">Nothing to plan yet</p>
-      <h2 id="plan-empty-title">{{ reason }}</h2>
+      <h2 id="plan-empty-title">Nothing to plan yet</h2>
+      <p class="plan-empty-reason">{{ reason }}</p>
       <div class="form-actions">
         <a class="button button-primary" href="{% url 'students:lessons' %}">Open a lesson</a>
         <a class="button button-secondary" href="{% url 'physics_lab:index' %}">Go to the Physics Lab</a>

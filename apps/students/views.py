@@ -227,8 +227,19 @@ def activity_plan(request):
     """
 
     student = _current_student(request)
-    context = build_adaptive_activity_plan(student=student)
-    context["student"] = student
+    plan = build_adaptive_activity_plan(student=student)
+    # Forward only the student-facing keys. The planner's ``focus`` object carries
+    # an internal decision-source label ("teacher_goal" / "pending_recommendation"
+    # / ...) that must never reach the student template, so it is left out here
+    # rather than relying on plan.html not to render it.
+    context = {
+        "student": student,
+        "teacher_goal": plan["teacher_goal"],
+        "next_activity": plan["next_activity"],
+        "reason": plan["reason"],
+        "alternatives": plan["alternatives"],
+        "planner_note": plan["planner_note"],
+    }
     return render(request, "students/plan.html", context)
 
 
