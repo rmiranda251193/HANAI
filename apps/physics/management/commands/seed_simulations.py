@@ -15,6 +15,19 @@ PHYSICS_SIMULATIONS = [
             "ignored."
         ),
     },
+    {
+        "slug": "kinematics",
+        "title": "Kinematics -- Straight-Line Motion",
+        "concept_name": "Acceleration",
+        "simulation_type": PhysicsSimulation.SimulationType.KINEMATICS,
+        "description": (
+            "Set an initial position, an initial velocity and a constant "
+            "acceleration, then watch position and velocity change over time "
+            "through v = v0 + at and x = x0 + v0*t + (1/2)*a*t^2. Idealized "
+            "model: motion is along a single straight line and there is no "
+            "friction or air resistance."
+        ),
+    },
 ]
 
 

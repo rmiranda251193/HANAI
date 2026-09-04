@@ -48,20 +48,31 @@ class ExperimentContext:
     """A completed (or in-progress) Physics Lab experiment, as tutor context.
 
     The numeric fields are the server-recomputed deterministic values, so the
-    tutor reasons about the same acceleration the app computed, not a browser
-    number.
+    tutor reasons about the same values the app computed, not a browser
+    number. ``mass_kg``/``force_n`` are Newton's Second Law-specific;
+    ``initial_position_m``/``initial_velocity_m_s``/``time_s``/``position_m``/
+    ``velocity_m_s`` are Kinematics-specific. ``acceleration_m_s2`` is shared
+    by both. A given experiment only ever populates the fields for its own
+    simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
+    simulation_type: str = ""
     mass_kg: float | None = None
     force_n: float | None = None
     acceleration_m_s2: float | None = None
+    initial_position_m: float | None = None
+    initial_velocity_m_s: float | None = None
+    time_s: float | None = None
+    position_m: float | None = None
+    velocity_m_s: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
 
     def __post_init__(self):
         object.__setattr__(self, "simulation", str(self.simulation or "").strip())
+        object.__setattr__(self, "simulation_type", str(self.simulation_type or "").strip())
         for name in ("prediction", "observation", "explanation"):
             object.__setattr__(self, name, str(getattr(self, name) or "").strip())
 
@@ -75,6 +86,10 @@ class ExperimentContext:
                 self.mass_kg is not None,
                 self.force_n is not None,
                 self.acceleration_m_s2 is not None,
+                self.initial_position_m is not None,
+                self.initial_velocity_m_s is not None,
+                self.position_m is not None,
+                self.velocity_m_s is not None,
             ]
         )
 
@@ -85,15 +100,28 @@ class ExperimentContext:
             label = simulation.get_simulation_type_display()
         else:
             label = str(simulation) if simulation is not None else ""
-        return cls(
+        simulation_type = getattr(simulation, "simulation_type", "") or ""
+
+        kwargs = dict(
             simulation=label,
-            mass_kg=attempt.mass_kg,
-            force_n=attempt.force_n,
+            simulation_type=simulation_type,
             acceleration_m_s2=attempt.acceleration_m_s2,
             prediction=attempt.prediction,
             observation=attempt.observation,
             explanation=attempt.explanation,
         )
+        if simulation_type == "kinematics":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                initial_position_m=params.get("initial_position_m"),
+                initial_velocity_m_s=params.get("initial_velocity_m_s"),
+                time_s=params.get("observed_time_s"),
+                position_m=params.get("observed_position_m"),
+                velocity_m_s=params.get("observed_velocity_m_s"),
+            )
+        else:
+            kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)
+        return cls(**kwargs)
 
 
 @dataclass(frozen=True)

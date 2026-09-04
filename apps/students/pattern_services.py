@@ -102,6 +102,11 @@ def _new_concept(name: str, topic: str) -> dict:
             "latest_mass": None,
             "latest_force": None,
             "latest_acceleration": None,
+            "latest_initial_position": None,
+            "latest_initial_velocity": None,
+            "latest_time": None,
+            "latest_position": None,
+            "latest_velocity": None,
             "latest_activity": None,
         },
         "tutor": {
@@ -168,6 +173,11 @@ def _present_experiment(bucket: dict) -> dict:
         "latest_mass": experiment["latest_mass"],
         "latest_force": experiment["latest_force"],
         "latest_acceleration": experiment["latest_acceleration"],
+        "latest_initial_position": experiment["latest_initial_position"],
+        "latest_initial_velocity": experiment["latest_initial_velocity"],
+        "latest_time": experiment["latest_time"],
+        "latest_position": experiment["latest_position"],
+        "latest_velocity": experiment["latest_velocity"],
         "latest_activity": experiment["latest_activity"],
     }
 
@@ -549,6 +559,12 @@ def build_student_learning_patterns(
             experiment["latest_mass"] = attempt.mass_kg
             experiment["latest_force"] = attempt.force_n
             experiment["latest_acceleration"] = attempt.acceleration_m_s2
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            experiment["latest_initial_position"] = params.get("initial_position_m")
+            experiment["latest_initial_velocity"] = params.get("initial_velocity_m_s")
+            experiment["latest_time"] = params.get("observed_time_s")
+            experiment["latest_position"] = params.get("observed_position_m")
+            experiment["latest_velocity"] = params.get("observed_velocity_m_s")
 
         bucket["latest_activity"] = _later(bucket["latest_activity"], when)
         # Only deep-link a concept to a lesson that actually teaches it: an

@@ -26,18 +26,21 @@
       var instance = root.labInstance;
       if (instance && typeof instance.getState === "function") {
         var s = instance.getState();
-        return { mass: s.massKg, force: s.forceN };
+        return { mass: s.massKg, force: s.forceN, state: s };
       }
       var massEl = root.querySelector("[data-input-mass]");
       var forceEl = root.querySelector("[data-input-force]");
       return {
         mass: massEl ? parseFloat(massEl.value) : null,
-        force: forceEl ? parseFloat(forceEl.value) : null
+        force: forceEl ? parseFloat(forceEl.value) : null,
+        state: null
       };
     }
 
     function syncHiddenFields() {
       var v = currentValues();
+
+      // Legacy Newton's Second Law convention (unchanged).
       var massFields = root.querySelectorAll("[data-field-mass]");
       var forceFields = root.querySelectorAll("[data-field-force]");
       var i;
@@ -46,6 +49,18 @@
       }
       for (i = 0; i < forceFields.length; i++) {
         if (v.force != null && isFinite(v.force)) forceFields[i].value = String(v.force);
+      }
+
+      // Generic convention for any other simulation: a hidden input with
+      // data-field="<getState() key>" is synced from the live sim state
+      // directly, with no per-simulation code needed here.
+      if (v.state) {
+        var genericFields = root.querySelectorAll("[data-field]");
+        for (i = 0; i < genericFields.length; i++) {
+          var key = genericFields[i].getAttribute("data-field");
+          var value = key ? v.state[key] : null;
+          if (value != null && isFinite(value)) genericFields[i].value = String(value);
+        }
       }
     }
 

@@ -94,7 +94,12 @@
                   Latest recorded values:
                   {% if pattern.latest_mass is not None %}mass {{ pattern.latest_mass|floatformat:1 }} kg &middot; {% endif %}
                   {% if pattern.latest_force is not None %}force {{ pattern.latest_force|floatformat:1 }} N &middot; {% endif %}
+                  {% if pattern.latest_initial_position is not None %}initial position {{ pattern.latest_initial_position|floatformat:1 }} m &middot; {% endif %}
+                  {% if pattern.latest_initial_velocity is not None %}initial velocity {{ pattern.latest_initial_velocity|floatformat:1 }} m/s &middot; {% endif %}
                   acceleration {{ pattern.latest_acceleration|floatformat:2 }} m/s&sup2;
+                  {% if pattern.latest_time is not None %} &middot; observed time {{ pattern.latest_time|floatformat:1 }} s{% endif %}
+                  {% if pattern.latest_position is not None %} &middot; position {{ pattern.latest_position|floatformat:1 }} m{% endif %}
+                  {% if pattern.latest_velocity is not None %} &middot; velocity {{ pattern.latest_velocity|floatformat:1 }} m/s{% endif %}
                 </p>
               {% endif %}
             </li>

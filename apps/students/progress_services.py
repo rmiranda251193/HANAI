@@ -119,8 +119,22 @@ def _experiment_snapshot(evidence: LearningEvidence) -> dict | None:
         "mass_kg": None,
         "force_n": None,
         "acceleration_m_s2": None,
+        "initial_position_m": None,
+        "initial_velocity_m_s": None,
+        "time_s": None,
+        "position_m": None,
+        "velocity_m_s": None,
     }
-    for field in ("mass_kg", "force_n", "acceleration_m_s2"):
+    for field in (
+        "mass_kg",
+        "force_n",
+        "acceleration_m_s2",
+        "initial_position_m",
+        "initial_velocity_m_s",
+        "time_s",
+        "position_m",
+        "velocity_m_s",
+    ):
         value = context.get(field)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             snapshot[field] = float(value)

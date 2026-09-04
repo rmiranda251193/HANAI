@@ -14,18 +14,21 @@
   </section>
 
   <p class="lab-model-note" role="note">
-    Idealized model: the net force is treated as constant and friction and air resistance are ignored.
-    Values are computed from <code>a = F / m</code> &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+    Idealized model: motion is along a single straight line with a constant acceleration; there is no friction or air resistance.
+    Values are computed from <code>v = v&#8320; + at</code> and <code>x = x&#8320; + v&#8320;t + &frac12;at&sup2;</code> &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
   </p>
 
   <div class="lab lab-flow"
        data-simulation-type="{{ simulation.simulation_type }}"
-       data-mass="{{ defaults.mass_kg }}"
-       data-force="{{ defaults.force_n }}"
-       data-mass-min="{{ bounds.mass_kg.min }}"
-       data-mass-max="{{ bounds.mass_kg.max }}"
-       data-force-min="{{ bounds.force_n.min }}"
-       data-force-max="{{ bounds.force_n.max }}"
+       data-x0="{{ defaults.initial_position_m }}"
+       data-v0="{{ defaults.initial_velocity_m_s }}"
+       data-accel="{{ defaults.acceleration_m_s2 }}"
+       data-x0-min="{{ bounds.initial_position_m.min }}"
+       data-x0-max="{{ bounds.initial_position_m.max }}"
+       data-v0-min="{{ bounds.initial_velocity_m_s.min }}"
+       data-v0-max="{{ bounds.initial_velocity_m_s.max }}"
+       data-accel-min="{{ bounds.acceleration_m_s2.min }}"
+       data-accel-max="{{ bounds.acceleration_m_s2.max }}"
        {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
        data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
        data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
@@ -36,7 +39,7 @@
       <p class="lab-step-num">Step 1</p>
       <h2 id="lab-step-predict">Predict</h2>
       <p class="lab-step-lead">
-        What do you predict will happen to the acceleration if the net force doubles while the mass stays the same? Write it in your own words &mdash; you will not be marked right or wrong.
+        What do you predict will happen to the object's velocity if the acceleration is positive? Write it in your own words &mdash; you will not be marked right or wrong.
       </p>
       <form class="lab-step-form" method="post"
             action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
@@ -44,7 +47,7 @@
         {% csrf_token %}
         <label for="exp-prediction">Your prediction</label>
         <textarea id="exp-prediction" name="prediction" rows="3"
-                  placeholder="e.g. If the force doubles, the acceleration will double.">{{ experiment_attempt.prediction }}</textarea>
+                  placeholder="e.g. If the acceleration is positive, the velocity will keep increasing.">{{ experiment_attempt.prediction }}</textarea>
         <button type="submit" class="button button-primary">Submit Prediction</button>
       </form>
       <p class="lab-step-result" data-step-result="predict" aria-live="polite">
@@ -59,50 +62,40 @@
 
       <div class="lab-experiment-grid">
         <div class="lab-stage-col">
-          <svg class="lab-scene" viewBox="0 0 640 280" role="img"
-               data-lab-scene aria-label="A cart on a track with a force arrow and an acceleration arrow.">
-            <desc data-scene-desc>A cart on a track. A force arrow points right and an acceleration arrow shows how quickly the cart speeds up.</desc>
-            <line x1="20" y1="200" x2="620" y2="200" class="lab-track" />
-            <g data-cart transform="translate(70,156)">
-              <rect x="0" y="0" width="92" height="40" rx="6" class="lab-cart-body" />
-              <circle cx="22" cy="44" r="10" class="lab-cart-wheel" />
-              <circle cx="70" cy="44" r="10" class="lab-cart-wheel" />
-            </g>
-            <g class="lab-arrow lab-arrow-force" data-force-arrow>
-              <line x1="0" y1="176" x2="60" y2="176" data-force-line />
-              <polygon points="0,0 0,0 0,0" data-force-head />
-              <text x="0" y="166" data-force-label>F = 0 N</text>
-            </g>
-            <g class="lab-arrow lab-arrow-accel" data-accel-arrow>
-              <line x1="0" y1="238" x2="40" y2="238" data-accel-line />
-              <polygon points="0,0 0,0 0,0" data-accel-head />
-              <text x="0" y="228" data-accel-label>a = 0 m/s&sup2;</text>
+          <svg class="lab-scene" viewBox="0 0 640 200" role="img"
+               data-lab-scene aria-label="An object on a straight track, moving left or right of a marked starting point.">
+            <desc data-scene-desc>An object on a straight track. It moves left or right from the zero mark depending on its velocity and acceleration.</desc>
+            <line x1="20" y1="120" x2="620" y2="120" class="lab-track" />
+            <line x1="320" y1="104" x2="320" y2="136" class="lab-axis" />
+            <text x="312" y="150" class="lab-axis-label">0</text>
+            <g data-cart transform="translate(320,120)">
+              <circle cx="0" cy="0" r="16" class="lab-cart-body" />
             </g>
           </svg>
           <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
 
           <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
-               data-lab-graph aria-label="A graph of velocity against time. A steeper line means a larger acceleration.">
-            <desc>A graph of velocity against time. A steeper line means a larger acceleration.</desc>
+               data-lab-graph aria-label="A graph of velocity against time. A positive slope means a positive acceleration.">
+            <desc data-graph-desc>A graph of velocity against time for this run. A positive slope means a positive acceleration.</desc>
             <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
             <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
             <text x="10" y="14" class="lab-axis-label">v</text>
             <text x="332" y="176" class="lab-axis-label">t</text>
             <polyline points="" class="lab-trace" data-lab-trace />
           </svg>
-          <p class="lab-graph-caption">Velocity vs time. Line steepness is the acceleration; it stays straight because the net force is constant.</p>
+          <p class="lab-graph-caption">Velocity vs time. A straight line means the acceleration is constant.</p>
         </div>
 
         <div class="lab-side-col">
           <div class="lab-values" aria-live="polite">
             <div class="lab-value-grid">
               <div class="lab-value">
-                <span class="lab-value-label">Mass</span>
-                <span class="lab-value-number"><span data-value-mass>{{ defaults.mass_kg }}</span> kg</span>
+                <span class="lab-value-label">Initial position</span>
+                <span class="lab-value-number"><span data-value-x0>{{ defaults.initial_position_m }}</span> m</span>
               </div>
               <div class="lab-value">
-                <span class="lab-value-label">Net force</span>
-                <span class="lab-value-number"><span data-value-force>{{ defaults.force_n }}</span> N</span>
+                <span class="lab-value-label">Initial velocity</span>
+                <span class="lab-value-number"><span data-value-v0>{{ defaults.initial_velocity_m_s }}</span> m/s</span>
               </div>
               <div class="lab-value lab-value-accent">
                 <span class="lab-value-label">Acceleration</span>
@@ -110,36 +103,44 @@
               </div>
             </div>
             <div class="lab-equation">
-              <p class="lab-eq-general">a = F &divide; m</p>
+              <p class="lab-eq-general">v = v&#8320; + at &middot; x = x&#8320; + v&#8320;t + &frac12;at&sup2;</p>
               <p class="lab-eq-worked">
-                <span data-eq-accel>{{ defaults.acceleration_m_s2|floatformat:2 }}</span> m/s&sup2;
-                = <span data-eq-force>{{ defaults.force_n }}</span> N
-                &divide; <span data-eq-mass>{{ defaults.mass_kg }}</span> kg
+                v = <span data-eq-velocity>0.00</span> m/s
+                &middot; x = <span data-eq-position>0.00</span> m
               </p>
             </div>
             <dl class="lab-motion">
               <div><dt>Time</dt><dd><span data-value-time>0.00</span> s</dd></div>
               <div><dt>Velocity</dt><dd><span data-value-velocity>0.00</span> m/s</dd></div>
-              <div><dt>Distance</dt><dd><span data-value-position>0.00</span> m</dd></div>
+              <div><dt>Position</dt><dd><span data-value-position>0.00</span> m</dd></div>
             </dl>
           </div>
 
           <div class="lab-control">
-            <label for="lab-mass">Mass (kg)</label>
+            <label for="lab-x0">Initial position (m)</label>
             <div class="lab-control-row">
-              <input type="range" id="lab-mass" data-input-mass
-                     min="{{ bounds.mass_kg.min }}" max="{{ bounds.mass_kg.max }}" step="0.1"
-                     value="{{ defaults.mass_kg }}" aria-describedby="lab-mass-out">
-              <output id="lab-mass-out" for="lab-mass" data-out-mass>{{ defaults.mass_kg }}</output>
+              <input type="range" id="lab-x0" data-input-x0
+                     min="{{ bounds.initial_position_m.min }}" max="{{ bounds.initial_position_m.max }}" step="0.5"
+                     value="{{ defaults.initial_position_m }}" aria-describedby="lab-x0-out">
+              <output id="lab-x0-out" for="lab-x0" data-out-x0>{{ defaults.initial_position_m }}</output>
             </div>
           </div>
           <div class="lab-control">
-            <label for="lab-force">Net force (N)</label>
+            <label for="lab-v0">Initial velocity (m/s)</label>
             <div class="lab-control-row">
-              <input type="range" id="lab-force" data-input-force
-                     min="{{ bounds.force_n.min }}" max="{{ bounds.force_n.max }}" step="0.5"
-                     value="{{ defaults.force_n }}" aria-describedby="lab-force-out">
-              <output id="lab-force-out" for="lab-force" data-out-force>{{ defaults.force_n }}</output>
+              <input type="range" id="lab-v0" data-input-v0
+                     min="{{ bounds.initial_velocity_m_s.min }}" max="{{ bounds.initial_velocity_m_s.max }}" step="0.5"
+                     value="{{ defaults.initial_velocity_m_s }}" aria-describedby="lab-v0-out">
+              <output id="lab-v0-out" for="lab-v0" data-out-v0>{{ defaults.initial_velocity_m_s }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-accel">Acceleration (m/s&sup2;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-accel" data-input-accel
+                     min="{{ bounds.acceleration_m_s2.min }}" max="{{ bounds.acceleration_m_s2.max }}" step="0.5"
+                     value="{{ defaults.acceleration_m_s2 }}" aria-describedby="lab-accel-out">
+              <output id="lab-accel-out" for="lab-accel" data-out-accel>{{ defaults.acceleration_m_s2 }}</output>
             </div>
           </div>
           <div class="lab-buttons">
@@ -156,20 +157,22 @@
     <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
       <p class="lab-step-num">Step 3</p>
       <h2 id="lab-step-observe">Observe</h2>
-      <p class="lab-step-lead">What did you observe? Include the before and after acceleration you saw.</p>
+      <p class="lab-step-lead">What did you observe? Include the time you stopped at and the position and velocity you saw.</p>
       <form class="lab-step-form" method="post"
             action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
             data-experiment-form="observe">
         {% csrf_token %}
-        <input type="hidden" name="mass_kg" data-field-mass value="{{ defaults.mass_kg }}">
-        <input type="hidden" name="force_n" data-field-force value="{{ defaults.force_n }}">
+        <input type="hidden" name="initial_position_m" data-field="initialPositionM" value="{{ defaults.initial_position_m }}">
+        <input type="hidden" name="initial_velocity_m_s" data-field="initialVelocityMs" value="{{ defaults.initial_velocity_m_s }}">
+        <input type="hidden" name="acceleration_m_s2" data-field="accelerationMs2" value="{{ defaults.acceleration_m_s2 }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
         <label for="exp-observation">Your observation</label>
         <textarea id="exp-observation" name="observation" rows="3"
-                  placeholder="e.g. When I changed the force from 10 N to 20 N, the acceleration went from 5 to 10 m/s&sup2;.">{{ experiment_attempt.observation }}</textarea>
+                  placeholder="e.g. After 5 seconds, the position was about 22.5 m and the velocity was 7 m/s.">{{ experiment_attempt.observation }}</textarea>
         <button type="submit" class="button button-primary">Submit Observation</button>
       </form>
       <p class="lab-step-result" data-step-result="observe" aria-live="polite">
-        {% if experiment_attempt.acceleration_m_s2 is not None %}Last saved: server-computed acceleration {{ experiment_attempt.acceleration_m_s2|floatformat:2 }} m/s&sup2;.{% endif %}
+        {% if experiment_attempt.acceleration_m_s2 is not None %}Last saved: server-computed values recorded.{% endif %}
       </p>
     </section>
 
@@ -182,11 +185,13 @@
             action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
             data-experiment-form="explain">
         {% csrf_token %}
-        <input type="hidden" name="mass_kg" data-field-mass value="{{ defaults.mass_kg }}">
-        <input type="hidden" name="force_n" data-field-force value="{{ defaults.force_n }}">
+        <input type="hidden" name="initial_position_m" data-field="initialPositionM" value="{{ defaults.initial_position_m }}">
+        <input type="hidden" name="initial_velocity_m_s" data-field="initialVelocityMs" value="{{ defaults.initial_velocity_m_s }}">
+        <input type="hidden" name="acceleration_m_s2" data-field="accelerationMs2" value="{{ defaults.acceleration_m_s2 }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
         <label for="exp-explanation">Your explanation</label>
         <textarea id="exp-explanation" name="explanation" rows="3"
-                  placeholder="e.g. The acceleration increased because the net force increased while the mass stayed the same.">{{ experiment_attempt.explanation }}</textarea>
+                  placeholder="e.g. The velocity increased steadily because the acceleration stayed constant and positive.">{{ experiment_attempt.explanation }}</textarea>
         <button type="submit" class="button button-primary">Submit Explanation</button>
       </form>
       <p class="lab-step-result" data-step-result="explain" aria-live="polite">
@@ -212,10 +217,10 @@
   </div>
 
   <noscript>
-    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>a = F / m</strong>: with the default setup, a = {{ defaults.force_n }} N &divide; {{ defaults.mass_kg }} kg = {{ defaults.acceleration_m_s2|floatformat:2 }} m/s&sup2;.</p>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationships it shows are <strong>v = v&#8320; + at</strong> and <strong>x = x&#8320; + v&#8320;t + &frac12;at&sup2;</strong>: with the default setup, after 5 s, v = {{ defaults.initial_velocity_m_s }} + {{ defaults.acceleration_m_s2 }}&times;5 m/s.</p>
   </noscript>
 
   <script defer src="{% static 'js/physics/lab.js' %}"></script>
-  <script defer src="{% static 'js/physics/newtons-second-law.js' %}"></script>
+  <script defer src="{% static 'js/physics/kinematics.js' %}"></script>
   <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
 {% endblock %}

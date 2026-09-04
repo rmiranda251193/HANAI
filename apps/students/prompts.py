@@ -113,16 +113,40 @@ Output contract:
             f"Physics Lab experiment the student just ran "
             f"({experiment.simulation or 'simulation'}):"
         ]
-        if experiment.mass_kg is not None and experiment.force_n is not None:
-            exp_lines.append(
-                f"- setup: mass = {experiment.mass_kg:.2f} kg, "
-                f"net force = {experiment.force_n:.2f} N"
-            )
-        if experiment.acceleration_m_s2 is not None:
-            exp_lines.append(
-                f"- acceleration (deterministic a = F / m, computed by the app): "
-                f"{experiment.acceleration_m_s2:.2f} m/s^2"
-            )
+        if experiment.simulation_type == "kinematics":
+            if (
+                experiment.initial_position_m is not None
+                and experiment.initial_velocity_m_s is not None
+            ):
+                setup = (
+                    f"- setup: initial position = {experiment.initial_position_m:.2f} m, "
+                    f"initial velocity = {experiment.initial_velocity_m_s:.2f} m/s"
+                )
+                if experiment.acceleration_m_s2 is not None:
+                    setup += f", acceleration = {experiment.acceleration_m_s2:.2f} m/s^2"
+                exp_lines.append(setup)
+            if (
+                experiment.time_s is not None
+                and experiment.position_m is not None
+                and experiment.velocity_m_s is not None
+            ):
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    "v = v0 + at and x = x0 + v0*t + 1/2*a*t^2, computed by the app): "
+                    f"position = {experiment.position_m:.2f} m, "
+                    f"velocity = {experiment.velocity_m_s:.2f} m/s"
+                )
+        else:
+            if experiment.mass_kg is not None and experiment.force_n is not None:
+                exp_lines.append(
+                    f"- setup: mass = {experiment.mass_kg:.2f} kg, "
+                    f"net force = {experiment.force_n:.2f} N"
+                )
+            if experiment.acceleration_m_s2 is not None:
+                exp_lines.append(
+                    f"- acceleration (deterministic a = F / m, computed by the app): "
+                    f"{experiment.acceleration_m_s2:.2f} m/s^2"
+                )
         if experiment.prediction:
             exp_lines.append(f"- their prediction beforehand: {experiment.prediction}")
         if experiment.observation:

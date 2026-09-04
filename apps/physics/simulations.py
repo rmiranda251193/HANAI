@@ -155,3 +155,31 @@ def make_initial_state(
     mass_kg: float = DEFAULT_MASS_KG, force_n: float = DEFAULT_FORCE_N
 ) -> NewtonsSecondLawSimulation:
     return NewtonsSecondLawSimulation(mass_kg=mass_kg, force_n=force_n)
+
+
+# --- registry entry ------------------------------------------------------
+
+from .simulation_registry import SimulationDefinition, register  # noqa: E402
+
+register(
+    SimulationDefinition(
+        simulation_type="newtons_second_law",
+        template="physics/newtons_second_law.html",
+        equations=("a = F / m",),
+        units={"mass_kg": "kg", "force_n": "N", "acceleration_m_s2": "m/s^2"},
+        bounds={
+            "mass_kg": (MIN_MASS_KG, MAX_MASS_KG),
+            "force_n": (MIN_FORCE_N, MAX_FORCE_N),
+        },
+        default_state={
+            "mass_kg": DEFAULT_MASS_KG,
+            "force_n": DEFAULT_FORCE_N,
+            # Derived, not a raw input -- precomputed once so the lab page and
+            # the initial tutor prefill can show it without recomputing.
+            "acceleration_m_s2": newtons_second_law_acceleration(
+                DEFAULT_FORCE_N, DEFAULT_MASS_KG
+            ),
+        },
+        input_fields=("mass_kg", "force_n"),
+    )
+)

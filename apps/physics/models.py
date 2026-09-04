@@ -128,6 +128,7 @@ class PhysicsSimulation(models.Model):
 
     class SimulationType(models.TextChoices):
         NEWTONS_SECOND_LAW = "newtons_second_law", "Newton's Second Law"
+        KINEMATICS = "kinematics", "Kinematics"
 
     concept = models.ForeignKey(
         PhysicsConcept,

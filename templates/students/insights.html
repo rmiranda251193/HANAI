@@ -125,10 +125,20 @@
               <p class="card-label">{{ row.attempt.simulation.title }}</p>
               <p class="insight-meta">
                 Student: <strong>{{ row.attempt.student.display_name }}</strong>
-                {% if row.attempt.acceleration_m_s2 is not None %}
+                {% if row.attempt.mass_kg is not None and row.attempt.force_n is not None %}
                   &middot; mass {{ row.attempt.mass_kg|floatformat:1 }} kg
                   &middot; force {{ row.attempt.force_n|floatformat:1 }} N
+                {% endif %}
+                {% if row.attempt.parameters.initial_position_m is not None %}
+                  &middot; initial position {{ row.attempt.parameters.initial_position_m|floatformat:1 }} m
+                  &middot; initial velocity {{ row.attempt.parameters.initial_velocity_m_s|floatformat:1 }} m/s
+                {% endif %}
+                {% if row.attempt.acceleration_m_s2 is not None %}
                   &middot; acceleration {{ row.attempt.acceleration_m_s2|floatformat:2 }} m/s&sup2;
+                {% endif %}
+                {% if row.attempt.parameters.observed_position_m is not None %}
+                  &middot; position {{ row.attempt.parameters.observed_position_m|floatformat:1 }} m
+                  &middot; velocity {{ row.attempt.parameters.observed_velocity_m_s|floatformat:1 }} m/s
                 {% endif %}
                 &middot; {{ row.attempt.started_at|date:"M j, Y, g:i a" }}
               </p>

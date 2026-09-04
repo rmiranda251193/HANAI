@@ -226,6 +226,22 @@ class PhysicsValidationTests(ExperimentDataMixin, TestCase):
         self.assertEqual(validated.acceleration_m_s2, 0.5)
 
 
+class ExperimentQueryBudgetTests(ExperimentDataMixin, TestCase):
+    """Step 24 regression guard: generalizing record_experiment_observation to
+    a per-simulation-type dispatch must not add a query to the Newton's
+    Second Law path (the dispatch functions take the already-in-scope
+    ``simulation`` object directly rather than re-fetching it via
+    ``attempt.simulation``)."""
+
+    def setUp(self):
+        self.seed()
+
+    def test_observation_query_count_is_unchanged_by_generalization(self):
+        self.predict()
+        with self.assertNumQueries(7):
+            self.observe()
+
+
 # --- EXPERIMENT FLOW ---------------------------------------------------
 
 
