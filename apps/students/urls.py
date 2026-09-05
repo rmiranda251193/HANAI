@@ -27,6 +27,13 @@ urlpatterns = [
     ),
     path("tutor/<slug:slug>/", views.tutor_view, name="tutor"),
     path("practice/<slug:slug>/", views.practice_view, name="practice"),
+    path("recovery/start/", views.recovery_start, name="recovery_start"),
+    path("recovery/<int:recovery_id>/", views.recovery_view, name="recovery_detail"),
+    path(
+        "recovery/<int:recovery_id>/activities/<int:activity_id>/check/",
+        views.recovery_check,
+        name="recovery_check",
+    ),
     path("insights/<slug:slug>/", views.lesson_insights, name="insights"),
     path(
         "insights/<slug:slug>/observations/<int:observation_id>/decision/",

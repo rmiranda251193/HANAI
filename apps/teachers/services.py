@@ -35,6 +35,7 @@ from apps.students.activity_planner import build_adaptive_activity_plan
 from apps.students.concept_path_services import build_student_concept_path
 from apps.students.pattern_services import build_student_learning_patterns
 from apps.students.progress_services import build_student_learning_progress
+from apps.students.recovery_services import build_teacher_recovery_evidence
 
 from .goal_services import build_teacher_learning_goals
 from .models import TeacherIntervention
@@ -276,6 +277,7 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "candidate_status": StudentMisconception.Status.CANDIDATE,
             "practice_evidence": _practice_evidence(student),
             "assessment_evidence": get_teacher_assessment_evidence(student),
+            "recovery_evidence": build_teacher_recovery_evidence(student),
             "learning_patterns": learning_patterns,
             "learning_path": build_student_concept_path(
                 student=student,

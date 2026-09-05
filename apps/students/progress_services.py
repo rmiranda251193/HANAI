@@ -36,6 +36,7 @@ _KIND_PRESENTATION = {
     LearningEvidence.Kind.EXPERIMENT_OBSERVED: ("Observation", "Recorded an experiment observation", "\U0001f52c"),
     LearningEvidence.Kind.EXPLANATION_SUBMITTED: ("Explanation", "Explained the experiment", "\U0001f4a1"),
     LearningEvidence.Kind.ASSESSMENT_ATTEMPTED: ("Assessment", "Answered an assessment question", "\U0001f4dd"),
+    LearningEvidence.Kind.RECOVERY_ACTIVITY_COMPLETED: ("Recovery", "Completed a recovery activity", "\U0001f9ed"),
 }
 _EXPERIMENT_KINDS = {
     LearningEvidence.Kind.PREDICTION_SUBMITTED,
@@ -95,6 +96,24 @@ def _assessment_snapshot(evidence: LearningEvidence) -> dict | None:
         "assessment": context.get("assessment") or "",
         "concept": context.get("concept") or "",
         "result": result,
+    }
+
+
+def _recovery_snapshot(evidence: LearningEvidence) -> dict | None:
+    """Factual recovery-step detail: what step, what happened. Never a code.
+
+    Only ``activity_label`` and ``result`` are surfaced -- the misconception
+    code and recovery/path ids live in ``context`` for teacher use only and
+    are never projected into this student-facing snapshot.
+    """
+
+    if evidence.kind != LearningEvidence.Kind.RECOVERY_ACTIVITY_COMPLETED:
+        return None
+    context = evidence.context if isinstance(evidence.context, dict) else {}
+    result = (context.get("result") or "").strip()
+    return {
+        "activity_label": context.get("activity_label") or "",
+        "result": result.capitalize() if result else "Done",
     }
 
 
@@ -173,6 +192,7 @@ def _timeline(evidence_rows) -> list[dict]:
             "experiment": _experiment_snapshot(evidence),
             "practice": _practice_snapshot(evidence),
             "assessment": _assessment_snapshot(evidence),
+            "recovery": _recovery_snapshot(evidence),
         }
         label = _day_label(evidence.created_at, today=today)
         if not days or days[-1]["label"] != label:
@@ -379,6 +399,7 @@ def build_student_learning_progress(*, student) -> dict:
             "observations": by_kind[LearningEvidence.Kind.EXPERIMENT_OBSERVED],
             "explanations": by_kind[LearningEvidence.Kind.EXPLANATION_SUBMITTED],
             "assessment_questions": by_kind[LearningEvidence.Kind.ASSESSMENT_ATTEMPTED],
+            "recovery_activities": by_kind[LearningEvidence.Kind.RECOVERY_ACTIVITY_COMPLETED],
             "experiments_completed": experiment_summary["completed"],
             "experiments_attempted": experiment_summary["attempted"],
             "concepts": len(concepts),

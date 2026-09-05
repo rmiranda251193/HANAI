@@ -550,10 +550,11 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
         # shared concept-graph read + learning-goals read + activity planner
         # (concept destination maps + published-assessment map + goal /
         # recommendation / unfinished-lab reads + a few bounded activity-signal
-        # checks) + form choice lists (lesson/concept/simulation) + intervention
-        # history. No per-row queries; the number does not grow with student
-        # history size.
-        with self.assertNumQueries(34):
+        # checks) + one recovery-evidence read (Step 25; empty here, so no
+        # prefetch queries fire) + form choice lists (lesson/concept/simulation)
+        # + intervention history. No per-row queries; the number does not grow
+        # with student history size.
+        with self.assertNumQueries(35):
             build_teacher_student_evidence(student=student)
 
     def test_query_budget_with_a_published_assessment_on_the_focus_concept(self):
@@ -602,5 +603,5 @@ class QueryBudgetTests(WorkspaceDataMixin, TestCase):
         )
         assessment_services.publish_assessment(assessment_id=a.pk, teacher=teacher)
 
-        with self.assertNumQueries(35):
+        with self.assertNumQueries(36):
             build_teacher_student_evidence(student=student)

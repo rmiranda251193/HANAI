@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import PhysicsConcept, PhysicsMisconception, PhysicsSimulation
+from .models import (
+    MisconceptionRecoveryActivity,
+    MisconceptionRecoveryPath,
+    PhysicsConcept,
+    PhysicsMisconception,
+    PhysicsSimulation,
+)
 
 
 @admin.register(PhysicsConcept)
@@ -62,3 +68,44 @@ class PhysicsSimulationAdmin(admin.ModelAdmin):
         ("Availability", {"fields": ("is_active",)}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )
+
+
+class MisconceptionRecoveryActivityInline(admin.TabularInline):
+    model = MisconceptionRecoveryActivity
+    extra = 0
+    fields = (
+        "order",
+        "activity_type",
+        "label",
+        "simulation",
+        "check_prompt",
+        "check_correct_choice",
+        "is_active",
+    )
+    ordering = ("order",)
+
+
+@admin.register(MisconceptionRecoveryPath)
+class MisconceptionRecoveryPathAdmin(admin.ModelAdmin):
+    list_display = ("title", "misconception", "is_active", "updated_at")
+    list_filter = ("is_active", "misconception__physics_concept__topic")
+    search_fields = ("title", "student_summary", "misconception__code", "misconception__title")
+    list_select_related = ("misconception",)
+    list_editable = ("is_active",)
+    readonly_fields = ("created_at", "updated_at")
+    inlines = (MisconceptionRecoveryActivityInline,)
+
+    fieldsets = (
+        ("Recovery path", {"fields": ("misconception", "title", "student_summary")}),
+        ("Availability", {"fields": ("is_active",)}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
+
+@admin.register(MisconceptionRecoveryActivity)
+class MisconceptionRecoveryActivityAdmin(admin.ModelAdmin):
+    list_display = ("path", "order", "activity_type", "label", "is_active", "updated_at")
+    list_filter = ("activity_type", "is_active")
+    search_fields = ("label", "instructions", "check_prompt", "path__title")
+    list_select_related = ("path", "simulation")
+    readonly_fields = ("created_at", "updated_at")

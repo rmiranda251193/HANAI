@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from apps.ai.exceptions import AIError
 from apps.assessments.services import get_student_assessment_summary
 from apps.lessons.models import Lesson
+from apps.physics.models import MisconceptionRecoveryActivity
 from apps.teachers.goal_services import (
     active_goal_concepts,
     active_goal_count,
@@ -26,6 +27,7 @@ from .misconception_services import apply_teacher_decision
 from .models import (
     ExperimentAttempt,
     StudentMisconception,
+    StudentMisconceptionRecovery,
     StudentProfile,
     TutorMessage,
     TutorSession,
@@ -41,6 +43,14 @@ from .practice_services import (
     record_practice_attempt,
 )
 from .progress_services import build_student_learning_progress
+from .recovery_services import (
+    RecoveryAccessError,
+    RecoveryValidationError,
+    build_recovery_context,
+    get_or_create_recovery_for_observation,
+    preview_recovery_for_student,
+    record_concept_check_response,
+)
 from .requests import ExperimentContext
 from .services import run_tutor_turn
 
@@ -173,6 +183,7 @@ def student_progress(request):
     context["recommendations_pending"] = count_pending_recommendations(student)
     context["active_goal_count"] = active_goal_count(student)
     context["assessment_summary"] = get_student_assessment_summary(student=student)
+    context["recovery_preview"] = preview_recovery_for_student(student)
     return render(request, "students/progress.html", context)
 
 
@@ -447,6 +458,97 @@ def practice_view(request, slug):
     )
     context["student"] = student
     return render(request, "students/practice.html", context)
+
+
+# --- Misconception recovery ------------------------------------------------
+#
+# A student never chooses a recovery, a misconception, or another student's
+# id -- every lookup below is resolved server-side from the session and from
+# rows already scoped to ``student``. See apps.students.recovery_services for
+# the orchestration logic; nothing here computes physics, grades an answer,
+# or talks to the tutor -- it only launches into the existing systems that do.
+
+
+@require_POST
+def recovery_start(request):
+    """Start (or resume) a recovery for one of the student's own candidates.
+
+    ``observation_id`` is client-supplied, so it is always re-checked against
+    the current student -- it is never trusted as-is.
+    """
+
+    student = _current_student(request)
+    try:
+        observation_pk = int(request.POST.get("observation_id", ""))
+    except (TypeError, ValueError):
+        return redirect("students:progress")
+
+    observation = StudentMisconception.objects.filter(pk=observation_pk, student=student).first()
+    if observation is None:
+        # Not found, or -- crucially -- it belongs to another student.
+        return redirect("students:progress")
+
+    recovery = get_or_create_recovery_for_observation(observation)
+    if recovery is None:
+        return redirect("students:progress")
+    return redirect("students:recovery_detail", recovery_id=recovery.pk)
+
+
+def recovery_view(request, recovery_id):
+    """Read-only: the current student's own recovery, and only their own."""
+
+    student = _current_student(request)
+    recovery = get_object_or_404(
+        StudentMisconceptionRecovery.objects.select_related(
+            "path", "path__misconception", "path__misconception__physics_concept", "observation"
+        ),
+        pk=recovery_id,
+        student=student,
+    )
+    context = build_recovery_context(recovery)
+    context["student"] = student
+    return render(request, "students/recovery.html", context)
+
+
+@require_POST
+def recovery_check(request, recovery_id, activity_id):
+    """Submit an answer for one concept-check step of the student's own recovery."""
+
+    student = _current_student(request)
+    recovery = get_object_or_404(
+        StudentMisconceptionRecovery.objects.select_related(
+            "path", "path__misconception", "path__misconception__physics_concept", "observation"
+        ),
+        pk=recovery_id,
+        student=student,
+    )
+    activity = get_object_or_404(
+        MisconceptionRecoveryActivity, pk=activity_id, path_id=recovery.path_id
+    )
+
+    check_error = ""
+    try:
+        record_concept_check_response(
+            student=student,
+            recovery=recovery,
+            activity=activity,
+            submitted_choice=request.POST.get("choice", ""),
+        )
+    except (RecoveryAccessError, RecoveryValidationError, AnswerValidationError, PracticeError) as exc:
+        check_error = str(exc)
+    except Exception:
+        logger.exception(
+            "Unexpected recovery concept-check failure for recovery %s.", recovery.pk
+        )
+        check_error = "Your answer could not be recorded. Please try again."
+
+    if check_error:
+        context = build_recovery_context(recovery)
+        context["student"] = student
+        context["check_error"] = check_error
+        return render(request, "students/recovery.html", context)
+
+    return redirect("students:recovery_detail", recovery_id=recovery.pk)
 
 
 # --- Teacher-facing insight views -------------------------------------------------

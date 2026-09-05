@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -121,6 +122,7 @@ class LearningEvidence(models.Model):
         EXPERIMENT_OBSERVED = "experiment_observed", "Experiment observed"
         EXPLANATION_SUBMITTED = "explanation_submitted", "Explanation submitted"
         ASSESSMENT_ATTEMPTED = "assessment_attempted", "Assessment attempted"
+        RECOVERY_ACTIVITY_COMPLETED = "recovery_activity_completed", "Recovery activity completed"
 
     student = models.ForeignKey(
         StudentProfile,
@@ -448,3 +450,97 @@ class PracticeAttempt(models.Model):
 
     def __str__(self) -> str:
         return f"Practice {self.question_key} for {self.student}"
+
+
+class StudentMisconceptionRecovery(models.Model):
+    """One student's run through a misconception's recovery path.
+
+    This is orchestration state only -- it never duplicates ``ExperimentAttempt``,
+    ``TutorSession`` or ``LearningEvidence``; it just tracks which of a path's
+    ordered activities this student has completed. At most one *unfinished*
+    recovery may exist per (student, observation) at a time; a resurfaced
+    misconception can start a new recovery after an earlier one completed.
+    """
+
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="misconception_recoveries",
+    )
+    observation = models.ForeignKey(
+        StudentMisconception,
+        on_delete=models.CASCADE,
+        related_name="recoveries",
+    )
+    path = models.ForeignKey(
+        "physics.MisconceptionRecoveryPath",
+        on_delete=models.PROTECT,
+        related_name="recoveries",
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "observation"],
+                condition=Q(completed_at__isnull=True),
+                name="uniq_active_recovery_per_observation",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["student", "completed_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Recovery for {self.observation.misconception.code} ({self.student})"
+
+    @property
+    def is_complete(self) -> bool:
+        return self.completed_at is not None
+
+
+class StudentRecoveryActivityCompletion(models.Model):
+    """One completed step of a student's recovery, linked to its evidence.
+
+    ``evidence`` points at the *existing* ``LearningEvidence`` row written for
+    this step (never a second evidence table). ``result`` is a short factual
+    label -- never a score or mastery signal.
+    """
+
+    class Result(models.TextChoices):
+        DONE = "done", "Done"
+        CORRECT = "correct", "Correct"
+        INCORRECT = "incorrect", "Incorrect"
+
+    recovery = models.ForeignKey(
+        StudentMisconceptionRecovery,
+        on_delete=models.CASCADE,
+        related_name="activity_completions",
+    )
+    activity = models.ForeignKey(
+        "physics.MisconceptionRecoveryActivity",
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    evidence = models.ForeignKey(
+        LearningEvidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    result = models.CharField(max_length=20, choices=Result.choices, blank=True, default="")
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["completed_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["recovery", "activity"], name="uniq_recovery_activity_completion"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Completed activity {self.activity_id} for recovery {self.recovery_id}"

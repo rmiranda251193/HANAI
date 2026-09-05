@@ -74,6 +74,9 @@
                   {% if entry.experiment.velocity_m_s is not None %}<div><dt>Velocity</dt><dd>{{ entry.experiment.velocity_m_s|floatformat:1 }} m/s</dd></div>{% endif %}
                 </dl>
               {% endif %}
+              {% if entry.recovery %}
+                <p class="journey-event-meta">{{ entry.recovery.activity_label }} &middot; {{ entry.recovery.result }}</p>
+              {% endif %}
               {% if entry.lesson or entry.concepts %}
                 <p class="journey-event-meta">
                   {% if entry.lesson %}Lesson: {{ entry.lesson.title }}{% endif %}
@@ -218,6 +221,42 @@
       {% if assessment_evidence.has_more %}<p class="tw-signals-note">Showing the most recent {{ assessment_evidence.rows|length }} answers.</p>{% endif %}
     {% else %}
       <p>No assessment questions answered yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="surface-card journey-section" aria-labelledby="tw-recovery-title">
+    <p class="card-label">Misconception recovery</p>
+    <h2 id="tw-recovery-title">Recovery activity assigned from possible learning signals</h2>
+    <p class="tw-signals-note">Each recovery is an ordered sequence of existing activities (Physics Lab, Tutor, concept check). Completing one means the student worked through it &mdash; it does not by itself confirm or resolve the signal above; that stays your decision.</p>
+    {% if recovery_evidence %}
+      <div class="recovery-tw-list">
+        {% for row in recovery_evidence %}
+          <article class="surface-card recovery-tw-card">
+            <p class="recovery-tw-head">
+              <span class="card-label">{{ row.misconception.code }}</span>
+              <span class="status-badge {% if row.is_complete %}recovery-status-complete{% else %}recovery-status-current{% endif %}">
+                {% if row.is_complete %}Recovery completed{% else %}Recovery in progress{% endif %}
+              </span>
+            </p>
+            <h3>{{ row.recovery.path.title }}</h3>
+            <p class="tw-optional">Started {{ row.recovery.started_at|date:"M j, Y, g:i a" }}{% if row.recovery.completed_at %} &middot; completed {{ row.recovery.completed_at|date:"M j, Y, g:i a" }}{% endif %}</p>
+            <ol class="recovery-tw-steps">
+              {% for step in row.steps %}
+                <li class="recovery-tw-step{% if step.completion %} is-complete{% endif %}">
+                  <span class="recovery-tw-step-label">{{ step.activity.order }}. {{ step.activity.label }}</span>
+                  {% if step.completion %}
+                    <span class="recovery-tw-step-meta">{{ step.completion.result|default:"done"|title }} &middot; {{ step.completion.completed_at|date:"M j, Y, g:i a" }}</span>
+                  {% else %}
+                    <span class="recovery-tw-step-meta">Not yet completed</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ol>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No recovery activity assigned yet.</p>
     {% endif %}
   </section>
 

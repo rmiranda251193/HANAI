@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Recovery Activity &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Physics Tutor</p>
+      <h1>{{ path.title }}</h1>
+      <p>{{ path.student_summary }}</p>
+    </div>
+    <a class="text-link" href="{% url 'students:progress' %}">Back to my progress</a>
+  </section>
+
+  {% if check_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Recovery activity</p>
+      <p>{{ check_error }}</p>
+    </section>
+  {% endif %}
+
+  {% if is_complete %}
+    <section class="surface-card accent-card recovery-complete" role="status" aria-live="polite">
+      <p class="card-label">Nice work</p>
+      <h2>You have worked through this activity sequence.</h2>
+      <p>Your teacher can see what you worked through. Keep exploring in the Physics Lab, or ask your Tutor if anything is still unclear.</p>
+    </section>
+  {% endif %}
+
+  <ol class="recovery-steps" aria-label="Recovery steps">
+    {% for step in steps %}
+      <li class="recovery-step{% if step.is_complete %} is-complete{% elif step.is_current %} is-current{% else %} is-locked{% endif %}"
+          {% if step.is_current %}aria-current="step"{% endif %}>
+        <div class="recovery-step-head">
+          <span class="recovery-step-num" aria-hidden="true">{{ forloop.counter }}</span>
+          <h2 class="recovery-step-label">{{ step.activity.label }}</h2>
+          <span class="status-badge {% if step.is_complete %}recovery-status-complete{% elif step.is_current %}recovery-status-current{% else %}recovery-status-locked{% endif %}">
+            {% if step.is_complete %}Completed{% elif step.is_current %}Current step{% else %}Not yet available{% endif %}
+          </span>
+        </div>
+
+        {% if step.activity.instructions %}
+          <p class="recovery-step-instructions">{{ step.activity.instructions }}</p>
+        {% endif %}
+
+        {% if step.is_complete %}
+          <p class="recovery-step-result" aria-live="polite">
+            {% if step.completion.result == "correct" %}
+              You answered correctly.
+            {% elif step.completion.result == "incorrect" %}
+              Recorded. The idea to hold onto: {{ step.expected_label }}
+            {% else %}
+              Done.
+            {% endif %}
+          </p>
+        {% elif step.is_current %}
+          {% if step.activity.activity_type == "concept_check" %}
+            <form method="post" action="{% url 'students:recovery_check' recovery.id step.activity.id %}" class="recovery-check-form">
+              {% csrf_token %}
+              <fieldset>
+                <legend class="recovery-check-prompt">{{ step.activity.check_prompt }}</legend>
+                {% for choice in step.activity.check_choices %}
+                  <div class="recovery-check-choice">
+                    <input type="radio" id="recovery-choice-{{ step.activity.id }}-{{ forloop.counter0 }}" name="choice" value="{{ forloop.counter0 }}" required>
+                    <label for="recovery-choice-{{ step.activity.id }}-{{ forloop.counter0 }}">{{ choice }}</label>
+                  </div>
+                {% endfor %}
+              </fieldset>
+              <button type="submit" class="button button-primary">Submit answer</button>
+            </form>
+          {% elif step.launch_url %}
+            <a class="button button-primary" href="{{ step.launch_url }}">
+              {{ step.kind.cta|default:"Continue" }}
+            </a>
+            <p class="recovery-step-hint">Come back to this page afterwards &mdash; it will show your progress.</p>
+          {% else %}
+            <p class="recovery-step-hint">Ask your teacher &mdash; this step is not connected to content yet.</p>
+          {% endif %}
+        {% else %}
+          <p class="recovery-step-hint">Finish the step above first.</p>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+{% endblock %}

@@ -22,6 +22,25 @@
     </section>
   {% endif %}
 
+  {% if recovery_preview %}
+    <section class="surface-card accent-card journey-next recovery-teaser" aria-label="Recommended recovery activity" style="margin-top:1.25rem;">
+      <p class="card-label">Focus area</p>
+      <h2>{{ recovery_preview.title }}</h2>
+      <p>{{ recovery_preview.summary }}</p>
+      <div class="form-actions">
+        {% if recovery_preview.started %}
+          <a class="button button-primary" href="{% url 'students:recovery_detail' recovery_preview.recovery_id %}">Continue this activity</a>
+        {% else %}
+          <form method="post" action="{% url 'students:recovery_start' %}">
+            {% csrf_token %}
+            <input type="hidden" name="observation_id" value="{{ recovery_preview.observation_id }}">
+            <button type="submit" class="button button-primary">Start this activity</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+
   {% if recommendations_pending %}
     <section class="surface-card accent-card journey-next" aria-label="Teacher recommendations" style="margin-top:1.25rem;">
       <p class="card-label">Teacher recommendations</p>
@@ -103,6 +122,9 @@
                     {% if entry.assessment.concept %} &middot; {{ entry.assessment.concept }}{% endif %}
                     &middot; {{ entry.assessment.result }}
                   </p>
+                {% endif %}
+                {% if entry.recovery %}
+                  <p class="journey-practice">{{ entry.recovery.activity_label }} &middot; {{ entry.recovery.result }}</p>
                 {% endif %}
                 {% if entry.experiment %}
                   <dl class="journey-experiment">

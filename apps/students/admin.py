@@ -5,7 +5,9 @@ from .models import (
     LearningEvidence,
     MisconceptionEvidence,
     StudentMisconception,
+    StudentMisconceptionRecovery,
     StudentProfile,
+    StudentRecoveryActivityCompletion,
     TutorMessage,
     TutorSession,
 )
@@ -161,6 +163,51 @@ class MisconceptionEvidenceAdmin(admin.ModelAdmin):
     search_fields = ("excerpt", "reasoning", "observation__student__display_name")
     list_select_related = ("observation", "observation__student")
     date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        return [field.name for field in self.model._meta.fields]
+
+
+class StudentRecoveryActivityCompletionInline(_ReadOnlyInline):
+    model = StudentRecoveryActivityCompletion
+    fields = ("activity", "result", "evidence", "completed_at")
+    readonly_fields = fields
+    ordering = ("completed_at", "id")
+
+
+@admin.register(StudentMisconceptionRecovery)
+class StudentMisconceptionRecoveryAdmin(admin.ModelAdmin):
+    list_display = ("student", "path", "started_at", "completed_at")
+    list_filter = ("path", "completed_at")
+    search_fields = ("student__display_name", "path__title", "observation__misconception__code")
+    list_select_related = ("student", "path", "observation")
+    date_hierarchy = "started_at"
+    readonly_fields = (
+        "student",
+        "observation",
+        "path",
+        "started_at",
+        "completed_at",
+    )
+    inlines = (StudentRecoveryActivityCompletionInline,)
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(StudentRecoveryActivityCompletion)
+class StudentRecoveryActivityCompletionAdmin(admin.ModelAdmin):
+    list_display = ("recovery", "activity", "result", "completed_at")
+    list_filter = ("result", "completed_at")
+    search_fields = ("recovery__student__display_name", "activity__label")
+    list_select_related = ("recovery", "activity")
+    date_hierarchy = "completed_at"
 
     def has_add_permission(self, request):
         return False

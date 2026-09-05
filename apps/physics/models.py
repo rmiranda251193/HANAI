@@ -160,3 +160,104 @@ class PhysicsSimulation(models.Model):
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
+
+
+class MisconceptionRecoveryPath(models.Model):
+    """A reusable, teacher-authored recovery sequence for one misconception.
+
+    This is a definition, not a student's progress -- the same PhysicsX /
+    StudentX split already used for PhysicsMisconception / StudentMisconception
+    and PhysicsSimulation / ExperimentAttempt. A student's actual run through a
+    path lives in ``apps.students.models.StudentMisconceptionRecovery``.
+    """
+
+    misconception = models.ForeignKey(
+        PhysicsMisconception,
+        on_delete=models.CASCADE,
+        related_name="recovery_paths",
+    )
+    title = models.CharField(max_length=150)
+    student_summary = models.CharField(
+        max_length=300,
+        help_text=(
+            "Student-facing framing shown on the recovery page. Plain, "
+            "encouraging language -- never the misconception's name or code."
+        ),
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["misconception__code", "id"]
+        verbose_name = "Misconception recovery path"
+        verbose_name_plural = "Misconception recovery paths"
+
+    def __str__(self) -> str:
+        return f"Recovery path for {self.misconception.code}: {self.title}"
+
+
+class MisconceptionRecoveryActivity(models.Model):
+    """One ordered step in a recovery path.
+
+    ``activity_type`` is an explicit, closed set of identifiers with their own
+    server-side handlers in ``apps.students.recovery_services`` -- there is no
+    stored code or expression here, only trusted data (labels, instructions,
+    a linked simulation, and a small fixed concept-check question).
+    """
+
+    class ActivityType(models.TextChoices):
+        PHYSICS_LAB = "physics_lab", "Physics Lab"
+        TUTOR_REFLECTION = "tutor_reflection", "Tutor reflection"
+        CONCEPT_CHECK = "concept_check", "Concept check"
+
+    path = models.ForeignKey(
+        MisconceptionRecoveryPath,
+        on_delete=models.CASCADE,
+        related_name="activities",
+    )
+    order = models.PositiveSmallIntegerField(
+        help_text="1-based position in the path. Activities are completed in this order."
+    )
+    activity_type = models.CharField(max_length=32, choices=ActivityType.choices)
+    label = models.CharField(max_length=150, help_text="Short student-facing step title.")
+    instructions = models.TextField(
+        blank=True,
+        default="",
+        help_text="Student-facing framing for this step (Think / Predict prompts etc.).",
+    )
+    simulation = models.ForeignKey(
+        PhysicsSimulation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Required for a 'physics_lab' step; unused otherwise.",
+    )
+    check_prompt = models.CharField(
+        max_length=300, blank=True, default="", help_text="Required for a 'concept_check' step."
+    )
+    check_choices = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Plain list of answer choice strings for a 'concept_check' step.",
+    )
+    check_correct_choice = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="0-based index into check_choices."
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["path", "order", "id"]
+        verbose_name = "Misconception recovery activity"
+        verbose_name_plural = "Misconception recovery activities"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["path", "order"], name="uniq_recovery_activity_order"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.path.title} step {self.order}: {self.label}"
