@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Preview &middot; {{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="lb-preview-banner" role="note">
+    <p class="card-label">Teacher Preview</p>
+    <p>This is a read-only preview of the student learning sequence. Nothing here records student activity, evidence, attempts, or misconception state.</p>
+  </section>
+
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }}</p>
+      <h1>{{ lesson.title }}</h1>
+      <p>{{ lesson.duration_minutes }} minutes</p>
+    </div>
+    <a class="text-link" href="{% url 'lessons:build' lesson.slug %}">Back to the builder</a>
+  </section>
+
+  {% if lesson.description %}
+    <section class="surface-card detail-card">
+      <p class="card-label">Overview</p>
+      <p>{{ lesson.description }}</p>
+    </section>
+  {% endif %}
+
+  <div class="detail-grid">
+    <section class="surface-card detail-card">
+      <p class="card-label">Learning design</p>
+      <h2>Learning objectives</h2>
+      {% if objectives %}
+        <ul class="content-list">{% for objective in objectives %}<li>{{ objective }}</li>{% endfor %}</ul>
+      {% else %}
+        <p>No learning objectives yet.</p>
+      {% endif %}
+    </section>
+    <section class="surface-card detail-card">
+      <p class="card-label">Physics concepts</p>
+      <h2>Concepts in this lesson</h2>
+      {% if lesson.physics_concepts.exists %}
+        <ul class="concept-list">
+          {% for concept in lesson.physics_concepts.all %}<li><strong>{{ concept.name }}</strong><span>{{ concept.topic }}</span></li>{% endfor %}
+        </ul>
+      {% else %}
+        <p>No Physics concepts linked yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="surface-card lb-section" aria-labelledby="lb-preview-seq-title">
+    <p class="card-label">Student sequence</p>
+    <h2 id="lb-preview-seq-title">What the student works through, in order</h2>
+    {% if preview_activities %}
+      <ol class="lb-preview-list">
+        {% for step in preview_activities %}
+          <li class="lb-preview-step">
+            <div class="lb-activity-head">
+              <span class="lb-activity-num" aria-hidden="true">{{ step.position }}</span>
+              <span class="status-badge">{{ step.type_label }}</span>
+              <span class="lb-activity-title">{{ step.title }}</span>
+            </div>
+            {% if step.instructions %}<p class="lb-activity-instructions">{{ step.instructions }}</p>{% endif %}
+            {% if step.reference_label %}
+              <p class="lb-activity-ref">
+                {% if step.reference_ok %}Students open: {{ step.reference_label }}{% else %}&#9888; Linked item unavailable: {{ step.reference_label }}{% endif %}
+              </p>
+            {% endif %}
+            {% if step.tutor_focus %}<p class="lb-activity-ref">Tutor focus: {{ step.tutor_focus }}</p>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p>No activities yet. This lesson will still work with the Physics Tutor and any finalized content.</p>
+    {% endif %}
+  </section>
+{% endblock %}

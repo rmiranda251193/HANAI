@@ -12,6 +12,11 @@
     <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
   </section>
 
+  <p class="form-actions">
+    <a class="button button-primary" href="{% url 'lessons:build' lesson.slug %}">Open lesson builder</a>
+    <a class="button button-secondary" href="{% url 'lessons:preview' lesson.slug %}">Teacher preview</a>
+  </p>
+
   <div class="detail-grid">
     <section class="surface-card detail-card">
       <p class="card-label">Physics concepts</p>

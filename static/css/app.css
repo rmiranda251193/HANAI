@@ -591,3 +591,42 @@ a { color: inherit; }
 .recovery-tw-step.is-complete { border-color: rgba(117, 213, 158, .35); }
 .recovery-tw-step-label { color: #edf6fb; font-weight: 650; }
 .recovery-tw-step-meta { color: var(--muted); }
+
+/* Lesson builder (Step 26) */
+.lb-nav { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin: 1rem 0 0; padding: .6rem .9rem; border: 1px solid var(--line); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.lb-nav a { color: var(--cyan); text-decoration: none; font-size: .88rem; font-weight: 650; }
+.lb-nav a:hover, .lb-nav a:focus-visible { text-decoration: underline; }
+.lb-section { margin-top: 1.25rem; scroll-margin-top: 1rem; }
+.lb-section h2 { margin: .4rem 0 .6rem; font-size: 1.2rem; }
+.lb-section h3.journey-subhead { margin-top: 1.1rem; }
+.lb-form { display: grid; gap: .8rem; max-width: 46rem; }
+.lb-form .form-actions { margin-top: .4rem; }
+.lb-objective-list { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .7rem; }
+.lb-concept-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.lb-concept-choice { display: flex; align-items: flex-start; gap: .5rem; }
+.lb-concept-choice label { color: #dbeaf1; line-height: 1.5; }
+.lb-concept-choice input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.lb-activity-list, .lb-preview-list, .lb-student-activity-list { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .8rem; }
+.lb-activity, .lb-preview-step, .lb-student-activity { padding: .9rem 1rem; border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: .55rem; background: rgba(9, 18, 29, .42); }
+.lb-activity-broken { border-left-color: var(--amber); }
+.lb-activity-head { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin-bottom: .35rem; }
+.lb-activity-num { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: rgba(85, 215, 235, .12); color: var(--cyan); font-weight: 700; font-size: .85rem; }
+.lb-activity-title { font-weight: 650; color: #edf6fb; }
+.lb-activity-instructions { margin: .2rem 0 .4rem; color: #dbeaf1; line-height: 1.55; }
+.lb-activity-ref { margin: .2rem 0 0; color: var(--muted); font-size: .86rem; }
+.lb-activity-ref-broken { color: var(--amber); }
+.lb-activity-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start; margin-top: .6rem; }
+.lb-activity-actions form { margin: 0; }
+.lb-activity-edit, .lb-add-activity { margin-top: .4rem; }
+.lb-activity-edit summary, .lb-add-activity summary { cursor: pointer; font-weight: 650; color: var(--cyan); }
+.lb-activity-edit[open], .lb-add-activity[open] { border: 1px solid var(--line); border-radius: .5rem; padding: .8rem .9rem; background: rgba(17, 31, 46, .5); }
+.lb-add-activity { margin-top: 1rem; }
+.lb-check { max-width: 46rem; }
+.lb-check-ok { color: #8be7af; }
+.lb-check-fail li { color: var(--amber); }
+.lb-preview-banner { margin: 1rem 0 0; padding: .8rem 1rem; border: 1px solid rgba(242, 180, 102, .5); border-radius: .5rem; background: rgba(242, 180, 102, .1); }
+.lb-preview-banner p { margin: .2rem 0 0; color: #dbeaf1; line-height: 1.55; }
+.lb-lesson-activities { margin-top: 1.25rem; }
+.lb-student-activity .button { margin-top: .5rem; }
+.lb-practice-prompt { margin: .3rem 0 1rem; color: #edf6fb; font-size: 1.05rem; line-height: 1.5; }
+.empty-state-inline { margin: 1rem 0 0; color: var(--muted); }

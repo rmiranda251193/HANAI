@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Practice &middot; {{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">{{ lesson.title }} &middot; Practice</p>
+      <h1>{{ activity.title }}</h1>
+      {% if activity.instructions %}<p>{{ activity.instructions }}</p>{% endif %}
+    </div>
+    <a class="text-link" href="{% url 'students:tutor' lesson.slug %}">Back to the lesson</a>
+  </section>
+
+  <section class="surface-card">
+    <p class="card-label">Question</p>
+    <p class="lb-practice-prompt">{{ question.prompt }}</p>
+
+    {% if feedback %}
+      <div class="practice-feedback {% if feedback.is_correct %}practice-feedback-correct{% else %}practice-feedback-incorrect{% endif %}" role="status" aria-live="polite">
+        <p class="practice-result-label">{% if feedback.is_correct %}Correct.{% else %}Not quite.{% endif %}</p>
+        {% if not feedback.is_correct %}<p class="practice-feedback-body">Expected: {{ feedback.expected_display }}</p>{% endif %}
+        {% if feedback.explanation %}<p class="practice-feedback-hint">{{ feedback.explanation }}</p>{% endif %}
+      </div>
+    {% endif %}
+
+    {% if practice_error %}
+      <p class="recovery-check-error" role="alert">{{ practice_error }}</p>
+    {% endif %}
+
+    <form method="post" class="lb-form">
+      {% csrf_token %}
+      {% if question.question_type == "multiple_choice" %}
+        <fieldset>
+          <legend class="visually-hidden">{{ question.prompt }}</legend>
+          {% for choice in question.choices %}
+            <div class="recovery-check-choice">
+              <input type="radio" id="lb-choice-{{ forloop.counter0 }}" name="answer" value="{{ forloop.counter0 }}" required>
+              <label for="lb-choice-{{ forloop.counter0 }}">{{ choice }}</label>
+            </div>
+          {% endfor %}
+        </fieldset>
+      {% else %}
+        <div class="form-field">
+          <label for="lb-numeric-answer">Your answer{% if question.unit %} ({{ question.unit }}){% endif %}</label>
+          <input id="lb-numeric-answer" name="answer" type="text" inputmode="decimal" required>
+        </div>
+      {% endif %}
+      <div class="form-actions"><button type="submit" class="button button-primary">Submit answer</button></div>
+    </form>
+  </section>
+{% endblock %}

@@ -105,6 +105,115 @@ class Lesson(models.Model):
         self.save()
 
 
+class LessonActivity(models.Model):
+    """One ordered step in a teacher-authored lesson's learning sequence.
+
+    A reference/orchestration layer only. It points at an existing
+    ``PhysicsSimulation`` / ``QuestionBankItem`` / ``Assessment`` /
+    ``MisconceptionRecoveryPath`` and never copies or re-persists their
+    content. Student execution reuses the existing Physics Lab / practice /
+    assessment / tutor / recovery systems and their existing evidence
+    mechanisms -- this model records only the learning-design intent, never
+    student behaviour.
+    """
+
+    class ActivityType(models.TextChoices):
+        EXPLANATION = "explanation", "Explanation"
+        PHYSICS_LAB = "physics_lab", "Physics Lab"
+        PRACTICE = "practice", "Practice question"
+        TUTOR = "tutor", "Tutor discussion"
+        ASSESSMENT = "assessment", "Assessment"
+        RECOVERY = "recovery", "Misconception recovery"
+
+    # Which reference field each type reads. Types not listed here (explanation,
+    # tutor) carry no object reference.
+    REFERENCE_FIELD = {
+        ActivityType.PHYSICS_LAB: "simulation",
+        ActivityType.PRACTICE: "question",
+        ActivityType.ASSESSMENT: "assessment",
+        ActivityType.RECOVERY: "recovery_path",
+    }
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="activities"
+    )
+    position = models.PositiveSmallIntegerField(
+        help_text="1-based order within the lesson."
+    )
+    activity_type = models.CharField(max_length=32, choices=ActivityType.choices)
+    title = models.CharField(max_length=200)
+    instructions = models.TextField(
+        blank=True,
+        default="",
+        help_text="Concise teacher guidance shown to the student for this step.",
+    )
+    tutor_focus = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Optional safe instructional focus for a tutor activity.",
+    )
+
+    # Exactly one of these is meaningful, selected by ``activity_type``. Always
+    # resolved and validated server-side -- never trusted from a hidden field.
+    simulation = models.ForeignKey(
+        "physics.PhysicsSimulation",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    question = models.ForeignKey(
+        "assessments.QuestionBankItem",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    assessment = models.ForeignKey(
+        "assessments.Assessment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    recovery_path = models.ForeignKey(
+        "physics.MisconceptionRecoveryPath",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["lesson", "position", "id"]
+        verbose_name = "Lesson activity"
+        verbose_name_plural = "Lesson activities"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lesson", "position"], name="uniq_lesson_activity_position"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.lesson.title} #{self.position}: {self.title}"
+
+    @property
+    def reference_field_name(self) -> str | None:
+        return self.REFERENCE_FIELD.get(self.activity_type)
+
+    @property
+    def reference(self):
+        """The linked object for this activity's type, or None."""
+
+        field = self.reference_field_name
+        return getattr(self, field) if field else None
+
+
 class LessonFeedback(models.Model):
     """Teacher feedback on AI-generated lessons"""
     

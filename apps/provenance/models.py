@@ -116,6 +116,8 @@ class ProvenanceEvent(models.Model):
         TEACHER_EDITED = "teacher_edited", "Teacher edited"
         TEACHER_REJECTED = "teacher_rejected", "Teacher rejected"
         LESSON_FINALIZED = "lesson_finalized", "Lesson finalized"
+        LESSON_UPDATED = "lesson_updated", "Lesson updated by teacher"
+        LESSON_PUBLISHED = "lesson_published", "Lesson published"
 
     lesson = models.ForeignKey(
         "lessons.Lesson",

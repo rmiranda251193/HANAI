@@ -155,6 +155,13 @@ def history_entry_for(event: ProvenanceEvent) -> HistoryEntry:
         version = metadata.get("version")
         if version:
             details.append(f"Version: {version}")
+    elif event.event_type == ProvenanceEvent.EventType.LESSON_UPDATED:
+        source_label = "Teacher"
+        change = metadata.get("change")
+        if change:
+            details.append(str(change).replace("_", " ").capitalize())
+    elif event.event_type == ProvenanceEvent.EventType.LESSON_PUBLISHED:
+        source_label = "Teacher"
 
     return HistoryEntry(
         event_type=event.event_type,

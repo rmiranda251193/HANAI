@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lesson Builder &middot; {{ lesson.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace &middot; Lesson Builder</p>
+      <h1>{{ lesson.title }}</h1>
+      <p>{{ lesson.topic }} &middot; Grade {{ lesson.grade_level }} &middot; {{ lesson.duration_minutes }} minutes</p>
+    </div>
+    <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
+  </section>
+
+  <nav class="lb-nav" aria-label="Lesson builder sections">
+    <a href="#lb-basics">1. Lesson information</a>
+    <a href="#lb-objectives">2. Learning objectives</a>
+    <a href="#lb-concepts">3. Physics concepts</a>
+    <a href="#lb-activities">4. Learning activities</a>
+    <a href="#lb-publish">5. Preview &amp; publish</a>
+  </nav>
+
+  {% if not can_edit %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Lesson builder</p>
+      <p>This lesson belongs to another teacher. You can view it but not edit it.</p>
+    </section>
+  {% endif %}
+
+  {% if request.GET.ok %}
+    <section class="generation-message generation-message-success" role="status" aria-live="polite">
+      <p class="card-label">Saved</p>
+      <p>
+        {% if request.GET.ok == "basics" %}Lesson information saved.
+        {% elif request.GET.ok == "objectives" %}Learning objectives saved.
+        {% elif request.GET.ok == "concepts" %}Physics concepts saved.
+        {% elif request.GET.ok == "activity_added" %}Activity added.
+        {% elif request.GET.ok == "activity_updated" %}Activity updated.
+        {% elif request.GET.ok == "activity_deleted" %}Activity deleted.
+        {% elif request.GET.ok == "activity_moved" %}Activity order updated.
+        {% elif request.GET.ok == "published" %}Lesson published. Students can now see it.
+        {% else %}Your change was saved.{% endif %}
+      </p>
+    </section>
+  {% endif %}
+
+  {% if authoring_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Lesson builder</p>
+      <p>{{ authoring_error }}</p>
+    </section>
+  {% endif %}
+
+  {% if publish_errors %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Cannot publish yet</p>
+      <ul class="content-list">
+        {% for reason in publish_errors %}<li>{{ reason }}</li>{% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {# ---------- 1. LESSON INFORMATION ---------- #}
+  <section class="surface-card lb-section" id="lb-basics" aria-labelledby="lb-basics-title">
+    <p class="card-label">Section 1</p>
+    <h2 id="lb-basics-title">Lesson information</h2>
+    <form method="post" action="{% url 'lessons:update_basics' lesson.slug %}" class="lb-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="lb-title">Title</label>
+        <input id="lb-title" name="title" type="text" value="{{ lesson.title }}" maxlength="255" required {% if not can_edit %}disabled{% endif %}>
+      </div>
+      <div class="form-field">
+        <label for="lb-topic">Topic</label>
+        <input id="lb-topic" name="topic" type="text" value="{{ lesson.topic }}" maxlength="255" required {% if not can_edit %}disabled{% endif %}>
+      </div>
+      <div class="form-field">
+        <label for="lb-grade">Grade level</label>
+        <input id="lb-grade" name="grade_level" type="text" value="{{ lesson.grade_level }}" maxlength="50" required {% if not can_edit %}disabled{% endif %}>
+      </div>
+      <div class="form-field">
+        <label for="lb-duration">Duration (minutes)</label>
+        <input id="lb-duration" name="duration_minutes" type="number" min="1" max="600" value="{{ lesson.duration_minutes }}" required {% if not can_edit %}disabled{% endif %}>
+      </div>
+      <div class="form-field form-field-wide">
+        <label for="lb-description">Overview / description <span class="tw-optional">(optional)</span></label>
+        <textarea id="lb-description" name="description" rows="3" maxlength="8000" {% if not can_edit %}disabled{% endif %}>{{ lesson.description }}</textarea>
+      </div>
+      {% if can_edit %}<div class="form-actions"><button type="submit" class="button button-primary">Save lesson information</button></div>{% endif %}
+    </form>
+  </section>
+
+  {# ---------- 2. LEARNING OBJECTIVES ---------- #}
+  <section class="surface-card lb-section" id="lb-objectives" aria-labelledby="lb-objectives-title">
+    <p class="card-label">Section 2</p>
+    <h2 id="lb-objectives-title">Learning objectives</h2>
+    <p class="tw-signals-note">One objective per line. Empty lines are removed; order is preserved. At least one is required to publish.</p>
+    <form method="post" action="{% url 'lessons:update_objectives' lesson.slug %}" class="lb-form">
+      {% csrf_token %}
+      <ol class="lb-objective-list">
+        {% for objective in lesson.learning_objectives %}
+          <li class="form-field">
+            <label for="lb-obj-{{ forloop.counter }}">Objective {{ forloop.counter }}</label>
+            <input id="lb-obj-{{ forloop.counter }}" name="objective" type="text" value="{{ objective }}" maxlength="500" {% if not can_edit %}disabled{% endif %}>
+          </li>
+        {% endfor %}
+        <li class="form-field">
+          <label for="lb-obj-new">Add an objective</label>
+          <input id="lb-obj-new" name="objective" type="text" value="" maxlength="500" placeholder="Students can explain why acceleration changed." {% if not can_edit %}disabled{% endif %}>
+        </li>
+      </ol>
+      {% if can_edit %}<div class="form-actions"><button type="submit" class="button button-primary">Save objectives</button></div>{% endif %}
+    </form>
+  </section>
+
+  {# ---------- 3. PHYSICS CONCEPTS ---------- #}
+  <section class="surface-card lb-section" id="lb-concepts" aria-labelledby="lb-concepts-title">
+    <p class="card-label">Section 3</p>
+    <h2 id="lb-concepts-title">Physics concepts</h2>
+    <p class="tw-signals-note">Connect the reusable Physics concepts this lesson teaches or applies. At least one is required to publish.</p>
+    <form method="post" action="{% url 'lessons:update_concepts' lesson.slug %}" class="lb-form">
+      {% csrf_token %}
+      <fieldset class="lb-concept-fieldset">
+        <legend class="visually-hidden">Physics concepts</legend>
+        {% for concept in concepts %}
+          <div class="lb-concept-choice">
+            <input type="checkbox" id="lb-concept-{{ concept.pk }}" name="concept" value="{{ concept.pk }}"
+                   {% if concept.pk in selected_concept_ids %}checked{% endif %} {% if not can_edit %}disabled{% endif %}>
+            <label for="lb-concept-{{ concept.pk }}">{{ concept.name }} <span class="tw-optional">&middot; {{ concept.topic }}</span></label>
+          </div>
+        {% empty %}
+          <p>No active Physics concepts are available yet.</p>
+        {% endfor %}
+      </fieldset>
+      {% if can_edit %}<div class="form-actions"><button type="submit" class="button button-primary">Save concepts</button></div>{% endif %}
+    </form>
+  </section>
+
+  {# ---------- 4. LEARNING ACTIVITIES ---------- #}
+  <section class="surface-card lb-section" id="lb-activities" aria-labelledby="lb-activities-title">
+    <p class="card-label">Section 4</p>
+    <h2 id="lb-activities-title">Learning activities</h2>
+    <p class="tw-signals-note">Each activity references an existing Physics Lab simulation, question, assessment, tutor, or recovery path. Students run the real system &mdash; this is the ordered plan.</p>
+
+    {% if activities %}
+      <ol class="lb-activity-list">
+        {% for activity in activities %}
+          <li class="lb-activity {% if activity.reference_field_name and not activity.reference %}lb-activity-broken{% endif %}">
+            <div class="lb-activity-head">
+              <span class="lb-activity-num" aria-hidden="true">{{ activity.position }}</span>
+              <span class="status-badge">{{ activity.get_activity_type_display }}</span>
+              <span class="lb-activity-title">{{ activity.title }}</span>
+            </div>
+            {% if activity.instructions %}<p class="lb-activity-instructions">{{ activity.instructions }}</p>{% endif %}
+            {% if activity.reference %}
+              <p class="lb-activity-ref">Links to: {{ activity.reference }}</p>
+            {% elif activity.reference_field_name %}
+              <p class="lb-activity-ref lb-activity-ref-broken">The linked item is no longer available.</p>
+            {% endif %}
+            {% if activity.tutor_focus %}<p class="lb-activity-ref">Tutor focus: {{ activity.tutor_focus }}</p>{% endif %}
+
+            {% if can_edit %}
+              <div class="lb-activity-actions">
+                <form method="post" action="{% url 'lessons:activity_move' lesson.slug activity.pk %}">
+                  {% csrf_token %}<input type="hidden" name="direction" value="up">
+                  <button type="submit" class="button button-secondary" {% if forloop.first %}disabled{% endif %}>Move up</button>
+                </form>
+                <form method="post" action="{% url 'lessons:activity_move' lesson.slug activity.pk %}">
+                  {% csrf_token %}<input type="hidden" name="direction" value="down">
+                  <button type="submit" class="button button-secondary" {% if forloop.last %}disabled{% endif %}>Move down</button>
+                </form>
+                <details class="lb-activity-edit">
+                  <summary>Edit</summary>
+                  <form method="post" action="{% url 'lessons:activity_edit' lesson.slug activity.pk %}" class="lb-form">
+                    {% csrf_token %}
+                    <div class="form-field">
+                      <label for="lb-edit-title-{{ activity.pk }}">Title</label>
+                      <input id="lb-edit-title-{{ activity.pk }}" name="title" type="text" value="{{ activity.title }}" maxlength="200" required>
+                    </div>
+                    <div class="form-field form-field-wide">
+                      <label for="lb-edit-instr-{{ activity.pk }}">Instructions</label>
+                      <textarea id="lb-edit-instr-{{ activity.pk }}" name="instructions" rows="2" maxlength="4000">{{ activity.instructions }}</textarea>
+                    </div>
+                    {% if activity.activity_type == "physics_lab" %}
+                      <div class="form-field">
+                        <label for="lb-edit-ref-{{ activity.pk }}">Physics Lab simulation</label>
+                        <select id="lb-edit-ref-{{ activity.pk }}" name="reference_id" required>
+                          {% for sim in simulations %}<option value="physics_lab:{{ sim.pk }}" {% if sim.pk == activity.simulation_id %}selected{% endif %}>{{ sim.title }}</option>{% endfor %}
+                        </select>
+                      </div>
+                    {% elif activity.activity_type == "practice" %}
+                      <div class="form-field">
+                        <label for="lb-edit-ref-{{ activity.pk }}">Question bank item</label>
+                        <select id="lb-edit-ref-{{ activity.pk }}" name="reference_id" required>
+                          {% for q in questions %}<option value="practice:{{ q.pk }}" {% if q.pk == activity.question_id %}selected{% endif %}>{{ q.key }} &mdash; {{ q.prompt|truncatechars:70 }}</option>{% endfor %}
+                        </select>
+                      </div>
+                    {% elif activity.activity_type == "assessment" %}
+                      <div class="form-field">
+                        <label for="lb-edit-ref-{{ activity.pk }}">Published assessment</label>
+                        <select id="lb-edit-ref-{{ activity.pk }}" name="reference_id" required>
+                          {% for a in assessments %}<option value="assessment:{{ a.pk }}" {% if a.pk == activity.assessment_id %}selected{% endif %}>{{ a.title }}</option>{% endfor %}
+                        </select>
+                      </div>
+                    {% elif activity.activity_type == "recovery" %}
+                      <div class="form-field">
+                        <label for="lb-edit-ref-{{ activity.pk }}">Recovery path</label>
+                        <select id="lb-edit-ref-{{ activity.pk }}" name="reference_id" required>
+                          {% for r in recovery_paths %}<option value="recovery:{{ r.pk }}" {% if r.pk == activity.recovery_path_id %}selected{% endif %}>{{ r.title }}</option>{% endfor %}
+                        </select>
+                      </div>
+                    {% elif activity.activity_type == "tutor" %}
+                      <div class="form-field">
+                        <label for="lb-edit-focus-{{ activity.pk }}">Tutor focus <span class="tw-optional">(optional)</span></label>
+                        <input id="lb-edit-focus-{{ activity.pk }}" name="tutor_focus" type="text" value="{{ activity.tutor_focus }}" maxlength="200">
+                      </div>
+                    {% endif %}
+                    <div class="form-actions"><button type="submit" class="button button-primary">Save activity</button></div>
+                  </form>
+                </details>
+                <form method="post" action="{% url 'lessons:activity_delete' lesson.slug activity.pk %}" class="lb-activity-delete">
+                  {% csrf_token %}
+                  <button type="submit" class="button button-secondary">Delete</button>
+                </form>
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="empty-state-inline">No activities yet. Add the first step below.</p>
+    {% endif %}
+
+    {% if can_edit %}
+      <details class="lb-add-activity" {% if request.GET.ok == "activity_added" %}open{% endif %}>
+        <summary>Add an activity</summary>
+        <form method="post" action="{% url 'lessons:activity_add' lesson.slug %}" class="lb-form" data-add-activity>
+          {% csrf_token %}
+          <div class="form-field">
+            <label for="lb-new-type">Activity type</label>
+            <select id="lb-new-type" name="activity_type" required data-activity-type>
+              {% for value, label in activity_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="lb-new-title">Title</label>
+            <input id="lb-new-title" name="title" type="text" maxlength="200" required placeholder="Kinematics Physics Lab">
+          </div>
+          <div class="form-field form-field-wide">
+            <label for="lb-new-instr">Instructions <span class="tw-optional">(optional)</span></label>
+            <textarea id="lb-new-instr" name="instructions" rows="2" maxlength="4000" placeholder="Predict what will happen before running the simulation."></textarea>
+          </div>
+
+          <div class="form-field" data-ref-group>
+            <label for="lb-new-ref">Linked item</label>
+            <select id="lb-new-ref" name="reference_id">
+              <option value="">&mdash; not needed for explanation or tutor &mdash;</option>
+              <optgroup label="Physics Lab" data-ref-type="physics_lab">
+                {% for sim in simulations %}<option value="physics_lab:{{ sim.pk }}">{{ sim.title }} ({{ sim.concept.name }})</option>{% endfor %}
+              </optgroup>
+              <optgroup label="Practice question" data-ref-type="practice">
+                {% for q in questions %}<option value="practice:{{ q.pk }}">{{ q.key }} &mdash; {{ q.prompt|truncatechars:70 }}</option>{% endfor %}
+              </optgroup>
+              <optgroup label="Assessment" data-ref-type="assessment">
+                {% for a in assessments %}<option value="assessment:{{ a.pk }}">{{ a.title }}</option>{% endfor %}
+              </optgroup>
+              <optgroup label="Recovery path" data-ref-type="recovery">
+                {% for r in recovery_paths %}<option value="recovery:{{ r.pk }}">{{ r.title }}</option>{% endfor %}
+              </optgroup>
+            </select>
+            <p class="field-help">Pick the item that matches the activity type above. Explanation and tutor activities need no link.</p>
+          </div>
+          <div class="form-field" data-focus-group>
+            <label for="lb-new-focus">Tutor focus <span class="tw-optional">(optional, tutor activity only)</span></label>
+            <input id="lb-new-focus" name="tutor_focus" type="text" maxlength="200" placeholder="Compare distance and displacement">
+          </div>
+
+          <div class="form-actions"><button type="submit" class="button button-primary">Add activity</button></div>
+        </form>
+      </details>
+    {% endif %}
+  </section>
+
+  {# ---------- 5. PREVIEW & PUBLISH ---------- #}
+  <section class="surface-card lb-section" id="lb-publish" aria-labelledby="lb-publish-title">
+    <p class="card-label">Section 5</p>
+    <h2 id="lb-publish-title">Preview &amp; publish</h2>
+    <p>
+      <a class="button button-secondary" href="{% url 'lessons:preview' lesson.slug %}">Open teacher preview</a>
+      <a class="button button-secondary" href="{% url 'lessons:detail' lesson.slug %}">AI draft &amp; review</a>
+    </p>
+
+    <h3 class="journey-subhead">Publish checklist</h3>
+    {% if publish_reasons %}
+      <ul class="content-list lb-check lb-check-fail">
+        {% for reason in publish_reasons %}<li>{{ reason }}</li>{% endfor %}
+      </ul>
+      <p class="tw-signals-note">Resolve every item above before publishing.</p>
+    {% else %}
+      <p class="lb-check lb-check-ok" role="status">This lesson meets every structural requirement for publishing.</p>
+    {% endif %}
+
+    {% if can_edit and lesson.status != "published" %}
+      <form method="post" action="{% url 'lessons:publish' lesson.slug %}" class="lb-form">
+        {% csrf_token %}
+        <div class="form-actions">
+          <button type="submit" class="button button-primary" {% if publish_reasons %}disabled{% endif %}>Publish lesson</button>
+        </div>
+        <p class="tw-signals-note">Publishing is explicit and is validated again on the server{% if publish_reasons %}; resolve the checklist above to enable it{% endif %}.</p>
+      </form>
+    {% elif lesson.status == "published" %}
+      <p class="lb-check lb-check-ok" role="status">This lesson is published and visible to students.</p>
+    {% endif %}
+  </section>
+
+  <script defer src="{% static 'js/lessons/builder.js' %}"></script>
+{% endblock %}

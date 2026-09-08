@@ -76,6 +76,28 @@
           <button type="submit" class="button button-primary">Send</button>
         </form>
       </section>
+
+      {% if lesson_activities %}
+        <section class="surface-card lb-lesson-activities" aria-labelledby="lesson-activities-title">
+          <p class="card-label">In this lesson</p>
+          <h2 id="lesson-activities-title">Work through these steps in order</h2>
+          <ol class="lb-student-activity-list">
+            {% for step in lesson_activities %}
+              <li class="lb-student-activity">
+                <div class="lb-activity-head">
+                  <span class="lb-activity-num" aria-hidden="true">{{ step.position }}</span>
+                  <span class="status-badge">{{ step.type_label }}</span>
+                  <span class="lb-activity-title">{{ step.title }}</span>
+                </div>
+                {% if step.instructions %}<p class="lb-activity-instructions">{{ step.instructions }}</p>{% endif %}
+                {% if step.launch_url %}
+                  <a class="button button-secondary" href="{{ step.launch_url }}">{{ step.launch_label }}</a>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </section>
+      {% endif %}
     </div>
 
     <aside class="tutor-side">

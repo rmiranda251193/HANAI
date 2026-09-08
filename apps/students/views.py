@@ -405,6 +405,12 @@ def tutor_view(request, slug):
         (m for m in reversed(conversation) if m.role == TutorMessage.Role.TUTOR),
         None,
     )
+    # Step 26: the teacher-authored activity sequence for a published lesson.
+    # Read-only; an empty list (draft lesson or no activities) renders nothing,
+    # so legacy lessons are unchanged.
+    from apps.lessons.authoring_services import build_student_lesson_activities
+
+    context["lesson_activities"] = build_student_lesson_activities(lesson)
     return render(request, "students/tutor.html", context)
 
 
