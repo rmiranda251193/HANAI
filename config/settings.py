@@ -187,14 +187,9 @@ WHITENOISE_MANIFEST_STRICT = False
 # suite.
 WHITENOISE_USE_FINDERS = not IS_PRODUCTION
 if not IS_PRODUCTION:
-    # WhiteNoise warns once when STATIC_ROOT does not exist yet (i.e. before the
-    # first `collectstatic`). Harmless in development/tests; production always
-    # collects first (see Dockerfile / DEPLOYMENT.md).
-    import warnings
-
-    warnings.filterwarnings(
-        "ignore", r"^No directory at", UserWarning, r"whitenoise\.base"
-    )
+    # Ensure STATIC_ROOT exists so WhiteNoise does not warn about it before the
+    # first `collectstatic`. Empty and gitignored; production collects into it.
+    STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 
 # No user-uploaded media exists in HANAI today (no FileField / ImageField
 # anywhere). These are defined only so a future feature has a home; nothing is

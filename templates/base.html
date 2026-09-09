@@ -9,39 +9,41 @@
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="Primary navigation">
+      <aside class="sidebar">
         <a class="brand" href="{% url 'home' %}">
           <span class="brand-mark" aria-hidden="true">◉</span>
           <span>DodongOS <strong>Physics AI</strong></span>
         </a>
-        <nav class="navigation">
+        <nav class="navigation" aria-label="Primary">
           <a class="nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Overview</a>
-          <a class="nav-link {% if request.resolver_match.url_name == 'list' %}is-active{% endif %}" href="{% url 'lessons:list' %}">My Lessons</a>
-          <a class="nav-link {% if request.resolver_match.url_name == 'create' %}is-active{% endif %}" href="{% url 'lessons:create' %}">Create Lesson</a>
+
+          <p class="nav-group-label" id="nav-learn">Learn</p>
           <a class="nav-link {% if request.resolver_match.namespace == 'students' and request.resolver_match.url_name != 'progress' and request.resolver_match.url_name != 'plan' and request.resolver_match.url_name != 'learning' and request.resolver_match.url_name != 'path' and request.resolver_match.url_name != 'goals' and 'recommendation' not in request.resolver_match.url_name|default:'' and 'assessment' not in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:lessons' %}">Physics Tutor</a>
           <a class="nav-link {% if request.resolver_match.namespace == 'physics_lab' %}is-active{% endif %}" href="{% url 'physics_lab:index' %}">Physics Lab</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'plan' %}is-active{% endif %}" href="{% url 'students:plan' %}">Next Activity</a>
+          <a class="nav-link {% if request.resolver_match.namespace == 'students' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:assessment_list' %}">Assessments</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'progress' %}is-active{% endif %}" href="{% url 'students:progress' %}">My Progress</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'goals' %}is-active{% endif %}" href="{% url 'students:goals' %}">Learning Goals</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'learning' %}is-active{% endif %}" href="{% url 'students:learning' %}">Learning Patterns</a>
           <a class="nav-link {% if request.resolver_match.url_name == 'path' %}is-active{% endif %}" href="{% url 'students:path' %}">Learning Path</a>
           <a class="nav-link {% if 'recommendation' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:recommendations' %}">Recommendations</a>
-          <a class="nav-link {% if request.resolver_match.namespace == 'students' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:assessment_list' %}">Assessments</a>
+
+          <p class="nav-group-label" id="nav-teach">Teach</p>
+          <a class="nav-link {% if request.resolver_match.url_name == 'list' %}is-active{% endif %}" href="{% url 'lessons:list' %}">My Lessons</a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'create' %}is-active{% endif %}" href="{% url 'lessons:create' %}">Create Lesson</a>
           {% if user.is_staff %}
             <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and request.resolver_match.url_name != 'question_bank' and request.resolver_match.url_name != 'question_create' and request.resolver_match.url_name != 'question_edit' and 'analytics' not in request.resolver_match.url_name|default:'' and 'assessment' not in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:student_list' %}">Student Evidence</a>
             <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'analytics' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:analytics' %}">Cohort Analytics</a>
             <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'question' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:question_bank' %}">Question Bank</a>
             <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:assessment_list_teacher' %}">Assessment Builder</a>
           {% endif %}
-          <span class="nav-link is-disabled">Physics resources <small>soon</small></span>
         </nav>
-        <p class="sidebar-status"><span></span> Lesson builder ready</p>
       </aside>
-      <main class="content">
+      <main class="content" id="main-content" tabindex="-1">
         <header class="topbar">
           <p class="eyebrow">Scientific learning workspace</p>
-          <p class="mode">Local development</p>
         </header>
         {% block content %}{% endblock %}
       </main>

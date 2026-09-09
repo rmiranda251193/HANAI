@@ -14,6 +14,16 @@ paths, a teacher evidence workspace, and deterministic cohort analytics.
   provider makes no network calls, so development and the test suite run
   offline.
 
+## Status
+
+Integrated MVP — the planned roadmap (Steps 1–30) is complete: teacher lesson
+authoring, AI lesson generation and deterministic review, the Physics Lab
+(Newton's Second Law, Kinematics), the Physics Tutor, practice and structured
+assessments, misconception detection and teacher-controlled recovery, the
+teacher evidence workspace, cohort analytics, and a production-ready
+configuration (see [DEPLOYMENT.md](DEPLOYMENT.md)). Further work is driven by
+real usage, not this roadmap.
+
 ## Local development
 
 ```bash

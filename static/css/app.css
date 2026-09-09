@@ -18,17 +18,20 @@ a { color: inherit; }
 .brand { display: flex; align-items: center; gap: .65rem; text-decoration: none; font-size: 1rem; letter-spacing: -.02em; }
 .brand strong { color: var(--cyan); font-weight: 600; }
 .brand-mark { color: var(--amber); font-size: 1.35rem; }
-.navigation { display: grid; gap: .35rem; margin-top: 3rem; }
-.nav-link { padding: .7rem .8rem; border-radius: .45rem; text-decoration: none; font-size: .92rem; }
+.navigation { display: grid; gap: .2rem; margin-top: 2.25rem; }
+.nav-link { padding: .6rem .8rem; border-radius: .45rem; text-decoration: none; font-size: .92rem; }
 .nav-link.is-active { background: rgba(85, 215, 235, .1); color: var(--cyan); }
-.nav-link.is-disabled { color: var(--muted); cursor: default; }
-.nav-link small { float: right; font-size: .67rem; text-transform: uppercase; letter-spacing: .08em; }
-.sidebar-status { margin-top: auto; color: var(--muted); font-size: .78rem; }
-.sidebar-status span { display: inline-block; width: .5rem; height: .5rem; margin-right: .4rem; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 1rem var(--cyan); }
+.nav-group-label { margin: 1rem 0 .15rem; padding: 0 .8rem; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.skip-link { position: absolute; left: .75rem; top: -3rem; z-index: 100; padding: .55rem .9rem; border-radius: .45rem; background: var(--cyan); color: #041016; font-weight: 700; font-size: .85rem; text-decoration: none; transition: top .15s ease; }
+.skip-link:focus { top: .75rem; }
 .content { min-width: 0; padding: 1.5rem clamp(1.5rem, 5vw, 5rem); background: radial-gradient(circle at 80% 0%, rgba(85, 215, 235, .08), transparent 30rem); }
+.content:focus { outline: none; }
 .topbar { display: flex; justify-content: space-between; align-items: center; }
 .eyebrow, .card-label { margin: 0; color: var(--cyan); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.mode { margin: 0; color: var(--muted); font-size: .82rem; }
+.home-links { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+.home-links .text-link { margin-top: 0; }
+.home-flow { max-width: 60rem; margin: 1.5rem 0 3rem; }
+.home-flow p:not(.card-label) { margin: .5rem 0 0; color: var(--muted); line-height: 1.75; }
 .hero { max-width: 48rem; padding: 8rem 0 4rem; }
 .hero h1 { margin: .85rem 0 1.25rem; font-size: clamp(2.5rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -.06em; }
 .hero h1 span { color: var(--cyan); }
@@ -389,7 +392,7 @@ a { color: inherit; }
 .tw-history-target { margin: .5rem 0 0; color: var(--cyan); font-size: .86rem; }
 .tw-history-note { margin: .5rem 0 0; color: #dbeaf1; line-height: 1.55; }
 .tw-history-teacher { margin: .55rem 0 0; color: var(--muted); font-size: .8rem; }
-@media (prefers-reduced-motion: reduce) { .lab-cart-body, .lab-arrow line, .lab-trace { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .lab-cart-body, .lab-arrow line, .lab-trace, .skip-link { transition: none !important; } }
 @media (max-width: 720px) { .tw-form { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .tutor-layout { grid-template-columns: 1fr; } .insight-card-head { flex-direction: column; } .insight-badges { align-items: start; flex-direction: row; } .lab { grid-template-columns: 1fr; } .lab-experiment-grid { grid-template-columns: 1fr; } .lab-value-grid, .lab-motion { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { .generation-status::before { animation: none; } }
@@ -470,7 +473,7 @@ a { color: inherit; }
 .tw-practice-result-recorded { color: var(--cyan); }
 .tw-practice-lesson { margin: .3rem 0 0; color: var(--cyan); font-size: .82rem; }
 @media (max-width: 900px) { .practice-layout { grid-template-columns: 1fr; } }
-@media (max-width: 720px) { .app-shell { grid-template-columns: 1fr; } .sidebar { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); } .navigation { margin-top: 1.5rem; } .sidebar-status { display: none; } .hero { padding-top: 4rem; } .foundation-grid { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .app-shell { grid-template-columns: 1fr; } .sidebar { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); } .navigation { margin-top: 1.5rem; } .hero { padding-top: 4rem; } .foundation-grid { grid-template-columns: 1fr; } .home-links { gap: .6rem 1rem; } }
 
 /* Learning patterns (deterministic activity synthesis) */
 /* Keyboard focus must be visible on every button, not conveyed by colour alone. */

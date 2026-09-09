@@ -160,14 +160,25 @@ def _experiment_attempt_for(student: StudentProfile, raw_id):
     )
 
 
+# Archived lessons are explicitly retired -- never offer them to students. Draft
+# / review / published lessons stay visible (the workflow status is shown as a
+# badge on each card); there is no student login yet, so this is a content
+# filter, not an authorization boundary.
+def _student_visible_lessons():
+    return Lesson.objects.exclude(status=Lesson.Status.ARCHIVED).prefetch_related(
+        "physics_concepts"
+    )
+
+
 def student_home(request):
-    lessons = Lesson.objects.prefetch_related("physics_concepts")[:6]
+    lessons = _student_visible_lessons()[:6]
     return render(request, "students/home.html", {"lessons": lessons})
 
 
 def student_lessons(request):
-    lessons = Lesson.objects.prefetch_related("physics_concepts")
-    return render(request, "students/lessons.html", {"lessons": lessons})
+    return render(
+        request, "students/lessons.html", {"lessons": _student_visible_lessons()}
+    )
 
 
 def student_progress(request):
