@@ -1,14 +1,21 @@
+import csv
 import logging
 
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from apps.students.exceptions import MisconceptionDecisionError
 from apps.students.misconception_services import apply_teacher_decision
 from apps.students.models import StudentMisconception, StudentProfile
 
 from .access import teacher_required
+from .analytics_services import (
+    analytics_filter_choices,
+    cohort_csv_rows,
+    get_cohort_analytics,
+    resolve_analytics_filters,
+)
 from .goal_services import (
     GoalError,
     GoalNotFound,
@@ -132,6 +139,62 @@ def create_goal(request, student_id):
             goal_error="The learning goal could not be saved. Please try again.",
         )
     return _render_detail(request, student, workflow_message=GOAL_SAVED)
+
+
+# --- cohort analytics (Step 28) -------------------------------------
+#
+# Read-only projections over evidence that already exists. GET only; nothing
+# here writes, grades, or calls an AI provider. The cohort is every student --
+# the project has no per-teacher roster (``student_detail`` resolves any student
+# by pk); ``teacher_required`` (is_staff) is the gate, exactly as elsewhere.
+
+CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+@teacher_required
+@require_GET
+def analytics_dashboard(request):
+    filters = resolve_analytics_filters(request.GET)
+    snapshot = get_cohort_analytics(filters)
+    students, lessons, concepts = analytics_filter_choices()
+    return render(
+        request,
+        "teachers/analytics.html",
+        {
+            "snapshot": snapshot,
+            "filters": filters,
+            "range_choices": [
+                ("7", "Last 7 days"),
+                ("30", "Last 30 days"),
+                ("90", "Last 90 days"),
+                ("all", "All available"),
+            ],
+            "student_choices": students,
+            "lesson_choices": lessons,
+            "concept_choices": concepts,
+        },
+    )
+
+
+def _csv_safe(value: str) -> str:
+    text = "" if value is None else str(value)
+    if text and text[0] in CSV_FORMULA_PREFIXES:
+        return "'" + text
+    return text
+
+
+@teacher_required
+@require_GET
+def analytics_export(request):
+    filters = resolve_analytics_filters(request.GET)
+    snapshot = get_cohort_analytics(filters)
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="cohort-analytics.csv"'
+    writer = csv.writer(response)
+    for row in cohort_csv_rows(snapshot):
+        writer.writerow([_csv_safe(cell) for cell in row])
+    return response
 
 
 @teacher_required

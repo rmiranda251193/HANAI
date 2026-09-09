@@ -29,4 +29,6 @@ urlpatterns = [
         views.misconception_decision,
         name="misconception_decision",
     ),
+    path("analytics/", views.analytics_dashboard, name="analytics"),
+    path("analytics/export.csv", views.analytics_export, name="analytics_export"),
 ] + assessment_teacher_patterns

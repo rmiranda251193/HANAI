@@ -564,6 +564,34 @@ a { color: inherit; }
 .plan-alt-target { margin: 0 0 .5rem; color: var(--muted); font-size: .82rem; }
 .tw-plan-line { margin: .35rem 0 0; color: #dbeaf1; font-size: .88rem; line-height: 1.6; }
 
+/* Cohort analytics (Step 28) */
+.tw-analytics-filters { max-width: 64rem; }
+.tw-analytics-filter-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .8rem 1rem; margin-top: .8rem; }
+.tw-analytics-field { display: grid; gap: .3rem; margin: 0; }
+.tw-analytics-field label { font-size: .84rem; font-weight: 700; }
+.tw-analytics-field select { width: 100%; padding: .55rem .6rem; border: 1px solid var(--line); border-radius: .4rem; color: var(--text); background: #0b1724; font: inherit; }
+.tw-analytics-field select:focus { border-color: var(--cyan); outline: none; box-shadow: 0 0 0 3px rgba(85, 215, 235, .14); }
+.tw-analytics-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; margin: 0; }
+.tw-analytics-scope { margin: .9rem 0 0; padding-top: .8rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .84rem; line-height: 1.6; }
+.tw-analytics-lede { margin: .2rem 0 .9rem; color: var(--muted); font-size: .88rem; line-height: 1.55; max-width: 60rem; }
+.tw-analytics-subhead { margin: 1.2rem 0 .4rem; font-size: 1rem; color: var(--cyan); }
+.tw-analytics-scroll { overflow-x: auto; }
+.tw-analytics-table { width: 100%; border-collapse: collapse; margin-top: .5rem; font-size: .88rem; }
+.tw-analytics-table caption { text-align: left; }
+.tw-analytics-table th, .tw-analytics-table td { padding: .5rem .6rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tw-analytics-table thead th { color: var(--cyan); font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; }
+.tw-analytics-table tbody th { font-weight: 650; color: #edf6fb; }
+.tw-analytics-table td { color: #dbeaf1; }
+.tw-analytics-attention { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .8rem; max-width: 60rem; }
+.tw-analytics-attention-item { padding: .85rem 1rem; border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.tw-analytics-attention-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0 0 .35rem; font-weight: 650; }
+.tw-analytics-band { padding: .15rem .5rem; border-radius: 999px; border: 1px solid var(--line); font-size: .72rem; font-weight: 700; letter-spacing: .03em; }
+.tw-analytics-band-needs-attention { border-color: var(--amber); color: var(--amber); }
+.tw-analytics-band-review-suggested { border-color: var(--cyan); color: var(--cyan); }
+.tw-analytics-band-no-recent-evidence { border-color: var(--line); color: var(--muted); }
+.tw-analytics-attention-signals { margin: .3rem 0 0; padding-left: 1.1rem; color: #dbeaf1; line-height: 1.55; }
+.tw-analytics-footnotes { max-width: 60rem; margin: 1.5rem 0 3rem; color: var(--muted); font-size: .82rem; line-height: 1.55; }
+
 /* Question bank / assessments */
 .status-draft { background: rgba(153, 173, 187, .16); color: var(--muted); }
 .status-published { background: rgba(117, 213, 158, .16); color: #8be7af; }

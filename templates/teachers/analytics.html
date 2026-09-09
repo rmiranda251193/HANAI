@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Cohort Analytics &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Cohort analytics</h1>
+      <p>
+        A read-only summary of learning evidence that already exists. Every number is
+        activity and evidence &mdash; not a score, a grade, or a prediction. Use it to
+        decide where to look closer and what to consider next.
+      </p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:student_list' %}">Student evidence</a>
+  </section>
+
+  {% if snapshot.filters.notices %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Filter notice</p>
+      {% for notice in snapshot.filters.notices %}<p>{{ notice }}</p>{% endfor %}
+    </section>
+  {% endif %}
+
+  <section class="surface-card tw-analytics-filters" aria-labelledby="tw-analytics-filter-title">
+    <p class="card-label">Filters</p>
+    <h2 id="tw-analytics-filter-title">Choose what to analyse</h2>
+    <form method="get" action="{% url 'teachers:analytics' %}" class="tw-analytics-filter-form">
+      <p class="tw-analytics-field">
+        <label for="af-range">Date range</label>
+        <select id="af-range" name="range">
+          {% for value, label in range_choices %}
+            <option value="{{ value }}" {% if snapshot.filters.range_key == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p class="tw-analytics-field">
+        <label for="af-student">Student</label>
+        <select id="af-student" name="student">
+          <option value="">All students</option>
+          {% for pk, name in student_choices %}
+            <option value="{{ pk }}" {% if snapshot.filters.student and snapshot.filters.student.pk == pk %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p class="tw-analytics-field">
+        <label for="af-lesson">Lesson</label>
+        <select id="af-lesson" name="lesson">
+          <option value="">All lessons</option>
+          {% for pk, title in lesson_choices %}
+            <option value="{{ pk }}" {% if snapshot.filters.lesson and snapshot.filters.lesson.pk == pk %}selected{% endif %}>{{ title }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p class="tw-analytics-field">
+        <label for="af-concept">Concept</label>
+        <select id="af-concept" name="concept">
+          <option value="">All concepts</option>
+          {% for pk, name in concept_choices %}
+            <option value="{{ pk }}" {% if snapshot.filters.concept and snapshot.filters.concept.pk == pk %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p class="tw-analytics-actions">
+        <button type="submit" class="button button-primary">Apply</button>
+        <a class="text-link" href="{% url 'teachers:analytics' %}">Reset</a>
+      </p>
+    </form>
+    <p class="tw-analytics-scope">
+      Showing <strong>{{ snapshot.filters.range_label }}</strong>
+      {% if snapshot.filters.student %} &middot; student: {{ snapshot.filters.student.display_name }}{% endif %}
+      {% if snapshot.filters.lesson %} &middot; lesson: {{ snapshot.filters.lesson.title }}{% endif %}
+      {% if snapshot.filters.concept %} &middot; concept: {{ snapshot.filters.concept.name }}{% endif %}
+      &middot; <a href="{% url 'teachers:analytics_export' %}?{{ request.META.QUERY_STRING }}">Download CSV</a>
+    </p>
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-overview-title">
+    <p class="card-label">Cohort overview</p>
+    <h2 id="tw-analytics-overview-title">Students and activity</h2>
+    <p class="tw-analytics-lede">
+      <strong>{{ snapshot.student_count }}</strong> student{{ snapshot.student_count|pluralize }} in view,
+      <strong>{{ snapshot.active_student_count }}</strong> with learning evidence in this date range.
+    </p>
+    <table class="tw-analytics-table">
+      <caption class="visually-hidden">Cohort activity counts for {{ snapshot.filters.range_label }}</caption>
+      <thead><tr><th scope="col">Activity</th><th scope="col">Count</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.activity_summary %}
+          <tr><th scope="row">{{ row.label }}</th><td>{{ row.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-concept-title">
+    <p class="card-label">Concept insights</p>
+    <h2 id="tw-analytics-concept-title">Where activity and difficulty appear</h2>
+    {% if snapshot.concept_summary %}
+      <div class="tw-analytics-scroll">
+        <table class="tw-analytics-table">
+          <caption class="visually-hidden">Per-concept activity, attempts, and misconception candidates</caption>
+          <thead>
+            <tr>
+              <th scope="col">Concept</th>
+              <th scope="col">Topic</th>
+              <th scope="col">Students engaged</th>
+              <th scope="col">Lesson-linked evidence</th>
+              <th scope="col">Practice attempts</th>
+              <th scope="col">Practice correct</th>
+              <th scope="col">Assessment answers</th>
+              <th scope="col">Assessment correct</th>
+              <th scope="col">Misconception candidates</th>
+              <th scope="col">Recovery activities done</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in snapshot.concept_summary %}
+              <tr>
+                <th scope="row">{{ c.concept }}</th>
+                <td>{{ c.topic }}</td>
+                <td>{{ c.students_engaged }}</td>
+                <td>{{ c.lesson_linked_evidence }}</td>
+                <td>{{ c.practice_attempts }}</td>
+                <td>{{ c.practice_correct }}</td>
+                <td>{{ c.assessment_answers }}</td>
+                <td>{{ c.assessment_correct }}</td>
+                <td>{{ c.misconception_candidates }}</td>
+                <td>{{ c.recovery_activities_completed }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-state-inline">No concept activity in this date range yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-misc-title">
+    <p class="card-label">Misconception insights</p>
+    <h2 id="tw-analytics-misc-title">Most common misconception candidates</h2>
+    <p class="tw-analytics-lede">
+      Codes are teacher diagnostic data. A candidate is a possibility for a teacher to
+      review &mdash; never a verdict about a student.
+    </p>
+    {% if snapshot.misconception_summary %}
+      <div class="tw-analytics-scroll">
+        <table class="tw-analytics-table">
+          <caption class="visually-hidden">Misconception candidates, students affected, statuses, and recovery</caption>
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Misconception</th>
+              <th scope="col">Concept</th>
+              <th scope="col">Students affected</th>
+              <th scope="col">Candidate</th>
+              <th scope="col">Confirmed</th>
+              <th scope="col">Resolved</th>
+              <th scope="col">Dismissed</th>
+              <th scope="col">Recoveries started</th>
+              <th scope="col">Recoveries completed</th>
+              <th scope="col">Recent observations</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in snapshot.misconception_summary %}
+              <tr>
+                <th scope="row">{{ m.code }}</th>
+                <td>{{ m.title }}</td>
+                <td>{{ m.concept }}</td>
+                <td>{{ m.students_affected }}</td>
+                <td>{{ m.candidates }}</td>
+                <td>{{ m.confirmed }}</td>
+                <td>{{ m.resolved }}</td>
+                <td>{{ m.dismissed }}</td>
+                <td>{{ m.recoveries_started }}</td>
+                <td>{{ m.recoveries_completed }}</td>
+                <td>{{ m.recent_observations }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-state-inline">No misconception candidates for this cohort.</p>
+    {% endif %}
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-recovery-title">
+    <p class="card-label">Recovery insights</p>
+    <h2 id="tw-analytics-recovery-title">Recovery activity (Step 25)</h2>
+    <table class="tw-analytics-table">
+      <caption class="visually-hidden">Recovery path and activity counts</caption>
+      <thead><tr><th scope="col">Measure</th><th scope="col">Count</th><th scope="col">Note</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.recovery_summary %}
+          <tr><th scope="row">{{ row.label }}</th><td>{% if row.note and not row.value %}&mdash;{% else %}{{ row.value }}{% endif %}</td><td>{{ row.note }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-assessment-title">
+    <p class="card-label">Assessment insights</p>
+    <h2 id="tw-analytics-assessment-title">Attempts, completion, and correct answers</h2>
+    <p class="tw-analytics-lede">Averages use completed attempts only as the denominator.</p>
+    {% if snapshot.assessment_summary %}
+      <div class="tw-analytics-scroll">
+        <table class="tw-analytics-table">
+          <caption class="visually-hidden">Per-assessment attempts, completion rate, and average correct answers</caption>
+          <thead>
+            <tr>
+              <th scope="col">Assessment</th>
+              <th scope="col">Concept</th>
+              <th scope="col">Attempts</th>
+              <th scope="col">Completed</th>
+              <th scope="col">Completion</th>
+              <th scope="col">Average correct (completed attempts)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in snapshot.assessment_summary %}
+              <tr>
+                <th scope="row">{{ a.title }}</th>
+                <td>{{ a.concept }}</td>
+                <td>{{ a.attempts }}</td>
+                <td>{{ a.completed }}</td>
+                <td>{{ a.completion_label }}</td>
+                <td>{{ a.avg_correct_label }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-state-inline">No assessment attempts in this date range.</p>
+    {% endif %}
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-practice-title">
+    <p class="card-label">Practice insights</p>
+    <h2 id="tw-analytics-practice-title">Practice attempts</h2>
+    <table class="tw-analytics-table">
+      <caption class="visually-hidden">Cohort practice attempt counts</caption>
+      <thead><tr><th scope="col">Measure</th><th scope="col">Value</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.practice_summary %}
+          <tr><th scope="row">{{ row.label }}</th><td>{% if row.note %}{{ row.note }}{% else %}{{ row.value }}{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-lab-title">
+    <p class="card-label">Physics Lab insights</p>
+    <h2 id="tw-analytics-lab-title">Experiments attempted and completed</h2>
+    <table class="tw-analytics-table">
+      <caption class="visually-hidden">Cohort Physics Lab counts</caption>
+      <thead><tr><th scope="col">Measure</th><th scope="col">Value</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.physics_lab_summary %}
+          <tr><th scope="row">{{ row.label }}</th><td>{% if row.note %}{{ row.note }}{% else %}{{ row.value }}{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if snapshot.simulation_usage %}
+      <h3 class="tw-analytics-subhead">By simulation type</h3>
+      <table class="tw-analytics-table">
+        <caption class="visually-hidden">Physics Lab usage by simulation type</caption>
+        <thead><tr><th scope="col">Simulation type</th><th scope="col">Started</th><th scope="col">Completed</th><th scope="col">Completion</th></tr></thead>
+        <tbody>
+          {% for row in snapshot.simulation_usage %}
+            <tr><th scope="row">{{ row.simulation_type }}</th><td>{{ row.started }}</td><td>{{ row.completed }}</td><td>{{ row.completion_label }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-tutor-title">
+    <p class="card-label">Tutor insights</p>
+    <h2 id="tw-analytics-tutor-title">Tutor use (aggregate only)</h2>
+    <p class="tw-analytics-lede">Conversation content is never shown here.</p>
+    <table class="tw-analytics-table">
+      <caption class="visually-hidden">Cohort tutor session and message counts</caption>
+      <thead><tr><th scope="col">Measure</th><th scope="col">Count</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.tutor_summary %}
+          <tr><th scope="row">{{ row.label }}</th><td>{{ row.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-activity-title">
+    <p class="card-label">Lesson activity insights</p>
+    <h2 id="tw-analytics-activity-title">How lessons are composed</h2>
+    <p class="tw-analytics-lede">
+      Per-activity launch and completion is not tracked at the lesson-activity level, so
+      this shows how teachers have built lessons, not per-student completion.
+    </p>
+    <table class="tw-analytics-table">
+      <caption class="visually-hidden">Lesson activity count by type</caption>
+      <thead><tr><th scope="col">Activity type</th><th scope="col">Activities</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.activity_type_summary %}
+          <tr><th scope="row">{{ row.label }}</th><td>{{ row.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="surface-card" aria-labelledby="tw-analytics-attention-title">
+    <p class="card-label">Attention signals</p>
+    <h2 id="tw-analytics-attention-title">Students to review</h2>
+    <p class="tw-analytics-lede">
+      Deterministic prompts for a teacher to look closer &mdash; not diagnoses, not
+      rankings, not risk labels. You decide what they mean.
+    </p>
+    {% if snapshot.attention_signals %}
+      <ul class="tw-analytics-attention">
+        {% for row in snapshot.attention_signals %}
+          <li class="tw-analytics-attention-item">
+            <p class="tw-analytics-attention-head">
+              <a href="{% url 'teachers:student_detail' row.student_id %}">{{ row.student }}</a>
+              <span class="tw-analytics-band tw-analytics-band-{{ row.band|slugify }}">{{ row.band }}</span>
+            </p>
+            <ul class="tw-analytics-attention-signals">
+              {% for signal in row.signals %}<li>{{ signal }}</li>{% endfor %}
+            </ul>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-state-inline">No attention signals for this cohort and date range.</p>
+    {% endif %}
+  </section>
+
+  <section class="tw-analytics-footnotes" aria-label="How to read this page">
+    {% for note in snapshot.notes %}<p>{{ note }}</p>{% endfor %}
+  </section>
+{% endblock %}
