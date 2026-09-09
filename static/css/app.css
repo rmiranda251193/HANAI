@@ -145,6 +145,36 @@ a { color: inherit; }
 .review-edit-control .button { width: fit-content; margin-top: .2rem; }
 .review-decision-record { margin-top: 1rem; padding: .75rem .85rem; border-radius: .4rem; background: rgba(85, 215, 235, .08); }
 .review-decision-record p { margin: .3rem 0; color: #dbeaf1; line-height: 1.55; }
+
+/* Step 27: optional generation controls */
+.generation-options { margin-top: .85rem; max-width: 40rem; }
+.generation-options summary { color: var(--cyan); cursor: pointer; font-size: .9rem; font-weight: 700; }
+.generation-options-hint { margin: .6rem 0 .2rem; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.generation-options .field { display: grid; gap: .3rem; margin: .8rem 0 0; }
+.generation-options label, .generation-options legend { font-size: .84rem; font-weight: 700; }
+.generation-options select, .generation-options textarea { padding: .6rem .7rem; border: 1px solid var(--line); border-radius: .4rem; outline: none; color: var(--text); background: #0b1724; font: inherit; }
+.generation-options textarea { resize: vertical; line-height: 1.5; }
+.generation-options fieldset.field { border: 0; padding: 0; }
+.checkbox-inline { display: inline-flex; align-items: center; gap: .35rem; margin-right: .9rem; font-weight: 400; font-size: .88rem; }
+
+/* Step 27: AI structured-plan suggestions (advisory, never lesson content) */
+.ai-suggestions { margin-top: 1.5rem; padding: 1.2rem; border: 1px dashed rgba(242, 180, 102, .5); border-radius: .6rem; background: rgba(242, 180, 102, .06); }
+.ai-suggestions-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.ai-suggestions-heading h3 { margin: .5rem 0 0; font-size: 1.2rem; }
+.ai-suggestion-badge { align-self: start; padding: .3rem .6rem; border: 1px solid var(--amber); border-radius: 999px; color: var(--amber); font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.ai-suggestions-note { margin: .9rem 0 0; color: #dbeaf1; line-height: 1.6; }
+.ai-suggestion-group { margin-top: 1.25rem; }
+.ai-suggestion-group h4 { margin: 0 0 .3rem; color: var(--cyan); font-size: .85rem; letter-spacing: .04em; text-transform: uppercase; }
+.ai-suggestion-group-note { margin: 0 0 .6rem; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.ai-suggestion-item { padding: .85rem; margin-top: .6rem; border: 1px solid var(--line); border-radius: .5rem; background: rgba(9, 18, 29, .42); }
+.ai-suggestion-item h5 { margin: 0; font-size: .98rem; }
+.ai-suggestion-item p { margin: .4rem 0 0; color: #dbeaf1; line-height: 1.55; }
+.ai-suggestion-item-heading { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.ai-suggestion-item form { margin-top: .7rem; }
+.ai-suggestion-detail { font-size: .9rem; }
+.ai-suggestion-note { color: var(--muted); font-size: .85rem; font-style: italic; }
+.pill { padding: .18rem .5rem; border: 1px solid var(--cyan); border-radius: 999px; color: var(--cyan); font-size: .72rem; font-weight: 700; letter-spacing: .03em; }
+.pill-quiet { border-color: var(--line); color: var(--muted); }
 .review-pending-note, .review-empty { margin: 1rem 0 0; color: var(--muted); line-height: 1.55; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .lesson-history { max-width: 64rem; margin-top: 1.5rem; }
@@ -364,7 +394,7 @@ a { color: inherit; }
 @media (max-width: 900px) { .tutor-layout { grid-template-columns: 1fr; } .insight-card-head { flex-direction: column; } .insight-badges { align-items: start; flex-direction: row; } .lab { grid-template-columns: 1fr; } .lab-experiment-grid { grid-template-columns: 1fr; } .lab-value-grid, .lab-motion { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { .generation-status::before { animation: none; } }
 @keyframes generation-pulse { 50% { opacity: .35; transform: scale(.8); } }
-@media (max-width: 720px) { .generated-draft-grid { grid-template-columns: 1fr; } .draft-section-wide { grid-column: auto; } .generated-draft-heading, .review-panel-heading, .review-issue-heading { flex-direction: column; } .review-reject-form input { width: 100%; } }
+@media (max-width: 720px) { .generated-draft-grid { grid-template-columns: 1fr; } .draft-section-wide { grid-column: auto; } .generated-draft-heading, .review-panel-heading, .review-issue-heading, .ai-suggestions-heading { flex-direction: column; } .review-reject-form input { width: 100%; } }
 @media (max-width: 720px) { .page-heading, .lesson-card { align-items: start; flex-direction: column; } .form-grid, .detail-grid { grid-template-columns: 1fr; } .detail-card:first-child { grid-column: auto; } .concept-checkbox-group { grid-template-columns: 1fr; } }
 
 /* Physics Practice (deterministic evidence engine) */

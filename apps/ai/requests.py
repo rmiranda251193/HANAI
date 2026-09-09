@@ -77,9 +77,36 @@ class ConceptContext:
         )
 
 
+# Step 27 instructional emphases -- an explicit allow-list. The browser can
+# only pick one of these; it can never inject a free-form provider instruction.
+GENERATION_EMPHASES = frozenset(
+    {
+        "balanced",
+        "concept_understanding",
+        "problem_solving",
+        "misconception_recovery",
+        "experiment_based",
+        "assessment_focused",
+    }
+)
+
+# Activity types a teacher may ask the generator to prefer. Kept in sync with
+# ``apps.ai.schemas.GENERATED_ACTIVITY_TYPES``.
+DESIRED_ACTIVITY_TYPES = frozenset(
+    {"explanation", "physics_lab", "practice", "concept_check", "tutor", "assessment"}
+)
+
+STUDENT_CONTEXT_MAX = 2000
+
+
 @dataclass(frozen=True)
 class LessonGenerationRequest:
-    """Teacher-authored inputs for a structured Physics lesson draft."""
+    """Teacher-authored inputs for a structured Physics lesson draft.
+
+    ``instructional_emphasis`` / ``student_context`` / ``desired_activity_types``
+    are optional Step 27 parameters. They are represented as structured,
+    validated user-level input -- never as system-level provider instructions.
+    """
 
     title: str
     topic: str
@@ -88,6 +115,9 @@ class LessonGenerationRequest:
     learning_objectives: tuple[str, ...]
     common_misconceptions: tuple[str, ...]
     concepts: tuple[ConceptContext, ...]
+    instructional_emphasis: str = "balanced"
+    student_context: str = ""
+    desired_activity_types: tuple[str, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, "title", self.title.strip())
@@ -105,6 +135,23 @@ class LessonGenerationRequest:
         )
         object.__setattr__(self, "concepts", tuple(self.concepts))
 
+        emphasis = (self.instructional_emphasis or "balanced").strip().lower()
+        if emphasis not in GENERATION_EMPHASES:
+            raise ValueError(
+                "instructional_emphasis must be one of: "
+                + ", ".join(sorted(GENERATION_EMPHASES))
+            )
+        object.__setattr__(self, "instructional_emphasis", emphasis)
+        object.__setattr__(
+            self, "student_context", str(self.student_context or "").strip()[:STUDENT_CONTEXT_MAX]
+        )
+        seen: list[str] = []
+        for raw in self.desired_activity_types or ():
+            key = str(raw).strip().lower()
+            if key in DESIRED_ACTIVITY_TYPES and key not in seen:
+                seen.append(key)
+        object.__setattr__(self, "desired_activity_types", tuple(seen))
+
         if not self.title:
             raise ValueError("title is required")
         if not self.topic:
@@ -121,7 +168,14 @@ class LessonGenerationRequest:
             raise ValueError("concepts must be ConceptContext instances")
 
     @classmethod
-    def from_lesson(cls, lesson) -> LessonGenerationRequest:
+    def from_lesson(
+        cls,
+        lesson,
+        *,
+        instructional_emphasis: str = "balanced",
+        student_context: str = "",
+        desired_activity_types: tuple[str, ...] = (),
+    ) -> LessonGenerationRequest:
         return cls(
             title=lesson.title,
             topic=lesson.topic,
@@ -133,6 +187,9 @@ class LessonGenerationRequest:
                 ConceptContext.from_concept(concept)
                 for concept in lesson.physics_concepts.all()
             ),
+            instructional_emphasis=instructional_emphasis,
+            student_context=student_context,
+            desired_activity_types=tuple(desired_activity_types),
         )
 
 

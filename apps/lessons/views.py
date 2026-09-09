@@ -12,6 +12,7 @@ from apps.ai.requests import LessonGenerationRequest, LessonReviewRequest
 from apps.ai.services import generate_lesson_draft, review_lesson_draft
 from apps.assessments.models import Assessment, QuestionBankItem
 from apps.physics.models import MisconceptionRecoveryPath, PhysicsConcept, PhysicsSimulation
+from apps.physics.simulation_registry import get_simulation_definition
 from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue, ProvenanceEvent
 from apps.provenance.services import (
     LessonFinalizationError,
@@ -58,6 +59,90 @@ REVIEW_ERROR_MESSAGE = (
     "AI review could not be completed. Please check the AI configuration and try again."
 )
 
+# Ordered, server-defined option lists for the optional Step 27 generation
+# controls. The browser can only choose from these -- the underlying request
+# object re-validates every value against ``apps.ai.requests`` allow-lists, so a
+# forged field can never reach the provider as a system instruction.
+GENERATION_EMPHASIS_CHOICES = (
+    ("balanced", "Balanced"),
+    ("concept_understanding", "Concept understanding"),
+    ("problem_solving", "Problem solving"),
+    ("misconception_recovery", "Misconception recovery"),
+    ("experiment_based", "Experiment based"),
+    ("assessment_focused", "Assessment focused"),
+)
+DESIRED_ACTIVITY_TYPE_CHOICES = (
+    ("explanation", "Explanation"),
+    ("physics_lab", "Physics Lab"),
+    ("practice", "Practice"),
+    ("concept_check", "Concept check"),
+    ("tutor", "Tutor"),
+    ("assessment", "Assessment"),
+)
+
+# A generated activity of one of these types carries no reference to an existing
+# object, so the teacher can bring it straight into the Step 26 builder. Every
+# other type (practice / assessment / concept_check) needs the teacher to pick
+# real linked content -- the AI never creates a QuestionBankItem or Assessment.
+_ADOPT_DIRECT_ACTIVITY_TYPES = frozenset({"explanation", "tutor"})
+
+
+def _resolve_suggested_simulation(simulation_type: str) -> PhysicsSimulation | None:
+    """Resolve an AI-suggested ``simulation_type`` to one usable active simulation.
+
+    Returns ``None`` (never guesses) when the type is empty, is not a registered
+    simulation type, or does not resolve to exactly one active simulation. The
+    teacher then wires it up explicitly in the builder.
+    """
+
+    key = (simulation_type or "").strip()
+    if not key or get_simulation_definition(key) is None:
+        return None
+    matches = list(
+        PhysicsSimulation.objects.filter(is_active=True, simulation_type=key)[:2]
+    )
+    return matches[0] if len(matches) == 1 else None
+
+
+def _generated_activity_plan_view(generated_draft) -> list[dict]:
+    """Template-ready rows for the AI activity plan, with adoption eligibility.
+
+    Nothing here creates a ``LessonActivity`` -- it only decides whether an
+    explicit "Add to lesson" action is offered and resolves objective indices to
+    their text for display.
+    """
+
+    objectives = list(generated_draft.learning_objectives)
+    rows: list[dict] = []
+    for index, activity in enumerate(generated_draft.activity_plan):
+        aligned = [
+            objectives[n]
+            for n in activity.objective_alignment
+            if 0 <= n < len(objectives)
+        ]
+        if activity.activity_type in _ADOPT_DIRECT_ACTIVITY_TYPES:
+            adoptable, note = True, ""
+        elif activity.activity_type == "physics_lab":
+            adoptable = _resolve_suggested_simulation(activity.simulation_type) is not None
+            note = (
+                ""
+                if adoptable
+                else "Names no available simulation. Add it from the lesson builder."
+            )
+        else:
+            adoptable = False
+            note = "You choose the linked content in the lesson builder."
+        rows.append(
+            {
+                "index": index,
+                "activity": activity,
+                "aligned_objectives": aligned,
+                "adoptable": adoptable,
+                "note": note,
+            }
+        )
+    return rows
+
 
 def _render_lesson_detail(
     request,
@@ -72,11 +157,15 @@ def _render_lesson_detail(
     context = {
         "lesson": lesson,
         "lesson_history": get_lesson_history(lesson),
+        "generation_emphasis_choices": GENERATION_EMPHASIS_CHOICES,
+        "desired_activity_type_choices": DESIRED_ACTIVITY_TYPE_CHOICES,
     }
 
     if generated_lesson_draft is not None:
         context["generated_lesson_draft"] = generated_lesson_draft
-        context["generated_draft"] = generated_lesson_draft.as_lesson_draft()
+        generated_draft = generated_lesson_draft.as_lesson_draft()
+        context["generated_draft"] = generated_draft
+        context["generated_activity_plan"] = _generated_activity_plan_view(generated_draft)
         lesson_review = generated_lesson_draft.reviews.first()
         if lesson_review is not None:
             review_issues = list(
@@ -160,7 +249,12 @@ def lesson_generate(request, slug):
     )
 
     try:
-        generation_request = LessonGenerationRequest.from_lesson(lesson)
+        generation_request = LessonGenerationRequest.from_lesson(
+            lesson,
+            instructional_emphasis=request.POST.get("instructional_emphasis", "balanced"),
+            student_context=request.POST.get("student_context", ""),
+            desired_activity_types=tuple(request.POST.getlist("desired_activity_type")),
+        )
         generation_result = generate_lesson_draft(generation_request)
         generated_lesson_draft = persist_generated_lesson_draft(
             lesson, generation_result
@@ -341,6 +435,94 @@ def lesson_finalize(request, slug, draft_id, review_id):
         generated_lesson_draft=generated_lesson_draft,
         workflow_message=(
             "Lesson content was finalized from your approved and edited review decisions."
+        ),
+    )
+
+
+@require_POST
+@teacher_required
+def lesson_adopt_generated_activity(request, slug, draft_id, index):
+    """Bring one AI-suggested activity into the lesson through Step 26 authoring.
+
+    This never mutates the immutable draft and never fabricates linked content.
+    It maps a reference-free suggestion (explanation / tutor), or a physics_lab
+    suggestion that resolves to exactly one active simulation, onto the existing
+    ``create_activity`` service -- which re-runs its own ownership, type,
+    reference and ordering validation. Practice / assessment / concept-check
+    suggestions are advisory only and send the teacher to the builder.
+    """
+
+    lesson = _lesson_for_build(slug)
+    _require_lesson_owner(request, lesson)
+    generated_lesson_draft = get_object_or_404(
+        GeneratedLessonDraft, pk=draft_id, lesson=lesson
+    )
+
+    plan = generated_lesson_draft.as_lesson_draft().activity_plan
+    try:
+        suggestion = plan[int(index)]
+    except (ValueError, IndexError):
+        raise Http404("That generated activity does not exist.")
+
+    reference_id = ""
+    if suggestion.activity_type == "physics_lab":
+        simulation = _resolve_suggested_simulation(suggestion.simulation_type)
+        if simulation is None:
+            return _render_lesson_detail(
+                request,
+                lesson,
+                generated_lesson_draft=generated_lesson_draft,
+                adopt_error=(
+                    "This Physics Lab suggestion does not name an available simulation. "
+                    "Open the lesson builder to add it and choose a simulation there."
+                ),
+            )
+        reference_id = f"physics_lab:{simulation.pk}"
+    elif suggestion.activity_type not in _ADOPT_DIRECT_ACTIVITY_TYPES:
+        return _render_lesson_detail(
+            request,
+            lesson,
+            generated_lesson_draft=generated_lesson_draft,
+            adopt_error=(
+                f"A {suggestion.activity_type.replace('_', ' ')} suggestion references "
+                "content you select yourself. Open the lesson builder to create and link it."
+            ),
+        )
+
+    try:
+        created = create_activity(
+            lesson=lesson,
+            teacher=_current_teacher(request),
+            activity_type=suggestion.activity_type,
+            title=suggestion.title,
+            instructions=suggestion.instructions or suggestion.description,
+            reference_id=reference_id,
+        )
+    except LessonAuthoringError as exc:
+        return _render_lesson_detail(
+            request,
+            lesson,
+            generated_lesson_draft=generated_lesson_draft,
+            adopt_error=str(exc),
+        )
+    except Exception:
+        logger.exception(
+            "Unexpected adopt-activity failure for lesson %s.", lesson.pk
+        )
+        return _render_lesson_detail(
+            request,
+            lesson,
+            generated_lesson_draft=generated_lesson_draft,
+            adopt_error="That activity could not be added. Please try again.",
+        )
+
+    return _render_lesson_detail(
+        request,
+        lesson,
+        generated_lesson_draft=generated_lesson_draft,
+        workflow_message=(
+            f'Added "{created.title}" to the lesson builder as a '
+            f"{created.get_activity_type_display()} activity. Open the builder to edit or reorder it."
         ),
     )
 

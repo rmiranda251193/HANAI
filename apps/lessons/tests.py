@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from apps.ai.exceptions import AIProviderError
 from apps.ai.providers import FakeAIProvider
-from apps.physics.models import PhysicsConcept
+from apps.physics.models import PhysicsConcept, PhysicsMisconception
 from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue, ProvenanceEvent
 
 from .models import Lesson
@@ -188,6 +188,25 @@ class LessonGenerationViewTests(TestCase):
             topic="Dynamics",
             equations=["F_net = ma"],
             si_units=["newton (N)"],
+        )
+        # The FakeAIProvider's canned v2 draft references these catalog entries
+        # in its structured plan. Seeding them keeps the deterministic review
+        # validators quiet so these tests exercise only the AI review issue.
+        self.newtons_second_law = PhysicsConcept.objects.create(
+            name="Newton's Second Law",
+            description="Net force equals mass times acceleration.",
+            topic="Dynamics",
+            equations=["F_net = ma"],
+            si_units=["newton (N)"],
+        )
+        PhysicsMisconception.objects.create(
+            code="FORCE_VS_ACCELERATION",
+            title="A force always means acceleration",
+            description=(
+                "A learner may treat 'a force is acting' as the same as "
+                "'the object accelerates', ignoring the net force."
+            ),
+            physics_concept=self.newtons_second_law,
         )
         self.lesson = Lesson.objects.create(
             title="Understanding Force",

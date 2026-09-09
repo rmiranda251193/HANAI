@@ -23,6 +23,11 @@ urlpatterns = [
         views.lesson_finalize,
         name="finalize",
     ),
+    path(
+        "<slug:slug>/drafts/<uuid:draft_id>/activity-plan/<int:index>/add/",
+        views.lesson_adopt_generated_activity,
+        name="adopt_generated_activity",
+    ),
     # --- teacher lesson builder (Step 26) ---
     path("<slug:slug>/build/", views.lesson_build, name="build"),
     path("<slug:slug>/build/basics/", views.lesson_update_basics, name="update_basics"),

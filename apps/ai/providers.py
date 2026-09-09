@@ -51,7 +51,10 @@ class FakeAIProvider(AIProvider):
         self.calls.append({"prompt": prompt, "system_prompt": system_prompt})
         if self._fixed_response is not None:
             return self._fixed_response
-        if "lesson-review-v1" in system_prompt:
+        # Matches "lesson-review-v1" and "lesson-review-v2" (and the
+        # "lesson-review assistant" role line) so a prompt version bump does
+        # not silently switch this branch off.
+        if "lesson-review" in system_prompt:
             if self._review_response is not None:
                 return self._review_response
             return json.dumps(example_lesson_review_dict())

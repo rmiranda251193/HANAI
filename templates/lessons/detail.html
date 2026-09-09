@@ -91,12 +91,47 @@
     </section>
   {% endif %}
 
+  {% if adopt_error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Add to lesson</p>
+      <p>{{ adopt_error }}</p>
+    </section>
+  {% endif %}
+
   <div class="form-actions">
-    <form method="post" action="{% url 'lessons:generate' lesson.slug %}" data-generation-form>
+    <form method="post" action="{% url 'lessons:generate' lesson.slug %}" data-generation-form class="generation-form">
       {% csrf_token %}
       <button class="button button-primary" type="submit" data-generation-button>
         &#10024; Generate with AI
       </button>
+      <details class="generation-options">
+        <summary>Generation options (optional)</summary>
+        <p class="generation-options-hint">
+          These guide the draft only. They are teacher preferences, not commands &mdash;
+          the Physics rules and output format never change.
+        </p>
+        <p class="field">
+          <label for="instructional-emphasis">Instructional emphasis</label>
+          <select id="instructional-emphasis" name="instructional_emphasis">
+            {% for value, label in generation_emphasis_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </p>
+        <p class="field">
+          <label for="student-context">Student context / prior knowledge</label>
+          <textarea id="student-context" name="student_context" rows="2"
+            placeholder="e.g. Students have met velocity and acceleration but not free-body diagrams."></textarea>
+        </p>
+        <fieldset class="field">
+          <legend>Preferred activity types</legend>
+          {% for value, label in desired_activity_type_choices %}
+            <label class="checkbox-inline">
+              <input type="checkbox" name="desired_activity_type" value="{{ value }}"> {{ label }}
+            </label>
+          {% endfor %}
+        </fieldset>
+      </details>
       <p class="generation-status" data-generation-status hidden aria-live="polite">
         Generating your Physics lesson...
       </p>
@@ -216,6 +251,99 @@
           </ul>
         </section>
       </div>
+
+      {% if generated_draft.is_v2 %}
+        <section class="ai-suggestions" aria-labelledby="ai-suggestions-title">
+          <div class="ai-suggestions-heading">
+            <div>
+              <p class="card-label">AI suggestions &middot; advisory only</p>
+              <h3 id="ai-suggestions-title">Structured instructional plan</h3>
+            </div>
+            <span class="ai-suggestion-badge">AI suggestion, not lesson content</span>
+          </div>
+          <p class="ai-suggestions-note">
+            Nothing below is part of the lesson yet. An activity can be brought into
+            the lesson builder with <strong>Add to lesson</strong>; practice, assessment
+            and misconception notes are references for you to act on yourself.
+          </p>
+
+          <div class="ai-suggestion-group">
+            <h4>Generated activity plan</h4>
+            {% for row in generated_activity_plan %}
+              <article class="ai-suggestion-item">
+                <div class="ai-suggestion-item-heading">
+                  <h5>{{ row.activity.title }}</h5>
+                  <span class="pill">{{ row.activity.activity_type }}</span>
+                  <span class="pill pill-quiet">{{ row.activity.estimated_minutes }} min</span>
+                </div>
+                <p>{{ row.activity.description }}</p>
+                {% if row.activity.instructions %}
+                  <p class="ai-suggestion-detail"><strong>Instructions:</strong> {{ row.activity.instructions }}</p>
+                {% endif %}
+                {% if row.activity.simulation_type %}
+                  <p class="ai-suggestion-detail"><strong>Suggested simulation:</strong> {{ row.activity.simulation_type }}</p>
+                {% endif %}
+                <p class="ai-suggestion-detail">
+                  <strong>Objective alignment:</strong>
+                  {% for objective in row.aligned_objectives %}{{ objective }}{% if not forloop.last %}; {% endif %}{% empty %}Not aligned to a listed objective.{% endfor %}
+                </p>
+                {% if row.adoptable %}
+                  <form method="post" action="{% url 'lessons:adopt_generated_activity' lesson.slug generated_lesson_draft.id row.index %}">
+                    {% csrf_token %}
+                    <button class="button button-secondary" type="submit">Add to lesson</button>
+                  </form>
+                {% else %}
+                  <p class="ai-suggestion-note">{{ row.note }}</p>
+                {% endif %}
+              </article>
+            {% empty %}
+              <p>No activity plan was generated.</p>
+            {% endfor %}
+          </div>
+
+          <div class="ai-suggestion-group">
+            <h4>Practice suggestions</h4>
+            <p class="ai-suggestion-group-note">Ideas for the Question Bank. No question is created automatically.</p>
+            {% for practice in generated_draft.practice_suggestions %}
+              <article class="ai-suggestion-item">
+                <p><strong>{{ practice.prompt }}</strong></p>
+                <p class="ai-suggestion-detail"><strong>Concept:</strong> {{ practice.concept }} &middot; <strong>Difficulty:</strong> {{ practice.difficulty }}</p>
+                <p class="ai-suggestion-detail"><strong>Expected reasoning:</strong> {{ practice.expected_reasoning }}</p>
+              </article>
+            {% empty %}
+              <p>No practice suggestions were generated.</p>
+            {% endfor %}
+          </div>
+
+          <div class="ai-suggestion-group">
+            <h4>Assessment suggestions</h4>
+            <p class="ai-suggestion-group-note">Ideas for an assessment. No assessment or question is created automatically.</p>
+            {% for assessment in generated_draft.assessment_suggestions %}
+              <article class="ai-suggestion-item">
+                <p><strong>{{ assessment.question }}</strong></p>
+                <p class="ai-suggestion-detail"><strong>Concept:</strong> {{ assessment.concept }} &middot; <strong>Difficulty:</strong> {{ assessment.difficulty }}</p>
+                <p class="ai-suggestion-detail"><strong>Expected reasoning:</strong> {{ assessment.expected_reasoning }}</p>
+              </article>
+            {% empty %}
+              <p>No assessment suggestions were generated.</p>
+            {% endfor %}
+          </div>
+
+          <div class="ai-suggestion-group">
+            <h4>Misconception awareness</h4>
+            <p class="ai-suggestion-group-note">Instructional metadata for your planning &mdash; not a student diagnosis and not a recovery assignment.</p>
+            {% for misconception in generated_draft.misconception_awareness %}
+              <article class="ai-suggestion-item">
+                <p><strong>{{ misconception.misconception_code }}</strong></p>
+                <p class="ai-suggestion-detail"><strong>Why relevant:</strong> {{ misconception.why_relevant }}</p>
+                <p class="ai-suggestion-detail"><strong>Instructional note:</strong> {{ misconception.instructional_note }}</p>
+              </article>
+            {% empty %}
+              <p>No misconception awareness notes were generated.</p>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
 
       {% if lesson_review %}
         <section class="review-panel" aria-labelledby="lesson-review-title">

@@ -9,7 +9,7 @@ from apps.ai.providers import FakeAIProvider
 from apps.ai.requests import LessonGenerationRequest, LessonReviewRequest
 from apps.ai.services import generate_lesson_draft, review_lesson_draft
 from apps.lessons.models import Lesson
-from apps.physics.models import PhysicsConcept
+from apps.physics.models import PhysicsConcept, PhysicsMisconception
 
 from . import admin as provenance_admin  # noqa: F401  (import must not raise)
 from .models import (
@@ -29,8 +29,42 @@ from .services import (
 )
 
 
+def seed_fake_draft_catalog():
+    """Seed the catalog entries the FakeAIProvider's canned v2 draft references.
+
+    The fake draft is *about* Newton's Second Law and the FORCE_VS_ACCELERATION
+    misconception. Step 27 added a deterministic review layer that resolves the
+    structured-plan concept / misconception references against the live catalog,
+    so a realistic review environment must have those entries -- otherwise the
+    validator (correctly) flags them as unknown references.
+    """
+
+    concept, _ = PhysicsConcept.objects.get_or_create(
+        name="Newton's Second Law",
+        defaults={
+            "description": "Net force equals mass times acceleration.",
+            "topic": "Dynamics",
+            "equations": ["F_net = ma"],
+            "si_units": ["newton (N)"],
+        },
+    )
+    PhysicsMisconception.objects.get_or_create(
+        code="FORCE_VS_ACCELERATION",
+        defaults={
+            "title": "A force always means acceleration",
+            "description": (
+                "A learner may treat 'a force is acting' as the same as "
+                "'the object accelerates', ignoring the net force."
+            ),
+            "physics_concept": concept,
+        },
+    )
+    return concept
+
+
 class TeacherReviewWorkflowTests(TestCase):
     def setUp(self):
+        seed_fake_draft_catalog()
         self.concept = PhysicsConcept.objects.create(
             name="Force",
             description="An interaction that can change an object's motion.",
@@ -69,7 +103,7 @@ class TeacherReviewWorkflowTests(TestCase):
 
         self.assertEqual(draft.provider_name, "fake")
         self.assertEqual(draft.model, "fake-lesson-draft")
-        self.assertEqual(draft.prompt_version, "lesson-generation-v1")
+        self.assertEqual(draft.prompt_version, "lesson-generation-v2")
         self.assertEqual(draft.as_lesson_draft().title, "Introduction to Newton's Second Law")
         self.lesson.refresh_from_db()
         self.assertEqual(self.lesson.content, {"teacher_note": "Keep this content unchanged."})
@@ -159,6 +193,7 @@ class TeacherReviewWorkflowTests(TestCase):
 
 class ProvenanceAuditTrailTests(TestCase):
     def setUp(self):
+        seed_fake_draft_catalog()
         self.concept = PhysicsConcept.objects.create(
             name="Momentum",
             description="The product of mass and velocity.",
@@ -264,7 +299,7 @@ class ProvenanceAuditTrailTests(TestCase):
         self.assertEqual(event.source, "fake")
         self.assertEqual(event.metadata["provider"], "fake")
         self.assertEqual(event.metadata["model"], "fake-lesson-draft")
-        self.assertEqual(event.metadata["prompt_version"], "lesson-generation-v1")
+        self.assertEqual(event.metadata["prompt_version"], "lesson-generation-v2")
         self.assertEqual(event.metadata["draft_id"], str(draft.pk))
 
     def test_ai_review_records_event(self):
@@ -488,7 +523,7 @@ class ProvenanceAuditTrailTests(TestCase):
         self.assertEqual(entries[1].title, "AI draft generated")
         self.assertEqual(entries[1].source_label, "Fake")
         self.assertIn("Model: fake-lesson-draft", entries[1].details)
-        self.assertIn("Prompt: lesson-generation-v1", entries[1].details)
+        self.assertIn("Prompt: lesson-generation-v2", entries[1].details)
 
 
 class ProvenanceAdminTests(TestCase):
