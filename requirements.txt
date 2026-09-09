@@ -1,3 +1,11 @@
+# Core
 Django>=5.2,<6
 python-dotenv
+
+# AI provider (OpenAI). "fake" is the default provider and needs nothing.
 openai>=3.5,<4
+
+# Production
+gunicorn>=23,<24                # WSGI application server (see gunicorn.conf.py)
+whitenoise>=6.6,<7              # serve collected static files from the app server
+psycopg2-binary>=2.9,<3         # PostgreSQL driver (used only when DATABASE_URL is set)

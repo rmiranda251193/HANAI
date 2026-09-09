@@ -1,0 +1,46 @@
+# Local production-like stack: Gunicorn + PostgreSQL.
+#
+#   export DJANGO_SECRET_KEY=$(python -c "import secrets;print(secrets.token_urlsafe(64))")
+#   docker compose up --build            # start db + web
+#   docker compose run --rm web python manage.py migrate
+#   docker compose run --rm web python manage.py createsuperuser
+#   curl http://localhost:8000/health/
+#
+# For local verification only -- a real deployment uses a managed PostgreSQL
+# service and sets every value as a platform environment variable / secret.
+# No secret is embedded here: DJANGO_SECRET_KEY must come from your shell
+# (compose fails fast if it is unset).
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hanai
+      POSTGRES_PASSWORD: hanai
+      POSTGRES_DB: hanai
+    volumes:
+      - hanai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hanai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in your shell first}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      DJANGO_SECURE_SSL: "false"          # no TLS in local compose
+      DATABASE_URL: postgres://hanai:hanai@db:5432/hanai
+      AI_PROVIDER: fake
+    ports:
+      - "8000:8000"
+
+volumes:
+  hanai_pgdata:
