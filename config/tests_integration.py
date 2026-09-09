@@ -296,6 +296,63 @@ class HanaiMvpPipelineTests(TestCase):
         self.assertGreaterEqual(recent.active_student_count, 1)
         self.assertTrue(any("could not be found" in n for n in none_window.filters.notices))
 
+    # --- golden: the 3D layer is a renderer, not a second pipeline ----
+
+    def test_golden_kinematics_3d_is_the_same_experiment_pipeline(self):
+        from apps.physics.models import PhysicsSimulation
+
+        kin_concept = PhysicsConcept.objects.create(
+            name="Kinematics", description="Straight-line motion.", topic="Kinematics"
+        )
+        sim = PhysicsSimulation.objects.create(
+            concept=kin_concept, title="Kinematics -- Straight-Line Motion",
+            simulation_type=PhysicsSimulation.SimulationType.KINEMATICS,
+        )
+        lesson = Lesson.objects.create(
+            title="Kinematics lesson", topic="Kinematics", grade_level="11",
+            duration_minutes=45, learning_objectives=["Relate x, v, a, t."],
+            description="lesson", status=Lesson.Status.PUBLISHED,
+        )
+        lesson.physics_concepts.add(kin_concept)
+
+        page = self.client.get(reverse("physics_lab:detail", args=[sim.slug])).content.decode()
+        self.assertIn('data-renderer="kinematics-3d"', page)
+        self.assertIn("js/physics3d/kinematics-3d.js", page)
+
+        before_ev = LearningEvidence.objects.count()
+        common = {
+            "initial_position_m": "0", "initial_velocity_m_s": "2",
+            "acceleration_m_s2": "1", "time_s": "5",
+        }
+        self.assertEqual(
+            self.client.post(
+                reverse("physics_lab:experiment_predict", args=[sim.slug]),
+                {"prediction": "velocity rises"},
+            ).status_code,
+            200,
+        )
+        obs = self.client.post(
+            reverse("physics_lab:experiment_observe", args=[sim.slug]),
+            {"observation": "x about 22.5", **common, "position_m": "99999"},
+        ).json()
+        self.assertAlmostEqual(obs["position_m"], 22.5, places=2)  # server, not the forged 99999
+        self.assertAlmostEqual(obs["velocity_m_s"], 7.0, places=2)
+        self.assertEqual(
+            self.client.post(
+                reverse("physics_lab:experiment_explain", args=[sim.slug]),
+                {"explanation": "constant a", **common},
+            ).status_code,
+            200,
+        )
+
+        attempts = ExperimentAttempt.objects.filter(simulation=sim)
+        self.assertEqual(attempts.count(), 1)
+        self.assertIsNotNone(attempts.get().completed_at)
+        self.assertGreater(LearningEvidence.objects.count(), before_ev)
+        model_names = {m.__name__ for m in __import__("django.apps", fromlist=["apps"]).apps.get_models()}
+        self.assertNotIn("ThreeDExperimentAttempt", model_names)
+        self.assertNotIn("ThreeDLearningEvidence", model_names)
+
     # --- golden: assessment stays server-authoritative -------
 
     def test_golden_assessment_grading_is_server_side(self):

@@ -3,6 +3,11 @@
 {% block title %}DodongOS Physics AI{% endblock %}
 
 {% block content %}
+  {% load static %}
+  <div class="home-motif" aria-hidden="true">
+    <canvas data-home-motif></canvas>
+  </div>
+
   <section class="hero">
     <p class="eyebrow">DodongOS Physics AI</p>
     <h1>Build understanding.<br><span>Keep teachers in control.</span></h1>
@@ -58,4 +63,11 @@
       cohort analytics &rarr; the teacher decides what to do next.
     </p>
   </section>
+
+  {# Optional decorative motif only. Absent, blocked or failed = the page is
+     unchanged. No content depends on WebGL. #}
+  <script type="importmap">
+    { "imports": { "three": "{% static 'js/vendor/three-0.160.1.module.min.js' %}" } }
+  </script>
+  <script type="module" src="{% static 'js/physics3d/home-motif.js' %}"></script>
 {% endblock %}

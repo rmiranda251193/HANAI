@@ -59,6 +59,7 @@
   var PX_PER_M = 9;
   var MAX_TRACK_M = 28; // stop the run if the object would leave the visible track
   var REDUCED_MOTION_STOP_S = 6;
+  var STEP_S = 0.5; // "step forward" / keyboard nudge increment
 
   function readNum(el, name, fallback) {
     var raw = el.getAttribute("data-" + name);
@@ -108,6 +109,9 @@
       btnStart: root.querySelector("[data-action-start]"),
       btnPause: root.querySelector("[data-action-pause]"),
       btnReset: root.querySelector("[data-action-reset]"),
+      btnStep: root.querySelector("[data-action-step]"),
+      inputTime: root.querySelector("[data-input-time]"),
+      outTime: root.querySelector("[data-out-time]"),
       motionNote: root.querySelector("[data-motion-note]")
     };
 
@@ -157,6 +161,39 @@
       recordTrace();
       if (el.sceneStatus) el.sceneStatus.textContent = "";
       render();
+    }
+
+    function rebuildTrace(upToT) {
+      trace = [];
+      maxAbsV = Math.max(1, Math.abs(state.v0));
+      var sampleDt = 0.25;
+      for (var t = 0; t < upToT - 1e-9; t += sampleDt) {
+        var c = computeState(state.x0, state.v0, state.accel, t);
+        trace.push([round4(t), round4(c.velocity)]);
+        maxAbsV = Math.max(maxAbsV, Math.abs(c.velocity));
+      }
+      trace.push([round4(upToT), round4(state.velocityMs)]);
+      maxAbsV = Math.max(maxAbsV, Math.abs(state.velocityMs));
+    }
+
+    // Jump straight to a chosen time and inspect the state there. Used by the
+    // "step forward" button and the time slider (2D and 3D share this).
+    function setTime(value) {
+      loop.stop();
+      var t = Number(value);
+      if (!isFinite(t)) return;
+      t = Math.max(0, Math.min(MAX_TIME_S, t));
+      var computed = computeState(state.x0, state.v0, state.accel, t);
+      state.timeS = t;
+      state.velocityMs = computed.velocity;
+      state.positionM = computed.position;
+      rebuildTrace(t);
+      if (el.sceneStatus) el.sceneStatus.textContent = "";
+      render();
+    }
+
+    function stepForward() {
+      setTime(state.timeS + STEP_S);
     }
 
     function tick(dt) {
@@ -237,6 +274,10 @@
       if (el.valuePosition) el.valuePosition.textContent = state.positionM.toFixed(2);
       if (el.eqPosition) el.eqPosition.textContent = state.positionM.toFixed(2);
       if (el.eqVelocity) el.eqVelocity.textContent = state.velocityMs.toFixed(2);
+      if (el.inputTime && document.activeElement !== el.inputTime) {
+        el.inputTime.value = String(round4(state.timeS));
+      }
+      if (el.outTime) el.outTime.textContent = state.timeS.toFixed(1);
       renderScene();
       renderGraph();
       root.dispatchEvent(new CustomEvent("lab:state", { detail: getState() }));
@@ -281,6 +322,15 @@
     if (el.btnStart) el.btnStart.addEventListener("click", start);
     if (el.btnPause) el.btnPause.addEventListener("click", pause);
     if (el.btnReset) el.btnReset.addEventListener("click", reset);
+    if (el.btnStep) el.btnStep.addEventListener("click", stepForward);
+    if (el.inputTime) {
+      el.inputTime.addEventListener("input", function () {
+        setTime(el.inputTime.value);
+      });
+      el.inputTime.addEventListener("change", function () {
+        setTime(el.inputTime.value);
+      });
+    }
 
     if (loop.reduced && el.motionNote) el.motionNote.hidden = false;
 
@@ -293,6 +343,8 @@
       start: start,
       pause: pause,
       reset: reset,
+      setTime: setTime,
+      step: stepForward,
       getState: getState
     };
     root.labInstance = api;

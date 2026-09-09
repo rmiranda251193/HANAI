@@ -38,6 +38,41 @@ python manage.py runserver
 Then open <http://localhost:8000/>. Create a teacher account with
 `python manage.py createsuperuser` (the teacher workspace gates on `is_staff`).
 
+## 3D Physics visualization
+
+The Physics Lab **Kinematics** activity offers a **2D view** (default, SVG) and
+an interactive **3D view** (Three.js). The 3D layer is presentation only — it
+draws state that the deterministic server model computes and re-validates; it is
+never the Physics engine, and it uses the same generic experiment endpoints and
+`ExperimentAttempt` / `LearningEvidence` records as the 2D view.
+
+- **Three.js** r0.160.1 is **vendored** (MIT) at
+  `static/js/vendor/three-0.160.1.module.min.js` and loaded as a native ES
+  module via an import map — **no npm, no build step, no CDN**. See
+  `static/js/vendor/README.md` for provenance and how to update it.
+- The 3D renderers live in `static/js/physics3d/` (`scene-core.js` is
+  topic-agnostic; `kinematics-3d.js` is the only simulation-specific module).
+  Server-side, `apps/physics/visualization_registry.py` maps a `simulation_type`
+  to an allow-listed renderer slug (data only — no code, no `eval`).
+- **WebGL is required for the 3D view.** If WebGL is unavailable, the module
+  fails, or the browser lacks import-map support (Chrome 89+, Firefox 108+,
+  Safari 16.4+), the page silently keeps the fully-functional 2D view and shows
+  a short "3D unavailable, use the 2D view" note. `prefers-reduced-motion` is
+  respected (no idle camera drift; use Step / the time slider).
+- A small decorative wireframe motif appears behind the home-page hero. It is
+  `aria-hidden`, `pointer-events: none`, disabled under reduced motion and on
+  narrow screens, and absent entirely without WebGL — no content depends on it.
+- **Production:** `collectstatic` collects `static/js/vendor/` and
+  `static/js/physics3d/` like any other asset (hashed by WhiteNoise's manifest
+  storage). No local filesystem paths are referenced anywhere.
+- **Teacher preview:** append `?preview=1` to a Physics Lab URL for a read-only
+  view (Predict / Observe / Explain / Tutor hidden; nothing is recorded).
+
+Browsers exercised in development: modern Chromium and Firefox behaviour is
+assumed from the standards used (WebGL 1/2, import maps, `ResizeObserver`);
+actual WebGL rendering was **not** visually verified in this environment and
+mobile was **not** physically tested.
+
 ## Tests
 
 ```bash

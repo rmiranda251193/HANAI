@@ -8,10 +8,25 @@
     <div>
       <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
       <h1>{{ simulation.title }}</h1>
-      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+      {% if preview %}
+        <p>Teacher preview of the interactive visualization. Read-only.</p>
+      {% else %}
+        <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+      {% endif %}
     </div>
-    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+    <div class="lab-heading-links">
+      {% if user.is_staff and not preview %}
+        <a class="text-link" href="?preview=1">Open teacher preview</a>
+      {% endif %}
+      <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+    </div>
   </section>
+
+  {% if preview %}
+    <section class="lab-preview-banner" role="note">
+      <p><strong>Teacher preview &middot; read-only.</strong> You can explore the simulation, the 2D and 3D views, the vectors and the labels. Nothing here is recorded &mdash; no experiment attempt, learning evidence, assessment or tutor message is created.</p>
+    </section>
+  {% endif %}
 
   <p class="lab-model-note" role="note">
     Idealized model: motion is along a single straight line with a constant acceleration; there is no friction or air resistance.
@@ -34,6 +49,7 @@
        data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
        data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
 
+    {% if not preview %}
     {# ---------- STEP 1: PREDICT ---------- #}
     <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
       <p class="lab-step-num">Step 1</p>
@@ -54,6 +70,7 @@
         {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
       </p>
     </section>
+    {% endif %}
 
     {# ---------- STEP 2: EXPERIMENT ---------- #}
     <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
@@ -62,28 +79,53 @@
 
       <div class="lab-experiment-grid">
         <div class="lab-stage-col">
-          <svg class="lab-scene" viewBox="0 0 640 200" role="img"
-               data-lab-scene aria-label="An object on a straight track, moving left or right of a marked starting point.">
-            <desc data-scene-desc>An object on a straight track. It moves left or right from the zero mark depending on its velocity and acceleration.</desc>
-            <line x1="20" y1="120" x2="620" y2="120" class="lab-track" />
-            <line x1="320" y1="104" x2="320" y2="136" class="lab-axis" />
-            <text x="312" y="150" class="lab-axis-label">0</text>
-            <g data-cart transform="translate(320,120)">
-              <circle cx="0" cy="0" r="16" class="lab-cart-body" />
-            </g>
-          </svg>
-          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+          {% if visualization.has_3d %}
+            <fieldset class="lab-view-toggle" data-view-toggle>
+              <legend>Visualization</legend>
+              <label><input type="radio" name="lab-view" value="2d" checked> 2D view</label>
+              <label><input type="radio" name="lab-view" value="3d"> 3D view</label>
+            </fieldset>
+          {% endif %}
 
-          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
-               data-lab-graph aria-label="A graph of velocity against time. A positive slope means a positive acceleration.">
-            <desc data-graph-desc>A graph of velocity against time for this run. A positive slope means a positive acceleration.</desc>
-            <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
-            <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
-            <text x="10" y="14" class="lab-axis-label">v</text>
-            <text x="332" y="176" class="lab-axis-label">t</text>
-            <polyline points="" class="lab-trace" data-lab-trace />
-          </svg>
-          <p class="lab-graph-caption">Velocity vs time. A straight line means the acceleration is constant.</p>
+          <div data-lab-scene-2d>
+            <svg class="lab-scene" viewBox="0 0 640 200" role="img"
+                 data-lab-scene aria-label="An object on a straight track, moving left or right of a marked starting point.">
+              <desc data-scene-desc>An object on a straight track. It moves left or right from the zero mark depending on its velocity and acceleration.</desc>
+              <line x1="20" y1="120" x2="620" y2="120" class="lab-track" />
+              <line x1="320" y1="104" x2="320" y2="136" class="lab-axis" />
+              <text x="312" y="150" class="lab-axis-label">0</text>
+              <g data-cart transform="translate(320,120)">
+                <circle cx="0" cy="0" r="16" class="lab-cart-body" />
+              </g>
+            </svg>
+            <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+            <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+                 data-lab-graph aria-label="A graph of velocity against time. A positive slope means a positive acceleration.">
+              <desc data-graph-desc>A graph of velocity against time for this run. A positive slope means a positive acceleration.</desc>
+              <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
+              <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
+              <text x="10" y="14" class="lab-axis-label">v</text>
+              <text x="332" y="176" class="lab-axis-label">t</text>
+              <polyline points="" class="lab-trace" data-lab-trace />
+            </svg>
+            <p class="lab-graph-caption">Velocity vs time. A straight line means the acceleration is constant.</p>
+          </div>
+
+          {% if visualization.has_3d %}
+            <div class="physics3d-wrap" data-physics3d-canvas-wrap hidden>
+              <canvas class="physics3d-canvas" data-physics3d-canvas width="640" height="380"
+                      tabindex="0" role="img"
+                      aria-label="Interactive 3D view of a cart on a straight track. Use arrow keys to orbit, plus and minus to zoom, and 0 to reset the camera. The current values are given in the text summary below."></canvas>
+              <div class="physics3d-toolbar">
+                <button type="button" class="button button-secondary" data-physics3d-camera-reset>Reset camera</button>
+              </div>
+              <p class="physics3d-fallback" data-physics3d-fallback hidden></p>
+            </div>
+            <p class="physics3d-summary" data-physics3d-summary aria-live="polite">
+              3D view not started yet. Switch to the 3D view to see the cart, vectors and labelled values.
+            </p>
+          {% endif %}
         </div>
 
         <div class="lab-side-col">
@@ -143,16 +185,26 @@
               <output id="lab-accel-out" for="lab-accel" data-out-accel>{{ defaults.acceleration_m_s2 }}</output>
             </div>
           </div>
+          <div class="lab-control">
+            <label for="lab-time">Time (s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-time" data-input-time
+                     min="0" max="20" step="0.1" value="0" aria-describedby="lab-time-out">
+              <output id="lab-time-out" for="lab-time" data-out-time>0.0</output>
+            </div>
+          </div>
           <div class="lab-buttons">
             <button type="button" class="button button-primary" data-action-start>Start</button>
             <button type="button" class="button button-secondary" data-action-pause>Pause</button>
+            <button type="button" class="button button-secondary" data-action-step>Step +0.5&thinsp;s</button>
             <button type="button" class="button button-secondary" data-action-reset>Reset</button>
           </div>
-          <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating.</p>
+          <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating. Use Step and the time slider to move through the motion.</p>
         </div>
       </div>
     </section>
 
+    {% if not preview %}
     {# ---------- STEP 3: OBSERVE ---------- #}
     <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
       <p class="lab-step-num">Step 3</p>
@@ -214,6 +266,11 @@
         </p>
       {% endif %}
     </section>
+    {% endif %}
+
+    {% if visualization.has_3d %}
+      <div data-physics3d data-renderer="{{ visualization.renderer }}" hidden></div>
+    {% endif %}
   </div>
 
   <noscript>
@@ -223,4 +280,14 @@
   <script defer src="{% static 'js/physics/lab.js' %}"></script>
   <script defer src="{% static 'js/physics/kinematics.js' %}"></script>
   <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+
+  {% if visualization.has_3d %}
+    {# 3D view: Three.js is vendored (MIT), loaded as a native ES module via an
+       import map -- no build step, no CDN. The import map must precede the
+       module script. If WebGL or the module fails, the 2D view above is used. #}
+    <script type="importmap">
+      { "imports": { "three": "{% static 'js/vendor/three-0.160.1.module.min.js' %}" } }
+    </script>
+    <script type="module" src="{% static 'js/physics3d/kinematics-3d.js' %}"></script>
+  {% endif %}
 {% endblock %}

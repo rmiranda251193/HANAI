@@ -19,6 +19,7 @@ from apps.students.views import _current_student
 
 from .models import PhysicsSimulation
 from .simulation_registry import get_simulation_definition
+from .visualization_registry import get_visualization
 
 
 def physics_lab_index(request):
@@ -96,6 +97,12 @@ def physics_lab_detail(request, slug):
 
     tutor_lesson = _tutor_lesson_for(simulation.concept)
 
+    # Teacher read-only preview: hide the Predict / Observe / Explain / Tutor
+    # steps so no learning evidence can be produced from a preview. This is a
+    # GET-only presentation flag -- it changes nothing server-side (viewing the
+    # lab already records nothing; only the POST endpoints write).
+    preview = request.GET.get("preview") == "1"
+
     # Restore the student's in-progress experiment so a refresh keeps their work.
     student = _current_student(request)
     attempt = latest_attempt_for(student, simulation)
@@ -113,6 +120,9 @@ def physics_lab_detail(request, slug):
         "defaults": definition.default_state,
         "bounds": bounds,
         "equations": definition.equations,
+        # Presentation-only: which client renderers may draw this simulation.
+        "visualization": get_visualization(simulation.simulation_type),
+        "preview": preview,
     }
     return render(request, definition.template, context)
 

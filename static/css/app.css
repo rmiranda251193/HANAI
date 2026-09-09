@@ -32,6 +32,11 @@ a { color: inherit; }
 .home-links .text-link { margin-top: 0; }
 .home-flow { max-width: 60rem; margin: 1.5rem 0 3rem; }
 .home-flow p:not(.card-label) { margin: .5rem 0 0; color: var(--muted); line-height: 1.75; }
+.home-motif { position: absolute; inset: 0 0 auto auto; width: min(38rem, 45vw); height: min(38rem, 45vw); margin-top: -2rem; pointer-events: none; z-index: 0; opacity: .5; -webkit-mask-image: radial-gradient(circle at 60% 40%, #000 40%, transparent 72%); mask-image: radial-gradient(circle at 60% 40%, #000 40%, transparent 72%); }
+.home-motif canvas { width: 100%; height: 100%; display: block; }
+.hero, .foundation-grid, .home-flow { position: relative; z-index: 1; }
+@media (max-width: 720px) { .home-motif { display: none; } }
+@media (prefers-reduced-motion: reduce) { .home-motif { display: none; } }
 .hero { max-width: 48rem; padding: 8rem 0 4rem; }
 .hero h1 { margin: .85rem 0 1.25rem; font-size: clamp(2.5rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -.06em; }
 .hero h1 span { color: var(--cyan); }
@@ -247,6 +252,23 @@ a { color: inherit; }
 .lab-index-card .button { margin-top: 1rem; }
 .lab-model-note { max-width: 66rem; margin: 1rem 0 0; padding: .75rem .9rem; border-left: 3px solid var(--amber); background: rgba(242, 180, 102, .08); color: #dbeaf1; font-size: .9rem; line-height: 1.55; }
 .lab-model-note code { color: var(--cyan); }
+.lab-heading-links { display: flex; flex-direction: column; align-items: end; gap: .3rem; }
+.lab-preview-banner { max-width: 66rem; margin: 1rem 0 0; padding: .75rem .9rem; border: 1px solid var(--cyan); border-radius: .5rem; background: rgba(85, 215, 235, .08); color: #dbeaf1; font-size: .9rem; line-height: 1.55; }
+.lab-preview-banner p { margin: 0; }
+
+/* Physics Lab -- 2D / 3D visualization (Three.js presentation layer only) */
+.lab-view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0; padding: .5rem .7rem; border: 1px solid var(--line); border-radius: .5rem; }
+.lab-view-toggle legend { padding: 0 .35rem; color: var(--cyan); font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.lab-view-toggle label { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
+.lab-view-toggle label.is-disabled { color: var(--muted); }
+.lab-view-toggle input[type="radio"] { accent-color: var(--cyan); }
+.lab-view-toggle input[type="radio"]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.physics3d-wrap { display: grid; gap: .6rem; }
+.physics3d-canvas { display: block; width: 100%; height: clamp(18rem, 42vw, 24rem); border: 1px solid var(--line); border-radius: .55rem; background: rgba(9, 18, 29, .5); touch-action: none; }
+.physics3d-canvas:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.physics3d-toolbar { display: flex; flex-wrap: wrap; gap: .6rem; }
+.physics3d-fallback { margin: 0; padding: .7rem .85rem; border-left: 3px solid var(--amber); background: rgba(242, 180, 102, .08); color: #dbeaf1; font-size: .88rem; line-height: 1.5; }
+.physics3d-summary { margin: .2rem 0 0; padding: .7rem .85rem; border: 1px dashed var(--line); border-radius: .5rem; color: #dbeaf1; font-size: .86rem; line-height: 1.6; }
 .lab { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1rem; max-width: 72rem; margin-top: 1.5rem; align-items: start; }
 .lab-stage-col, .lab-side-col { display: grid; gap: 1rem; min-width: 0; }
 .lab-stage h2, .lab-graph h2, .lab-values h2, .lab-controls h2, .lab-prediction h2, .lab-observation h2 { margin: .55rem 0 1rem; font-size: 1.15rem; }
