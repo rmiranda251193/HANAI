@@ -317,7 +317,13 @@ a { color: inherit; }
 .lab-compare-table th, .lab-compare-table td { padding: .4rem .5rem; text-align: left; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .lab-compare-table thead th { color: var(--cyan); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
 .lab-compare-table tbody th { color: #edf6fb; }
-@media (max-width: 720px) { .lab-hud-grid { grid-template-columns: 1fr 1fr; } .lab-measure-row input { max-width: 5rem; } }
+.lab-whatif { border: 1px solid var(--line); border-radius: .5rem; padding: .6rem .8rem; margin-top: 1rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+.lab-whatif legend { padding: 0 .35rem; font-size: .78rem; font-weight: 700; color: var(--cyan); letter-spacing: .04em; text-transform: uppercase; }
+.lab-whatif .button { flex: 1 1 auto; }
+.lab-copilot { margin: 1rem 0 0; padding: .7rem .85rem; border-left: 3px solid var(--cyan); background: rgba(85, 215, 235, .07); }
+.lab-copilot .text-link { margin: 0; }
+.lab-copilot-hint { display: block; margin-top: .3rem; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+@media (max-width: 720px) { .lab-hud-grid { grid-template-columns: 1fr 1fr; } .lab-measure-row input { max-width: 5rem; } .lab-whatif .button { flex-basis: 100%; } }
 .lab { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1rem; max-width: 72rem; margin-top: 1.5rem; align-items: start; }
 .lab-stage-col, .lab-side-col { display: grid; gap: 1rem; min-width: 0; }
 .lab-stage h2, .lab-graph h2, .lab-values h2, .lab-controls h2, .lab-prediction h2, .lab-observation h2 { margin: .55rem 0 1rem; font-size: 1.15rem; }

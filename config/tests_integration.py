@@ -366,11 +366,26 @@ class HanaiMvpPipelineTests(TestCase):
 
         attempts = ExperimentAttempt.objects.filter(simulation=sim)
         self.assertEqual(attempts.count(), 1)
-        self.assertIsNotNone(attempts.get().completed_at)
+        attempt = attempts.get()
+        self.assertIsNotNone(attempt.completed_at)
         self.assertGreater(LearningEvidence.objects.count(), before_ev)
         model_names = {m.__name__ for m in __import__("django.apps", fromlist=["apps"]).apps.get_models()}
         self.assertNotIn("ThreeDExperimentAttempt", model_names)
         self.assertNotIn("ThreeDLearningEvidence", model_names)
+
+        # AI Lab Copilot: the existing Tutor opens with the structured experiment
+        # context (no new tutor, no renderer internals).
+        from apps.students.requests import ExperimentContext
+
+        tutor = self.client.get(
+            reverse("students:tutor", args=[lesson.slug]),
+            {"experiment": attempt.pk, "prefill": "What should I notice about the velocity?"},
+        )
+        self.assertEqual(tutor.status_code, 200)
+        self.assertContains(tutor, "What should I notice about the velocity?")
+        ctx = ExperimentContext.from_attempt(attempt)
+        self.assertAlmostEqual(ctx.velocity_m_s, 7.0, places=2)
+        self.assertEqual(attempt.parameters["prediction"]["velocity_m_s"], 6.0)
 
     # --- golden: assessment stays server-authoritative -------
 

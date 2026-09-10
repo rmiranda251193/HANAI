@@ -202,6 +202,86 @@ class KinematicsInstrumentPageTests(TestCase):
             reverse(f"physics_lab:{name}", args=[self.sim.slug])
 
 
+@override_settings(AI_PROVIDER="fake")
+class AiLabCopilotTests(TestCase):
+    """The in-lab AI guidance reuses the existing Tutor -- no second tutor,
+    no new endpoint, no renderer internals in the context."""
+
+    def setUp(self):
+        from apps.lessons.models import Lesson
+
+        self.sim = _kinematics_sim()
+        self.lesson = Lesson.objects.create(
+            title="Kinematics lesson", topic="Kinematics", grade_level="11",
+            duration_minutes=45, learning_objectives=["Relate x, v, a, t."],
+            description="d", status=Lesson.Status.PUBLISHED,
+        )
+        self.lesson.physics_concepts.add(self.sim.concept)
+        self.url = reverse("physics_lab:detail", args=[self.sim.slug])
+
+    def test_page_offers_a_copilot_link_into_the_existing_tutor(self):
+        body = self.client.get(self.url).content.decode()
+        self.assertIn("data-copilot-link", body)
+        self.assertIn(reverse("students:tutor", args=[self.lesson.slug]), body)
+        self.assertIn("guides your reasoning", body.lower().replace("&mdash;", ""))
+        self.assertIn("data-whatif", body)  # "What if?" quick actions
+
+    def test_preview_hides_the_copilot_link_but_keeps_what_if(self):
+        body = self.client.get(self.url, {"preview": "1"}).content.decode()
+        self.assertNotIn("data-copilot-link", body)
+        self.assertIn("data-whatif", body)  # client-only param changes, no mutation
+
+    def test_no_second_tutor_or_lab_ai_endpoint_was_added(self):
+        from apps.physics import urls as physics_urls
+
+        names = {p.name for p in physics_urls.urlpatterns}
+        for banned in ("copilot", "ai_experiment", "lab_ai", "tutor2"):
+            self.assertNotIn(banned, names)
+
+    def test_copilot_js_sends_no_renderer_internals(self):
+        src = (JS_DIR / "lab-instrument.js").read_text(encoding="utf-8")
+        # the copilot prefill/refresh code must not touch three/scene/renderer
+        block = src[src.index("copilotPrefill") : src.index("graph point")]
+        for token in ("THREE", "renderer", "camera", ".scene", "WebGL", "canvas"):
+            self.assertNotIn(token, block)
+        self.assertIn("encodeURIComponent", block)
+
+    def test_tutor_prefill_get_fills_textarea_and_creates_no_turn(self):
+        from apps.students.models import TutorMessage
+
+        r = self.client.get(
+            reverse("students:tutor", args=[self.lesson.slug]),
+            {"prefill": "My setup: x0 = 0 m, v0 = 2 m/s. What should I notice?"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "What should I notice?")
+        self.assertEqual(TutorMessage.objects.filter(role="student").count(), 0)
+
+    def test_structured_experiment_context_reaches_the_tutor(self):
+        from apps.students.experiment_services import (
+            record_experiment_observation,
+            record_experiment_prediction,
+        )
+        from apps.students.models import StudentProfile
+        from apps.students.requests import ExperimentContext
+
+        student = StudentProfile.objects.create(display_name="Rey")
+        record_experiment_prediction(
+            student=student, simulation=self.sim, prediction="rises",
+            structured={"predicted_velocity_m_s": "6"},
+        )
+        attempt, _ = record_experiment_observation(
+            student=student, simulation=self.sim, observation="moved",
+            lesson=self.lesson, initial_position_m=0, initial_velocity_m_s=2,
+            acceleration_m_s2=1, time_s=5,
+        )
+        ctx = ExperimentContext.from_attempt(attempt)
+        self.assertEqual(ctx.simulation_type, "kinematics")
+        self.assertAlmostEqual(ctx.position_m, 22.5, places=2)
+        self.assertAlmostEqual(ctx.velocity_m_s, 7.0, places=2)
+        self.assertEqual(attempt.parameters["prediction"]["velocity_m_s"], 6.0)
+
+
 class InstrumentJsSafetyTests(TestCase):
     def _js(self, name):
         return (JS_DIR / name).read_text(encoding="utf-8")

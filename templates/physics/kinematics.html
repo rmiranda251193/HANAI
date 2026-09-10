@@ -244,6 +244,23 @@
             <button type="button" class="button button-secondary" data-action-reset>Reset</button>
           </div>
           <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating. Use Step and the time slider to move through the motion.</p>
+
+          <fieldset class="lab-whatif" aria-label="What if?">
+            <legend>What if&hellip;? Predict the change, then apply it.</legend>
+            <button type="button" class="button button-secondary" data-whatif="accel*2">Double the acceleration</button>
+            <button type="button" class="button button-secondary" data-whatif="accel*-1">Reverse the acceleration</button>
+            <button type="button" class="button button-secondary" data-whatif="v0=0">Remove the initial velocity</button>
+            <button type="button" class="button button-secondary" data-whatif="v0*-1">Reverse the initial velocity</button>
+          </fieldset>
+
+          {% if tutor_lesson and not preview %}
+            <p class="lab-copilot">
+              <a class="text-link" data-copilot-link href="{% url 'students:tutor' tutor_lesson.slug %}">
+                Ask the AI Lab Copilot about this setup
+              </a>
+              <span class="lab-copilot-hint">Opens the Physics Tutor with your current setup and values. It guides your reasoning &mdash; it will not just give the answer.</span>
+            </p>
+          {% endif %}
         </div>
       </div>
     </section>

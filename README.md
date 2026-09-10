@@ -67,6 +67,17 @@ never the Physics engine, and it uses the same generic experiment endpoints and
   storage). No local filesystem paths are referenced anywhere.
 - **Teacher preview:** append `?preview=1` to a Physics Lab URL for a read-only
   view (Predict / Observe / Explain / Tutor hidden; nothing is recorded).
+- **AI Lab Copilot:** the Kinematics lab carries the *live, structured* setup
+  (x₀, v₀, a, current t/x/v) and, once an experiment is submitted, the
+  prediction / observation / explanation and any misconception evidence, into
+  the **existing** Physics Tutor as a pre-fill — no second tutor, no new
+  endpoint, no renderer internals. Nothing is sent until the student presses
+  Send; the Tutor's reasoning-first policy decides how much to reveal. A
+  "What if?" panel applies validated parameter changes (through the simulation's
+  own clamped setters) and rewinds to t = 0 so the student predicts the change;
+  the graph doubles as a time selector. Interactive challenges are checked by
+  the server (`.../scenario/<id>/check/`), which reconstructs the outcome with
+  the deterministic model and persists nothing.
 
 Browsers exercised in development: modern Chromium and Firefox behaviour is
 assumed from the standards used (WebGL 1/2, import maps, `ResizeObserver`);

@@ -302,9 +302,87 @@
       });
     }
 
-    root.addEventListener("lab:state", function (e) { onState(e.detail); });
+    // --- "What if?" quick actions --------------------------
+    // Each applies a validated parameter change through the simulation's own
+    // clamped setters, then rewinds to t = 0 so the student predicts the change.
+    qa(root, "[data-whatif]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var api = root.labInstance;
+        if (!api || !last) return;
+        var op = btn.getAttribute("data-whatif");
+        if (op === "accel*2") api.setAccel(last.accelerationMs2 * 2);
+        else if (op === "accel*-1") api.setAccel(last.accelerationMs2 * -1);
+        else if (op === "v0=0") api.setV0(0);
+        else if (op === "v0*-1") api.setV0(last.initialVelocityMs * -1);
+        if (api.setTime) api.setTime(0);
+        if (hud.motion) {
+          hud.motion.textContent =
+            "Changed. Predict what will happen, then press Play or step through the motion.";
+        }
+      });
+    });
+
+    // --- AI Lab Copilot link (reuses the existing Tutor) ---
+    // Keeps the "Ask the AI Lab Copilot" link pointed at the Physics Tutor with
+    // the current, structured setup as a pre-fill. Nothing is sent until the
+    // student presses Send in the Tutor; the Tutor's own reasoning-first policy
+    // decides how much to reveal. No renderer internals are ever included.
+    var copilotLink = q(root, "[data-copilot-link]");
+    var tutorBase = root.getAttribute("data-tutor-base") || "";
+    var tutorLink = q(root, "[data-tutor-link]");
+
+    function copilotPrefill(state) {
+      return (
+        "Physics Lab - Kinematics (straight-line motion).\n" +
+        "My setup: x0 = " + fmt(state.initialPositionM, 1) + " m, v0 = " +
+        fmt(state.initialVelocityMs, 1) + " m/s, a = " + fmt(state.accelerationMs2) + " m/s^2.\n" +
+        "Right now at t = " + fmt(state.timeS, 1) + " s: position = " + fmt(state.positionM) +
+        " m, velocity = " + fmt(state.velocityMs) + " m/s.\n" +
+        "I am investigating this motion. What should I be noticing? " +
+        "What is staying constant, and what is changing?"
+      );
+    }
+    function refreshCopilot(state) {
+      if (!copilotLink) return;
+      // Once an experiment has been observed/explained, prefer the richer link
+      // that experiment-flow.js builds (it carries ?experiment=<id>).
+      var explained = tutorLink && (tutorLink.getAttribute("href") || "").indexOf("experiment=") !== -1;
+      if (explained) {
+        copilotLink.setAttribute("href", tutorLink.getAttribute("href"));
+        return;
+      }
+      if (!tutorBase) return;
+      copilotLink.setAttribute(
+        "href",
+        tutorBase + (tutorBase.indexOf("?") === -1 ? "?" : "&") +
+          "prefill=" + encodeURIComponent(copilotPrefill(state))
+      );
+    }
+
+    // --- graph point -> time (the graph doubles as a time selector) ---
+    var graphSvg = q(root, "[data-lab-graph]");
+    if (graphSvg && root.labInstance && root.labInstance.setTime) {
+      graphSvg.style.cursor = "pointer";
+      graphSvg.addEventListener("click", function (e) {
+        if (!last) return;
+        var box = graphSvg.getBoundingClientRect();
+        // viewBox is 0..360 wide; the plotted area runs x = 40..348.
+        var vx = ((e.clientX - box.left) / box.width) * 360;
+        var frac = Math.max(0, Math.min(1, (vx - 40) / (348 - 40)));
+        // Match kinematics.js's graph x-domain exactly: 0 .. max(1, current t).
+        var tMax = Math.max(1, last.timeS || 0);
+        root.labInstance.setTime(frac * tMax);
+      });
+    }
+
+    root.addEventListener("lab:state", function (e) {
+      onState(e.detail);
+      refreshCopilot(e.detail);
+    });
     if (root.labInstance && typeof root.labInstance.getState === "function") {
-      onState(root.labInstance.getState());
+      var s0 = root.labInstance.getState();
+      onState(s0);
+      refreshCopilot(s0);
     }
   });
 })(window, document);
