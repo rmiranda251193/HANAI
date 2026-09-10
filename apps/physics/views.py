@@ -1,3 +1,4 @@
+import json
 from urllib.parse import urlencode
 
 from django.http import Http404, JsonResponse
@@ -17,6 +18,7 @@ from apps.students.experiment_services import (
 from apps.students.models import TutorSession
 from apps.students.views import _current_student
 
+from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
 from .models import PhysicsSimulation
 from .simulation_registry import get_simulation_definition
 from .visualization_registry import get_visualization
@@ -111,6 +113,7 @@ def physics_lab_detail(request, slug):
     bounds = {
         field: {"min": lo, "max": hi} for field, (lo, hi) in definition.bounds.items()
     }
+    _scenario_list = [s.as_client_dict for s in scenarios_for(simulation.simulation_type)]
     context = {
         "simulation": simulation,
         "concept": simulation.concept,
@@ -122,9 +125,54 @@ def physics_lab_detail(request, slug):
         "equations": definition.equations,
         # Presentation-only: which client renderers may draw this simulation.
         "visualization": get_visualization(simulation.simulation_type),
+        "scenarios": _scenario_list,
+        "scenarios_json": json.dumps({s["scenario_id"]: s for s in _scenario_list}),
         "preview": preview,
     }
     return render(request, definition.template, context)
+
+
+@require_POST
+def experiment_scenario_check(request, slug, scenario_id):
+    """Server-authoritative check of a scenario challenge. Persists nothing.
+
+    The browser sends only the parameters the student chose. The server clamps
+    them and reconstructs the outcome with the deterministic Kinematics model,
+    so ``completed=true`` / ``score=100`` in the body can never pass a check.
+    The durable learning evidence for a challenge is the explanation the student
+    submits through the normal Explain step.
+    """
+
+    simulation = _active_simulation(slug)
+    scenario = get_scenario(scenario_id)
+    if scenario is None or scenario.simulation_type != simulation.simulation_type:
+        raise Http404("That challenge is not available.")
+
+    try:
+        result = evaluate_scenario(
+            scenario,
+            initial_position=request.POST.get("initial_position_m", 0),
+            initial_velocity=request.POST.get("initial_velocity_m_s", 0),
+            acceleration=request.POST.get("acceleration_m_s2", 0),
+        )
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "error": "Those parameters are not valid numbers."}, status=400
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "scenario_id": scenario.scenario_id,
+            "met": result["met"],
+            "checks": result["checks"],
+            "message": (
+                "Goal reached. Now explain how you did it."
+                if result["met"]
+                else "Not there yet -- adjust the values and check again."
+            ),
+        }
+    )
 
 
 # --- Experiment learning-flow endpoints (JSON) --------------------------------
@@ -196,6 +244,15 @@ def _experiment_prefill(attempt):
                 f"acceleration = {ctx.acceleration_m_s2:.2f} m/s^2 "
                 "(a = F / m, computed by the app)"
             )
+    predicted = (attempt.parameters or {}).get("prediction") if isinstance(attempt.parameters, dict) else None
+    if isinstance(predicted, dict):
+        bits = []
+        if "velocity_m_s" in predicted:
+            bits.append(f"velocity {predicted['velocity_m_s']:.1f} m/s")
+        if "position_m" in predicted:
+            bits.append(f"position {predicted['position_m']:.1f} m")
+        if bits:
+            parts.append("My predicted values: " + ", ".join(bits))
     if ctx.prediction:
         parts.append(f"My prediction: {ctx.prediction}")
     if ctx.observation:
@@ -231,6 +288,11 @@ def experiment_predict(request, slug):
             session=session,
             lesson=lesson,
             prediction=request.POST.get("prediction", ""),
+            structured={
+                "predicted_velocity_m_s": request.POST.get("predicted_velocity_m_s"),
+                "predicted_position_m": request.POST.get("predicted_position_m"),
+                "predicted_direction": request.POST.get("predicted_direction"),
+            },
         )
     except ExperimentValidationError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)

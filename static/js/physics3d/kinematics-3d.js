@@ -91,6 +91,21 @@ function buildKinematicsScene(core) {
   const vArrow = core.addArrow(VELOCITY_COLOR);
   const aArrow = core.addArrow(ACCEL_COLOR);
 
+  // Motion trail -- markers at authoritative sampled positions (see lab-instrument.js).
+  const trailGroup = new THREE_.Group();
+  core.content.add(trailGroup);
+  const trailGeom = new THREE_.SphereGeometry(0.22, 10, 10);
+  const trailMat = new THREE_.MeshBasicMaterial({ color: 0x8fd6e6, transparent: true, opacity: 0.7 });
+  function setTrail(points) {
+    while (trailGroup.children.length) trailGroup.remove(trailGroup.children[0]);
+    (points || []).forEach(function (px) {
+      const dot = new THREE_.Mesh(trailGeom, trailMat);
+      dot.position.set(Math.max(-21, Math.min(21, Number(px) || 0)), 0.25, 0);
+      trailGroup.add(dot);
+    });
+    core.render();
+  }
+
   const valueLabels = {
     t: core.addLabel("t = 0.0 s"),
     x: core.addLabel("x = 0.00 m"),
@@ -126,7 +141,7 @@ function buildKinematicsScene(core) {
     core.render();
   }
 
-  return { update };
+  return { update, setTrail };
 }
 
 const RENDERERS = { "kinematics-3d": buildKinematicsScene };
@@ -202,6 +217,7 @@ function boot() {
         scene.update(lastState);
         announce(summary, lastState);
       }
+      if (lastTrail.length && scene.setTrail) scene.setTrail(lastTrail);
     } catch (err) {
       core = null;
       scene = null;
@@ -256,6 +272,12 @@ function boot() {
       scene.update(lastState);
       announce(summary, lastState);
     }
+  });
+
+  let lastTrail = [];
+  root.addEventListener("lab:trail", function (e) {
+    lastTrail = e.detail && e.detail.on ? (e.detail.points || []) : [];
+    if (scene && scene.setTrail) scene.setTrail(lastTrail);
   });
 
   function onVisibility() {

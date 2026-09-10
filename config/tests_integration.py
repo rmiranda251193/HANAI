@@ -324,13 +324,32 @@ class HanaiMvpPipelineTests(TestCase):
             "initial_position_m": "0", "initial_velocity_m_s": "2",
             "acceleration_m_s2": "1", "time_s": "5",
         }
+        # Structured prediction (before observation) is stored, not scored.
         self.assertEqual(
             self.client.post(
                 reverse("physics_lab:experiment_predict", args=[sim.slug]),
-                {"prediction": "velocity rises"},
+                {
+                    "prediction": "velocity rises",
+                    "predicted_velocity_m_s": "6",
+                    "predicted_position_m": "20",
+                    "predicted_direction": "speed_up",
+                },
             ).status_code,
             200,
         )
+        attempt0 = ExperimentAttempt.objects.get(simulation=sim)
+        self.assertEqual(attempt0.parameters["prediction"]["velocity_m_s"], 6.0)
+
+        # Scenario challenge check is server-authoritative and persists nothing.
+        ev_before_challenge = LearningEvidence.objects.count()
+        chk = self.client.post(
+            reverse("physics_lab:experiment_scenario_check", args=[sim.slug, "reach-20-at-4"]),
+            {"initial_position_m": "0", "initial_velocity_m_s": "3", "acceleration_m_s2": "1",
+             "met": "true"},
+        ).json()
+        self.assertIs(chk["met"], True)  # v0=3, a=1 -> x(4)=20
+        self.assertEqual(LearningEvidence.objects.count(), ev_before_challenge)
+        self.assertEqual(ExperimentAttempt.objects.filter(simulation=sim).count(), 1)
         obs = self.client.post(
             reverse("physics_lab:experiment_observe", args=[sim.slug]),
             {"observation": "x about 22.5", **common, "position_m": "99999"},

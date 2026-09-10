@@ -33,10 +33,19 @@ class VisualizationDefinition:
     supported_views: tuple[str, ...] = ("2d",)
     controls: tuple[str, ...] = ()
     summary_hint: str = ""
+    #: instrument panels this simulation supports (presentation only)
+    #: -- e.g. "hud", "trail", "vectors", "inspector", "measure", "compare",
+    #: "graphs", "scenarios".
+    instruments: tuple[str, ...] = ()
+    #: graph modes offered by the synchronized graph (data only)
+    graph_modes: tuple[str, ...] = ()
 
     @property
     def has_3d(self) -> bool:
         return "3d" in self.supported_views
+
+    def has(self, instrument: str) -> bool:
+        return instrument in self.instruments
 
 
 _RENDERER_SLUG_ALLOWED = frozenset({"kinematics-3d"})
@@ -76,10 +85,12 @@ register(
         simulation_type="kinematics",
         renderer="kinematics-3d",
         supported_views=("2d", "3d"),
-        controls=("play", "pause", "reset", "step", "scrub", "camera"),
+        controls=("play", "pause", "step_forward", "step_back", "reset", "scrub", "camera"),
         summary_hint=(
             "A cart moves along a straight track. Position, velocity and "
             "acceleration are shown as labelled values and vectors."
         ),
+        instruments=("hud", "trail", "vectors", "inspector", "measure", "compare", "scenarios"),
+        graph_modes=("position", "velocity", "acceleration"),
     )
 )

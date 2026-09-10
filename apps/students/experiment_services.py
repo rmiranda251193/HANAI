@@ -321,21 +321,81 @@ def _base_context(attempt, simulation) -> dict:
     return context
 
 
+_DIRECTION_CHOICES = frozenset(
+    {"speed_up", "slow_down", "constant", "reverse"}
+)
+
+
+def _clean_predicted_number(value, low, high):
+    """A finite prediction figure clamped to the model's range, or ``None``.
+
+    A blank/garbage/absent value is fine -- structured prediction is optional.
+    A forged huge number is clamped, never trusted.
+    """
+
+    if value in (None, ""):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return max(low, min(high, number))
+
+
 @transaction.atomic
 def record_experiment_prediction(
-    *, student, simulation, prediction, session=None, lesson=None
+    *, student, simulation, prediction, session=None, lesson=None, structured=None
 ) -> ExperimentAttempt:
-    """Learning moment 1: the student commits to a prediction. Not judged now."""
+    """Learning moment 1: the student commits to a prediction. Not judged now.
+
+    ``structured`` (optional) may carry ``predicted_velocity_m_s`` /
+    ``predicted_position_m`` / ``predicted_direction``. It is stored under
+    ``attempt.parameters['prediction']`` so the Observe step can show a
+    prediction-vs-observed comparison -- it is never scored and never gates
+    anything.
+    """
 
     text = _clean_text(prediction, field_label="prediction")
     attempt = _active_attempt(student, simulation, session=session, lesson=lesson)
     attempt.prediction = text
-    attempt.save(update_fields=["prediction", "updated_at"])
+
+    update_fields = ["prediction", "updated_at"]
+    structured = structured or {}
+    predicted = {}
+    v = _clean_predicted_number(
+        structured.get("predicted_velocity_m_s"),
+        -MAX_INITIAL_VELOCITY_MS - MAX_ACCELERATION_MS2 * MAX_TIME_S,
+        MAX_INITIAL_VELOCITY_MS + MAX_ACCELERATION_MS2 * MAX_TIME_S,
+    )
+    x = _clean_predicted_number(
+        structured.get("predicted_position_m"), -10000.0, 10000.0
+    )
+    direction = str(structured.get("predicted_direction") or "").strip().lower()
+    if v is not None:
+        predicted["velocity_m_s"] = round(v, 4)
+    if x is not None:
+        predicted["position_m"] = round(x, 4)
+    if direction in _DIRECTION_CHOICES:
+        predicted["direction"] = direction
+    if predicted:
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        params = dict(params)
+        params["prediction"] = predicted
+        attempt.parameters = params
+        update_fields.append("parameters")
+
+    attempt.save(update_fields=update_fields)
     _record_evidence(
         attempt,
         LearningEvidence.Kind.PREDICTION_SUBMITTED,
         text,
-        context={"simulation": simulation.simulation_type, "phase": "prediction"},
+        context={
+            "simulation": simulation.simulation_type,
+            "phase": "prediction",
+            **({"predicted": predicted} if predicted else {}),
+        },
     )
     return attempt
 

@@ -61,11 +61,32 @@
             action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
             data-experiment-form="predict">
         {% csrf_token %}
-        <label for="exp-prediction">Your prediction</label>
+        <fieldset class="lab-predict-grid">
+          <legend>What do you expect after 5 seconds, from the default setup?</legend>
+          <p class="lab-predict-field">
+            <label for="pred-velocity">Predicted velocity (m/s)</label>
+            <input type="number" id="pred-velocity" name="predicted_velocity_m_s" step="0.1" inputmode="decimal"
+                   value="{{ experiment_attempt.parameters.prediction.velocity_m_s|default_if_none:'' }}">
+          </p>
+          <p class="lab-predict-field">
+            <label for="pred-position">Predicted position (m)</label>
+            <input type="number" id="pred-position" name="predicted_position_m" step="0.1" inputmode="decimal"
+                   value="{{ experiment_attempt.parameters.prediction.position_m|default_if_none:'' }}">
+          </p>
+        </fieldset>
+        <fieldset class="lab-predict-choice">
+          <legend>The cart will:</legend>
+          <label><input type="radio" name="predicted_direction" value="speed_up"> speed up</label>
+          <label><input type="radio" name="predicted_direction" value="slow_down"> slow down</label>
+          <label><input type="radio" name="predicted_direction" value="constant"> move at constant velocity</label>
+          <label><input type="radio" name="predicted_direction" value="reverse"> reverse direction</label>
+        </fieldset>
+        <label for="exp-prediction">Explain your prediction (your reasoning matters more than the numbers)</label>
         <textarea id="exp-prediction" name="prediction" rows="3"
                   placeholder="e.g. If the acceleration is positive, the velocity will keep increasing.">{{ experiment_attempt.prediction }}</textarea>
         <button type="submit" class="button button-primary">Submit Prediction</button>
       </form>
+      <p class="lab-step-hint">You commit to a prediction before running the experiment. A prediction that turns out different is useful evidence &mdash; it is never marked wrong.</p>
       <p class="lab-step-result" data-step-result="predict" aria-live="polite">
         {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
       </p>
@@ -92,24 +113,34 @@
                  data-lab-scene aria-label="An object on a straight track, moving left or right of a marked starting point.">
               <desc data-scene-desc>An object on a straight track. It moves left or right from the zero mark depending on its velocity and acceleration.</desc>
               <line x1="20" y1="120" x2="620" y2="120" class="lab-track" />
-              <line x1="320" y1="104" x2="320" y2="136" class="lab-axis" />
-              <text x="312" y="150" class="lab-axis-label">0</text>
+              <line x1="20" y1="116" x2="20" y2="124" class="lab-axis" /><text x="10" y="140" class="lab-axis-label">-20</text>
+              <line x1="170" y1="116" x2="170" y2="124" class="lab-axis" /><text x="160" y="140" class="lab-axis-label">-10</text>
+              <line x1="320" y1="104" x2="320" y2="136" class="lab-axis" /><text x="313" y="150" class="lab-axis-label">0</text>
+              <line x1="470" y1="116" x2="470" y2="124" class="lab-axis" /><text x="462" y="140" class="lab-axis-label">10</text>
+              <line x1="620" y1="116" x2="620" y2="124" class="lab-axis" /><text x="610" y="140" class="lab-axis-label">20</text>
+              <g data-lab-trail></g>
               <g data-cart transform="translate(320,120)">
                 <circle cx="0" cy="0" r="16" class="lab-cart-body" />
               </g>
             </svg>
             <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
 
+            <fieldset class="lab-graph-modes" aria-label="Graph quantity">
+              <legend>Graph</legend>
+              <label><input type="radio" name="lab-graph-mode" value="position"> Position vs time</label>
+              <label><input type="radio" name="lab-graph-mode" value="velocity" checked> Velocity vs time</label>
+              <label><input type="radio" name="lab-graph-mode" value="acceleration"> Acceleration vs time</label>
+            </fieldset>
             <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
-                 data-lab-graph aria-label="A graph of velocity against time. A positive slope means a positive acceleration.">
-              <desc data-graph-desc>A graph of velocity against time for this run. A positive slope means a positive acceleration.</desc>
+                 data-lab-graph aria-label="A graph of a chosen quantity against time.">
+              <desc data-graph-desc>A graph of the selected quantity against time for this run.</desc>
               <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
               <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
-              <text x="10" y="14" class="lab-axis-label">v</text>
+              <text x="10" y="14" class="lab-axis-label" data-graph-label-y>v</text>
               <text x="332" y="176" class="lab-axis-label">t</text>
               <polyline points="" class="lab-trace" data-lab-trace />
             </svg>
-            <p class="lab-graph-caption">Velocity vs time. A straight line means the acceleration is constant.</p>
+            <p class="lab-graph-caption">The graph, the 3D scene, the HUD and the state inspector always show the same instant.</p>
           </div>
 
           {% if visualization.has_3d %}
@@ -129,6 +160,18 @@
         </div>
 
         <div class="lab-side-col">
+          <section class="lab-hud" aria-labelledby="lab-hud-title">
+            <p class="card-label" id="lab-hud-title">Kinematics lab &middot; live readout</p>
+            <dl class="lab-hud-grid">
+              <div><dt>Time</dt><dd><span data-hud-time>0.00</span> s</dd></div>
+              <div><dt>Position</dt><dd><span data-hud-position>0.00</span> m</dd></div>
+              <div><dt>Velocity</dt><dd><span data-hud-velocity>0.00</span> m/s</dd></div>
+              <div class="lab-hud-accent"><dt>Acceleration</dt><dd><span data-hud-acceleration>0.00</span> m/s&sup2;</dd></div>
+            </dl>
+            <p class="lab-hud-motion"><span class="lab-hud-motion-label">Motion:</span> <span data-hud-motion>At rest.</span></p>
+            <p class="lab-hud-summary visually-hidden" data-hud-summary aria-live="polite"></p>
+          </section>
+
           <div class="lab-values" aria-live="polite">
             <div class="lab-value-grid">
               <div class="lab-value">
@@ -194,8 +237,9 @@
             </div>
           </div>
           <div class="lab-buttons">
-            <button type="button" class="button button-primary" data-action-start>Start</button>
+            <button type="button" class="button button-primary" data-action-start>Play</button>
             <button type="button" class="button button-secondary" data-action-pause>Pause</button>
+            <button type="button" class="button button-secondary" data-action-step-back>Step &minus;0.5&thinsp;s</button>
             <button type="button" class="button button-secondary" data-action-step>Step +0.5&thinsp;s</button>
             <button type="button" class="button button-secondary" data-action-reset>Reset</button>
           </div>
@@ -203,6 +247,115 @@
         </div>
       </div>
     </section>
+
+    {# ---------- INSTRUMENTS (work in preview too -- read-only) ---------- #}
+    {% if visualization.instruments %}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-instruments"
+             data-lab-instrument
+             data-scenarios='{{ scenarios_json }}'
+             data-scenario-check-base="{% url 'physics_lab:experiment_scenario_check' simulation.slug 'SCENARIO_ID' %}">
+      <p class="lab-step-num">Instruments</p>
+      <h2 id="lab-step-instruments">Measure, compare, and challenge</h2>
+
+      <details class="lab-tool" open>
+        <summary>Inspect state</summary>
+        <div class="lab-tool-body lab-inspect-grid">
+          <dl>
+            <p class="card-label">Initial state</p>
+            <div><dt>x&#8320;</dt><dd><span data-inspect-x0>0.00</span> m</dd></div>
+            <div><dt>v&#8320;</dt><dd><span data-inspect-v0>0.00</span> m/s</dd></div>
+            <div><dt>a</dt><dd><span data-inspect-a>0.00</span> m/s&sup2;</dd></div>
+          </dl>
+          <dl>
+            <p class="card-label">Current state</p>
+            <div><dt>t</dt><dd><span data-inspect-t>0.00</span> s</dd></div>
+            <div><dt>x</dt><dd><span data-inspect-x>0.00</span> m</dd></div>
+            <div><dt>v</dt><dd><span data-inspect-v>0.00</span> m/s</dd></div>
+          </dl>
+        </div>
+      </details>
+
+      <details class="lab-tool">
+        <summary>Vector inspector</summary>
+        <div class="lab-tool-body">
+          <fieldset class="lab-vector-pick" aria-label="Vector to inspect">
+            <legend>Inspect</legend>
+            <label><input type="radio" name="lab-vector" value="velocity" checked> Velocity</label>
+            <label><input type="radio" name="lab-vector" value="acceleration"> Acceleration</label>
+          </fieldset>
+          <dl class="lab-vector-out">
+            <div><dt>Magnitude</dt><dd data-vec-magnitude>0.00 m/s</dd></div>
+            <div><dt>Direction</dt><dd data-vec-direction>zero</dd></div>
+            <div><dt>Meaning</dt><dd data-vec-meaning>Velocity is the rate of change of position.</dd></div>
+          </dl>
+        </div>
+      </details>
+
+      <details class="lab-tool">
+        <summary>Motion trail</summary>
+        <div class="lab-tool-body">
+          <p class="lab-tool-hint">Marks past positions. Wider spacing means faster motion. The trail follows the authoritative simulation state.</p>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-trail-toggle aria-pressed="false">Show trail</button>
+            <button type="button" class="button button-secondary" data-action-trail-clear>Clear trail</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="lab-tool">
+        <summary>Measure average velocity</summary>
+        <div class="lab-tool-body lab-measure">
+          <p class="lab-tool-hint">Capture two moments, read Δx and Δt, then calculate the average velocity yourself and check it.</p>
+          <div class="lab-measure-row">
+            <button type="button" class="button button-secondary" data-measure-capture1>Capture point 1</button>
+            <label>x&#8321; <input type="number" step="0.1" data-measure-x1 inputmode="decimal"></label>
+            <label>t&#8321; <input type="number" step="0.1" data-measure-t1 inputmode="decimal"></label>
+          </div>
+          <div class="lab-measure-row">
+            <button type="button" class="button button-secondary" data-measure-capture2>Capture point 2</button>
+            <label>x&#8322; <input type="number" step="0.1" data-measure-x2 inputmode="decimal"></label>
+            <label>t&#8322; <input type="number" step="0.1" data-measure-t2 inputmode="decimal"></label>
+          </div>
+          <p class="lab-measure-deltas">&Delta;x = <span data-measure-dx>--</span> &middot; &Delta;t = <span data-measure-dt>--</span></p>
+          <button type="button" class="button button-secondary" data-measure-reveal>Show Δx / Δt</button>
+          <p class="lab-measure-answer" data-measure-reveal-target data-measure-answer aria-live="polite" hidden></p>
+        </div>
+      </details>
+
+      <details class="lab-tool">
+        <summary>Compare a second setup</summary>
+        <div class="lab-tool-body lab-compare-tool">
+          <p class="lab-tool-hint">Experiment A is your current setup. Choose Experiment B and compare them at a chosen time.</p>
+          <div class="lab-measure-row">
+            <label>B: v&#8320; <input type="number" step="0.5" data-compare-v0 value="2" inputmode="decimal"></label>
+            <label>B: a <input type="number" step="0.5" data-compare-a value="2" inputmode="decimal"></label>
+            <label>at t <input type="number" step="0.5" data-compare-t value="5" min="0" max="20" inputmode="decimal"></label>
+          </div>
+          <button type="button" class="button button-secondary" data-compare-run>Compare A and B</button>
+          <p class="lab-compare-out" data-compare-out aria-live="polite"></p>
+        </div>
+      </details>
+
+      {% if scenarios %}
+      <details class="lab-tool">
+        <summary>Scenario challenge</summary>
+        <div class="lab-tool-body lab-scenario-tool">
+          <p class="lab-tool-hint">Adjust the sliders in Step 2 to meet the goal, then check it. The server decides whether the goal is met.</p>
+          <p class="lab-scenario-field">
+            <label for="lab-scenario-select">Challenge</label>
+            <select id="lab-scenario-select" data-scenario-select>
+              {% for s in scenarios %}<option value="{{ s.scenario_id }}">{{ s.title }}</option>{% endfor %}
+            </select>
+          </p>
+          <p class="lab-scenario-desc" data-scenario-desc></p>
+          <ul class="lab-scenario-goals" data-scenario-goals></ul>
+          <button type="button" class="button button-primary" data-scenario-check>Check goal</button>
+          <p class="lab-scenario-result" data-scenario-result aria-live="polite"></p>
+        </div>
+      </details>
+      {% endif %}
+    </section>
+    {% endif %}
 
     {% if not preview %}
     {# ---------- STEP 3: OBSERVE ---------- #}
@@ -226,6 +379,7 @@
       <p class="lab-step-result" data-step-result="observe" aria-live="polite">
         {% if experiment_attempt.acceleration_m_s2 is not None %}Last saved: server-computed values recorded.{% endif %}
       </p>
+      <div class="lab-prediction-comparison" data-prediction-comparison aria-live="polite" hidden></div>
     </section>
 
     {# ---------- STEP 4: EXPLAIN ---------- #}
@@ -280,6 +434,7 @@
   <script defer src="{% static 'js/physics/lab.js' %}"></script>
   <script defer src="{% static 'js/physics/kinematics.js' %}"></script>
   <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab-instrument.js' %}"></script>
 
   {% if visualization.has_3d %}
     {# 3D view: Three.js is vendored (MIT), loaded as a native ES module via an

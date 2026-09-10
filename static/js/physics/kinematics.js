@@ -81,8 +81,10 @@
       positionM: 0
     };
 
-    var trace = []; // [t, v] pairs for the graph
+    var trace = []; // [t, x, v] triples -- feeds every graph mode and the trail
     var maxAbsV = 1;
+    var maxAbsX = 1;
+    var graphMode = "velocity"; // "position" | "velocity" | "acceleration"
 
     var el = {
       scene: root.querySelector("[data-lab-scene]"),
@@ -110,16 +112,26 @@
       btnPause: root.querySelector("[data-action-pause]"),
       btnReset: root.querySelector("[data-action-reset]"),
       btnStep: root.querySelector("[data-action-step]"),
+      btnStepBack: root.querySelector("[data-action-step-back]"),
       inputTime: root.querySelector("[data-input-time]"),
       outTime: root.querySelector("[data-out-time]"),
+      graphLabelY: root.querySelector("[data-graph-label-y]"),
+      graphModeInputs: root.querySelectorAll("[name='lab-graph-mode']"),
       motionNote: root.querySelector("[data-motion-note]")
     };
 
     var loop = lab.createRunLoop(tick, {});
 
     function recordTrace() {
-      trace.push([round4(state.timeS), round4(state.velocityMs)]);
+      trace.push([round4(state.timeS), round4(state.positionM), round4(state.velocityMs)]);
       maxAbsV = Math.max(maxAbsV, Math.abs(state.velocityMs));
+      maxAbsX = Math.max(maxAbsX, Math.abs(state.positionM));
+    }
+
+    function setGraphMode(mode) {
+      if (mode !== "position" && mode !== "velocity" && mode !== "acceleration") return;
+      graphMode = mode;
+      render();
     }
 
     function setX0(value) {
@@ -158,6 +170,7 @@
       state.positionM = state.x0;
       trace = [];
       maxAbsV = Math.max(1, Math.abs(state.v0));
+      maxAbsX = Math.max(1, Math.abs(state.x0));
       recordTrace();
       if (el.sceneStatus) el.sceneStatus.textContent = "";
       render();
@@ -166,14 +179,17 @@
     function rebuildTrace(upToT) {
       trace = [];
       maxAbsV = Math.max(1, Math.abs(state.v0));
+      maxAbsX = Math.max(1, Math.abs(state.x0));
       var sampleDt = 0.25;
       for (var t = 0; t < upToT - 1e-9; t += sampleDt) {
         var c = computeState(state.x0, state.v0, state.accel, t);
-        trace.push([round4(t), round4(c.velocity)]);
+        trace.push([round4(t), round4(c.position), round4(c.velocity)]);
         maxAbsV = Math.max(maxAbsV, Math.abs(c.velocity));
+        maxAbsX = Math.max(maxAbsX, Math.abs(c.position));
       }
-      trace.push([round4(upToT), round4(state.velocityMs)]);
+      trace.push([round4(upToT), round4(state.positionM), round4(state.velocityMs)]);
       maxAbsV = Math.max(maxAbsV, Math.abs(state.velocityMs));
+      maxAbsX = Math.max(maxAbsX, Math.abs(state.positionM));
     }
 
     // Jump straight to a chosen time and inspect the state there. Used by the
@@ -194,6 +210,10 @@
 
     function stepForward() {
       setTime(state.timeS + STEP_S);
+    }
+
+    function stepBack() {
+      setTime(state.timeS - STEP_S);
     }
 
     function tick(dt) {
@@ -237,30 +257,38 @@
       if (el.sceneDesc) el.sceneDesc.textContent = text;
     }
 
+    var GRAPH_MODES = {
+      position: { idx: 1, label: "x", unit: "m", name: "Position", cur: function () { return state.positionM; } },
+      velocity: { idx: 2, label: "v", unit: "m/s", name: "Velocity", cur: function () { return state.velocityMs; } },
+      acceleration: { idx: null, label: "a", unit: "m/s²", name: "Acceleration", cur: function () { return state.accel; } }
+    };
+
     function renderGraph() {
       if (!el.trace) return;
-      var w = 348,
-        h = 156,
-        left = 40,
-        top = 10,
-        bottom = 6;
+      var w = 348, h = 156, left = 40, top = 10, bottom = 6;
+      var mode = GRAPH_MODES[graphMode] || GRAPH_MODES.velocity;
       var tMax = Math.max(1, state.timeS);
-      var vMax = Math.max(1, maxAbsV);
+      var yMax;
+      var series = [];
+      var i;
+      if (mode.idx === null) {
+        yMax = Math.max(1, Math.abs(state.accel));
+        for (i = 0; i < trace.length; i++) series.push([trace[i][0], state.accel]);
+      } else {
+        yMax = Math.max(1, mode.idx === 1 ? maxAbsX : maxAbsV);
+        for (i = 0; i < trace.length; i++) series.push([trace[i][0], trace[i][mode.idx]]);
+      }
       var points = [];
-      for (var i = 0; i < trace.length; i++) {
-        var t = trace[i][0],
-          v = trace[i][1];
-        var px = left + (t / tMax) * (w - left - 12);
-        var py = h - bottom - ((v + vMax) / (2 * vMax)) * (h - top - bottom);
+      for (i = 0; i < series.length; i++) {
+        var px = left + (series[i][0] / tMax) * (w - left - 12);
+        var py = h - bottom - ((series[i][1] + yMax) / (2 * yMax)) * (h - top - bottom);
         points.push(px.toFixed(1) + "," + py.toFixed(1));
       }
       el.trace.setAttribute("points", points.join(" "));
+      if (el.graphLabelY) el.graphLabelY.textContent = mode.label;
       var graphText =
-        "Velocity vs time. At " +
-        state.timeS.toFixed(1) +
-        " seconds the velocity is " +
-        state.velocityMs.toFixed(1) +
-        " meters per second.";
+        mode.name + " vs time. At " + state.timeS.toFixed(1) + " seconds the " +
+        mode.name.toLowerCase() + " is " + mode.cur().toFixed(2) + " " + mode.unit + ".";
       if (el.graph) el.graph.setAttribute("aria-label", graphText);
       if (el.graphDesc) el.graphDesc.textContent = graphText;
     }
@@ -291,8 +319,18 @@
         timeS: state.timeS,
         velocityMs: state.velocityMs,
         positionM: state.positionM,
-        running: loop.isRunning()
+        running: loop.isRunning(),
+        graphMode: graphMode
       };
+    }
+
+    function getHistory() {
+      // [{t, x, v}] samples so far, plus the constant acceleration. Read-only.
+      var out = [];
+      for (var i = 0; i < trace.length; i++) {
+        out.push({ t: trace[i][0], x: trace[i][1], v: trace[i][2] });
+      }
+      return { samples: out, accel: state.accel };
     }
 
     if (el.inputX0) {
@@ -323,6 +361,7 @@
     if (el.btnPause) el.btnPause.addEventListener("click", pause);
     if (el.btnReset) el.btnReset.addEventListener("click", reset);
     if (el.btnStep) el.btnStep.addEventListener("click", stepForward);
+    if (el.btnStepBack) el.btnStepBack.addEventListener("click", stepBack);
     if (el.inputTime) {
       el.inputTime.addEventListener("input", function () {
         setTime(el.inputTime.value);
@@ -330,6 +369,15 @@
       el.inputTime.addEventListener("change", function () {
         setTime(el.inputTime.value);
       });
+    }
+    if (el.graphModeInputs && el.graphModeInputs.length) {
+      for (var gi = 0; gi < el.graphModeInputs.length; gi++) {
+        (function (input) {
+          input.addEventListener("change", function () {
+            if (input.checked) setGraphMode(input.value);
+          });
+        })(el.graphModeInputs[gi]);
+      }
     }
 
     if (loop.reduced && el.motionNote) el.motionNote.hidden = false;
@@ -345,7 +393,10 @@
       reset: reset,
       setTime: setTime,
       step: stepForward,
-      getState: getState
+      stepBack: stepBack,
+      setGraphMode: setGraphMode,
+      getState: getState,
+      getHistory: getHistory
     };
     root.labInstance = api;
     return api;

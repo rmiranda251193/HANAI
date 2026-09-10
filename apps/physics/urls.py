@@ -22,4 +22,9 @@ urlpatterns = [
         views.experiment_explain,
         name="experiment_explain",
     ),
+    path(
+        "<slug:slug>/scenario/<slug:scenario_id>/check/",
+        views.experiment_scenario_check,
+        name="experiment_scenario_check",
+    ),
 ]
