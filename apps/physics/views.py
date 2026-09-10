@@ -18,8 +18,10 @@ from apps.students.experiment_services import (
 from apps.students.models import TutorSession
 from apps.students.views import _current_student
 
+from .domain_catalog import all_domains, domain_for_topic, get_domain
+from .equation_catalog import equations_for_concept
 from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
-from .models import PhysicsSimulation
+from .models import PhysicsConcept, PhysicsSimulation
 from .simulation_registry import get_simulation_definition
 from .visualization_registry import get_visualization
 
@@ -32,6 +34,106 @@ def physics_lab_index(request):
         .select_related("concept")
     )
     return render(request, "physics/lab.html", {"simulations": simulations})
+
+
+_DIFFICULTY_ORDER = {"foundational": 0, "introductory": 1, "intermediate": 2, "advanced": 3}
+
+
+def physics_library(request):
+    """A searchable, server-rendered browser of the Physics knowledge catalog.
+
+    Groups every active :class:`PhysicsConcept` by domain (``domain_catalog``)
+    then by its ``topic``, and shows each concept's difficulty, description,
+    equations (``equation_catalog`` -- display only) and any interactive
+    simulations (with the 2D/3D/graph/data views the ``visualization_registry``
+    declares). Pure read: nothing here writes, and it never touches an AI
+    provider. Filters are plain querystring parameters -- no search engine.
+    """
+
+    q = (request.GET.get("q") or "").strip()
+    domain_key = (request.GET.get("domain") or "").strip()
+    difficulty = (request.GET.get("difficulty") or "").strip().lower()
+
+    concepts = list(
+        PhysicsConcept.objects.filter(is_active=True)
+        .prefetch_related("simulations")
+        .order_by("topic", "name")
+    )
+    if q:
+        needle = q.casefold()
+        concepts = [
+            c for c in concepts
+            if needle in c.name.casefold()
+            or needle in (c.topic or "").casefold()
+            or needle in (c.description or "").casefold()
+        ]
+    if difficulty in _DIFFICULTY_ORDER:
+        concepts = [c for c in concepts if c.difficulty == difficulty]
+
+    selected_domain = get_domain(domain_key)
+
+    # domain -> [{"topic": str, "concepts": [row, ...]}]
+    grouped: dict = {}
+    for concept in concepts:
+        dom = domain_for_topic(concept.topic)
+        if selected_domain is not None and dom.key != selected_domain.key:
+            continue
+        sims = [
+            {
+                "simulation": s,
+                "views": (get_visualization(s.simulation_type).supported_views
+                          if get_visualization(s.simulation_type) else ("2d",)),
+            }
+            for s in concept.simulations.all()
+            if s.is_active
+        ]
+        row = {
+            "concept": concept,
+            "difficulty": concept.get_difficulty_display(),
+            "equations": equations_for_concept(concept.slug),
+            "simulations": sims,
+        }
+        grouped.setdefault(dom.key, {}).setdefault(concept.topic or "General", []).append(row)
+
+    domains_view = []
+    for dom in all_domains():
+        topics = grouped.get(dom.key)
+        if not topics:
+            continue
+        domains_view.append(
+            {
+                "domain": dom,
+                "topics": [
+                    {"topic": t, "concepts": rows}
+                    for t, rows in sorted(topics.items())
+                ],
+                "concept_count": sum(len(v) for v in topics.values()),
+            }
+        )
+
+    real_domains = [d for d in all_domains() if d.key != "other"]
+    covered = sum(
+        1 for d in real_domains
+        if grouped.get(d.key) and any(grouped[d.key].values())
+    )
+
+    return render(
+        request,
+        "physics/library.html",
+        {
+            "domains_view": domains_view,
+            "all_domains": all_domains(include_other=False),
+            "difficulties": [
+                ("foundational", "Foundation"), ("introductory", "Introductory"),
+                ("intermediate", "Intermediate"), ("advanced", "Advanced"),
+            ],
+            "q": q,
+            "selected_domain": selected_domain,
+            "selected_difficulty": difficulty if difficulty in _DIFFICULTY_ORDER else "",
+            "match_count": len(concepts),
+            "coverage": {"covered": covered, "total": len(real_domains)},
+        },
+    )
 
 
 def _tutor_lesson_for(concept):

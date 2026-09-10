@@ -6,6 +6,7 @@ app_name = "physics_lab"
 
 urlpatterns = [
     path("", views.physics_lab_index, name="index"),
+    path("library/", views.physics_library, name="library"),
     path("<slug:slug>/", views.physics_lab_detail, name="detail"),
     path(
         "<slug:slug>/experiment/predict/",
