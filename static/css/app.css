@@ -354,6 +354,8 @@ a { color: inherit; }
 .lib-equations code { color: var(--cyan); }
 .lib-concept-misc { margin: .55rem 0 0; color: var(--muted); font-size: .85rem; line-height: 1.5; }
 .lib-concept-misc-label { color: var(--amber); font-weight: 700; }
+.lib-concept-formulas, .lib-concept-units { margin: .55rem 0 0; color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.lib-concept-formulas code { color: var(--cyan); margin-right: .1rem; }
 .lib-concept-sims { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 0; }
 .lib-views { color: var(--muted); font-weight: 400; font-size: .78rem; }
 @media (max-width: 720px) { .lab-hud-grid { grid-template-columns: 1fr 1fr; } .lab-measure-row input { max-width: 5rem; } .lab-whatif .button { flex-basis: 100%; } }

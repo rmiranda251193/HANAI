@@ -116,6 +116,18 @@ def physics_library(request):
         1 for d in real_domains
         if grouped.get(d.key) and any(grouped[d.key].values())
     )
+    # Distinct from "has concepts": how many domains additionally have at
+    # least one interactive simulation, so the summary line never claims a
+    # lab exists where only reference content does.
+    labs_covered = sum(
+        1 for d in real_domains
+        if grouped.get(d.key)
+        and any(
+            row["simulations"]
+            for rows in grouped[d.key].values()
+            for row in rows
+        )
+    )
 
     return render(
         request,
@@ -131,7 +143,11 @@ def physics_library(request):
             "selected_domain": selected_domain,
             "selected_difficulty": difficulty if difficulty in _DIFFICULTY_ORDER else "",
             "match_count": len(concepts),
-            "coverage": {"covered": covered, "total": len(real_domains)},
+            "coverage": {
+                "covered": covered,
+                "total": len(real_domains),
+                "labs": labs_covered,
+            },
         },
     )
 

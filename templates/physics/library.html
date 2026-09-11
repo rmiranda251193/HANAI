@@ -47,8 +47,9 @@
       </p>
     </form>
     <p class="lib-summary">
-      {{ match_count }} concept{{ match_count|pluralize }} match. Interactive labs currently exist for
-      {{ coverage.covered }} of {{ coverage.total }} curriculum domains &mdash; the rest are ready to be populated.
+      {{ match_count }} concept{{ match_count|pluralize }} match. The catalog covers
+      {{ coverage.covered }} of {{ coverage.total }} curriculum domains; interactive labs exist for
+      {{ coverage.labs }} of them so far &mdash; the rest are ready to be populated.
     </p>
   </section>
 
@@ -72,6 +73,18 @@
                       <div><dt>{{ eq.name }}</dt><dd><code>{{ eq.expression }}</code>{% if eq.conditions %} &mdash; {{ eq.conditions }}{% endif %}</dd></div>
                     {% endfor %}
                   </dl>
+                {% endif %}
+                {% if row.concept.equations %}
+                  <p class="lib-concept-formulas">
+                    <span class="lib-concept-misc-label">Formulas:</span>
+                    {% for formula in row.concept.equations %}<code>{{ formula }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+                  </p>
+                {% endif %}
+                {% if row.concept.si_units %}
+                  <p class="lib-concept-units">
+                    <span class="lib-concept-misc-label">SI units:</span>
+                    {{ row.concept.si_units|join:", " }}
+                  </p>
                 {% endif %}
                 {% if row.concept.common_misconceptions %}
                   <p class="lib-concept-misc"><span class="lib-concept-misc-label">Watch for:</span>
