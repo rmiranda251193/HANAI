@@ -123,6 +123,29 @@ class DesignSystemTests(TestCase):
     """Design tokens exist and hard-coded semantic colours were consolidated
     onto them (spec: do not scatter hard-coded colors throughout templates)."""
 
+    def test_no_root_token_is_self_referential(self):
+        """Regression: a blanket find-and-replace once turned
+        `--success: #8be7af;` into `--success: var(--success);` by matching
+        the token's own definition line along with every usage site. A
+        self-referential custom property is invalid CSS -- the browser
+        drops the whole declaration, so anything using var(--success) (or
+        --danger, etc.) silently renders as whatever it would without that
+        declaration (usually an inherited or default color), with no error
+        anywhere. This was live for a while before being caught by reading
+        the file, not by any test -- so it's a test now."""
+
+        root_match = re.search(r":root\s*\{(.*?)\}", APP_CSS, re.S)
+        self.assertIsNotNone(root_match, "no :root block found in app.css")
+        for line in root_match.group(1).splitlines():
+            decl = re.match(r"\s*(--[\w-]+)\s*:\s*(.+?);", line)
+            if not decl:
+                continue
+            name, value = decl.group(1), decl.group(2)
+            self.assertNotIn(
+                "var(" + name + ")", value,
+                f"{name} is defined in terms of itself: {name}: {value};",
+            )
+
     def test_design_tokens_are_declared(self):
         for token in (
             "--surface-elevated", "--text-secondary", "--success", "--warning",
@@ -131,10 +154,28 @@ class DesignSystemTests(TestCase):
             self.assertIn(token + ":", APP_CSS)
 
     def test_semantic_colors_route_through_tokens_not_bare_hex(self):
+        # Each hex value legitimately appears exactly once: the :root
+        # definition of its token. Every other occurrence must be var(...).
+        css_outside_root = re.sub(r":root\s*\{.*?\}", "", APP_CSS, count=1, flags=re.S)
         for bare_hex in ("#8be7af", "#ffad9f", "#ff8e7d", "#ffcabf", "#b8f1cb"):
-            self.assertNotIn(bare_hex, APP_CSS)
+            self.assertNotIn(bare_hex, css_outside_root)
+            self.assertIn(bare_hex, APP_CSS)  # still defined, just once, in :root
         self.assertIn("var(--success)", APP_CSS)
         self.assertIn("var(--danger)", APP_CSS)
+
+    def test_repeated_field_and_text_colors_route_through_tokens(self):
+        """--field-bg (form input background, ~16 identical literal
+        occurrences), --text and --text-secondary were each already declared
+        as tokens but the literal hex kept being used instead almost
+        everywhere. Consolidated onto the tokens -- same exact colors, zero
+        visual change, but now defined in exactly one place each."""
+
+        css_outside_root = re.sub(r":root\s*\{.*?\}", "", APP_CSS, count=1, flags=re.S)
+        for bare_hex in ("#0b1724", "#edf6fb", "#dbeaf1"):
+            self.assertNotIn(bare_hex, css_outside_root)
+            self.assertIn(bare_hex, APP_CSS)
+        self.assertIn("var(--field-bg)", APP_CSS)
+        self.assertIn("var(--text-secondary)", APP_CSS)
 
     def test_button_hierarchy_includes_ghost_and_danger(self):
         self.assertIn(".button-ghost", APP_CSS)
@@ -208,6 +249,22 @@ class LabProgressBarTests(TestCase):
 
     def test_progress_bar_markup_and_script_present(self):
         body = self.client.get(self.url).content.decode()
+        self.assertIn('class="lab-progress"', body)
+        self.assertIn('id="labProgressFill"', body)
+        self.assertIn("js/physics/lab-progress.js", body)
+
+    def test_newtons_second_law_lab_has_the_same_progress_bar(self):
+        """Parity: both registered simulation templates share .lab-flow, so
+        both should carry the same scroll-progress bar, not just Kinematics."""
+
+        concept = PhysicsConcept.objects.create(
+            name="Force", description="A push or a pull.", topic="Dynamics"
+        )
+        sim = PhysicsSimulation.objects.create(
+            concept=concept, title="Newton's Second Law Lab",
+            simulation_type="newtons_second_law",
+        )
+        body = self.client.get(reverse("physics_lab:detail", args=[sim.slug])).content.decode()
         self.assertIn('class="lab-progress"', body)
         self.assertIn('id="labProgressFill"', body)
         self.assertIn("js/physics/lab-progress.js", body)

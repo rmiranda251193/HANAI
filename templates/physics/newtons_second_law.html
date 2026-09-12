@@ -18,6 +18,10 @@
     Values are computed from <code>a = F / m</code> &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
   </p>
 
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
   <div class="lab lab-flow"
        data-simulation-type="{{ simulation.simulation_type }}"
        data-mass="{{ defaults.mass_kg }}"
@@ -215,6 +219,7 @@
     <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>a = F / m</strong>: with the default setup, a = {{ defaults.force_n }} N &divide; {{ defaults.mass_kg }} kg = {{ defaults.acceleration_m_s2|floatformat:2 }} m/s&sup2;.</p>
   </noscript>
 
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
   <script defer src="{% static 'js/physics/lab.js' %}"></script>
   <script defer src="{% static 'js/physics/newtons-second-law.js' %}"></script>
   <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
