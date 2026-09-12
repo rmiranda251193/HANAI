@@ -18,6 +18,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.physics.models import PhysicsConcept, PhysicsSimulation
+
 User = get_user_model()
 BASE_DIR = Path(__file__).resolve().parent.parent
 APP_CSS = (BASE_DIR / "static" / "css" / "app.css").read_text(encoding="utf-8")
@@ -156,3 +158,65 @@ class PhysicsLabTimelineTests(TestCase):
     def test_step_timeline_connector_css_exists(self):
         self.assertIn(".lab-flow .lab-step-num::before", APP_CSS)
         self.assertIn(".lab-flow .lab-step:not(:last-child)::after", APP_CSS)
+
+
+class HomeMotionTests(TestCase):
+    """Restrained scroll-parallax + reveal-on-scroll for the home page
+    (static/js/home-motion.js) -- HANAI's own palette/stack, no Tailwind.
+    Every element must be fully visible without JavaScript."""
+
+    def test_parallax_layers_and_reveal_targets_are_present(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('class="home-parallax"', body)
+        self.assertIn("data-parallax-depth=", body)
+        # both foundation-grid cards and the home-flow section reveal in
+        self.assertEqual(body.count("data-reveal"), 3)
+        self.assertIn("js/home-motion.js", body)
+        # the hero's own copy is never gated behind a reveal (visible at rest)
+        self.assertNotIn('<h1 data-reveal', body)
+
+    def test_reveal_elements_default_to_visible_without_js(self):
+        self.assertIn("[data-reveal] { opacity: 1; transform: none; }", APP_CSS)
+        # only the JS-added class hides them pending reveal
+        self.assertIn(".js-reveal-ready [data-reveal] {", APP_CSS)
+
+    def test_reduced_motion_disables_parallax(self):
+        src = (BASE_DIR / "static" / "js" / "home-motion.js").read_text(encoding="utf-8")
+        self.assertIn("prefers-reduced-motion", src)
+        self.assertIn("reduced", src)
+
+    def test_home_motion_script_has_no_unsafe_sinks(self):
+        src = (BASE_DIR / "static" / "js" / "home-motion.js").read_text(encoding="utf-8")
+        self.assertNotRegex(src, r"\beval\s*\(")
+        self.assertNotRegex(src, r"\bnew\s+Function\s*\(")
+        self.assertNotIn("innerHTML", src)
+
+
+class LabProgressBarTests(TestCase):
+    """A presentation-only scroll-progress bar for the Kinematics step flow
+    (static/js/physics/lab-progress.js) -- shares no DOM or events with the
+    five existing Physics Lab scripts."""
+
+    def setUp(self):
+        concept = PhysicsConcept.objects.create(
+            name="Velocity", description="Rate of change of position.", topic="Kinematics"
+        )
+        self.sim = PhysicsSimulation.objects.create(
+            concept=concept, title="Kinematics Lab", simulation_type="kinematics"
+        )
+        self.url = reverse("physics_lab:detail", args=[self.sim.slug])
+
+    def test_progress_bar_markup_and_script_present(self):
+        body = self.client.get(self.url).content.decode()
+        self.assertIn('class="lab-progress"', body)
+        self.assertIn('id="labProgressFill"', body)
+        self.assertIn("js/physics/lab-progress.js", body)
+
+    def test_script_touches_only_its_own_elements(self):
+        src = (BASE_DIR / "static" / "js" / "physics" / "lab-progress.js").read_text(encoding="utf-8")
+        self.assertNotRegex(src, r"\beval\s*\(")
+        self.assertNotRegex(src, r"\bnew\s+Function\s*\(")
+        self.assertNotIn("innerHTML", src)
+        # only reads the flow container's geometry and writes its own bar
+        self.assertIn('getElementById("labProgressFill")', src)
+        self.assertIn('querySelector(".lab.lab-flow")', src)

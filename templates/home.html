@@ -9,6 +9,10 @@
   </div>
 
   <section class="hero">
+    <div class="home-parallax" aria-hidden="true">
+      <div class="home-parallax-glow" data-parallax-depth="0.12"></div>
+      <div class="home-parallax-grid" data-parallax-depth="0.06"></div>
+    </div>
     <p class="eyebrow">DodongOS Physics AI</p>
     <h1>Build understanding.<br><span>Keep teachers in control.</span></h1>
     <p class="lead">
@@ -23,7 +27,7 @@
   </section>
 
   <section class="foundation-grid" aria-label="Where to start">
-    <article class="surface-card">
+    <article class="surface-card" data-reveal>
       <p class="card-label">For teachers</p>
       <h2>Author and publish a lesson</h2>
       <p>
@@ -40,7 +44,7 @@
         {% endif %}
       </p>
     </article>
-    <article class="surface-card accent-card">
+    <article class="surface-card accent-card" data-reveal>
       <p class="card-label">For students</p>
       <h2>Learn Physics by thinking</h2>
       <p>
@@ -57,7 +61,7 @@
     </article>
   </section>
 
-  <section class="home-flow" aria-label="How HANAI fits together">
+  <section class="home-flow" aria-label="How HANAI fits together" data-reveal>
     <p class="card-label">How it fits together</p>
     <p>
       Teacher authors &rarr; AI assists &rarr; teacher reviews and publishes &rarr;
@@ -74,4 +78,5 @@
     { "imports": { "three": "{% static 'js/vendor/three-0.160.1.module.min.js' %}" } }
   </script>
   <script type="module" src="{% static 'js/physics3d/home-motif.js' %}"></script>
+  <script defer src="{% static 'js/home-motion.js' %}"></script>
 {% endblock %}

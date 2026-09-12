@@ -73,6 +73,21 @@ a { color: inherit; }
 @media (max-width: 720px) { .home-motif { display: none; } }
 @media (prefers-reduced-motion: reduce) { .home-motif { display: none; } }
 .hero { max-width: 48rem; padding: 8rem 0 4rem; }
+/* Home page: restrained scroll parallax + reveal-on-scroll (static/js/home-motion.js) */
+.home-parallax { position: absolute; inset: -6rem -2rem auto -2rem; height: 34rem; overflow: hidden; pointer-events: none; z-index: 0; }
+.home-parallax-glow { position: absolute; top: -8rem; right: -6rem; width: 30rem; height: 30rem; border-radius: 50%; background: radial-gradient(circle, rgba(85, 215, 235, .16), transparent 68%); will-change: transform; }
+.home-parallax-grid { position: absolute; inset: 4rem -10% auto -10%; height: 26rem; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 64px 64px; opacity: .4; mask-image: radial-gradient(circle at 72% 15%, #000, transparent 62%); -webkit-mask-image: radial-gradient(circle at 72% 15%, #000, transparent 62%); will-change: transform; }
+.hero > *:not(.home-parallax) { position: relative; z-index: 1; }
+@media (max-width: 720px) { .home-parallax { display: none; } }
+@media (prefers-reduced-motion: reduce) { .home-parallax-glow, .home-parallax-grid { transform: none !important; } }
+
+[data-reveal] { opacity: 1; transform: none; }
+.js-reveal-ready [data-reveal] {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity .7s cubic-bezier(.16, .84, .32, 1), transform .7s cubic-bezier(.16, .84, .32, 1), box-shadow .15s ease, border-color .15s ease;
+}
+.js-reveal-ready [data-reveal].is-revealed { opacity: 1; transform: none; }
+.js-reveal-ready .foundation-grid [data-reveal]:nth-child(2) { transition-delay: .12s; }
 .hero h1 { margin: .85rem 0 1.25rem; font-size: clamp(2.5rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -.06em; }
 .hero h1 span { color: var(--cyan); }
 .lead { max-width: 38rem; color: var(--muted); font-size: 1.08rem; line-height: 1.7; }
@@ -452,6 +467,11 @@ a { color: inherit; }
 .lab-observation .button { margin-top: .9rem; }
 .lab-prediction .button, .lab-observation .button { width: fit-content; }
 .lab-noscript { max-width: 60rem; margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(242, 180, 102, .35); border-radius: .5rem; color: #dbeaf1; }
+/* Scroll-progress bar for the step flow (static/js/physics/lab-progress.js) */
+.lab-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 40; pointer-events: none; }
+.lab-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--amber)); }
+@media (prefers-reduced-motion: no-preference) { .lab-progress-fill { transition: width .1s linear; } }
+
 /* Step-by-step learning flow (predict -> experiment -> observe -> explain -> tutor) */
 .lab-flow { display: block; max-width: 66rem; }
 .lab-flow .lab-step { position: relative; margin-top: 1rem; }

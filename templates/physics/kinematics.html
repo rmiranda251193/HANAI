@@ -41,6 +41,11 @@
             data-state='{{ lab_react_state_json }}' hidden>
   </section>
 
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; reads scroll position, touches no lab state or forms.
+     See static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
   <div class="lab lab-flow"
        data-simulation-type="{{ simulation.simulation_type }}"
        data-x0="{{ defaults.initial_position_m }}"
@@ -456,6 +461,7 @@
     <p class="lab-noscript">This simulation needs JavaScript. The relationships it shows are <strong>v = v&#8320; + at</strong> and <strong>x = x&#8320; + v&#8320;t + &frac12;at&sup2;</strong>: with the default setup, after 5 s, v = {{ defaults.initial_velocity_m_s }} + {{ defaults.acceleration_m_s2 }}&times;5 m/s.</p>
   </noscript>
 
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
   <script defer src="{% static 'js/physics/lab.js' %}"></script>
   <script defer src="{% static 'js/physics/kinematics.js' %}"></script>
   <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
