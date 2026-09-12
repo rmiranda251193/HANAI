@@ -33,6 +33,14 @@
     Values are computed from <code>v = v&#8320; + at</code> and <code>x = x&#8320; + v&#8320;t + &frac12;at&sup2;</code> &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
   </p>
 
+  {# Additive, read-only React island: a compact equations/scenarios reference
+     card. It never attaches to the existing forms below (five other scripts
+     already own that interactivity) -- purely informational, purely
+     additive. If the bundle is absent or fails, this stays empty. #}
+  <section class="surface-card" data-react-root="lab" id="react-lab-root"
+            data-state='{{ lab_react_state_json }}' hidden>
+  </section>
+
   <div class="lab lab-flow"
        data-simulation-type="{{ simulation.simulation_type }}"
        data-x0="{{ defaults.initial_position_m }}"
@@ -462,4 +470,12 @@
     </script>
     <script type="module" src="{% static 'js/physics3d/kinematics-3d.js' %}"></script>
   {% endif %}
+
+  {# React + ReactDOM are vendored UMD builds (MIT), same pattern as Three.js.
+     If static/react/lab.js is a placeholder (not yet built by `npm run
+     build` in frontend/), it does nothing and this page is unaffected --
+     see docs/REACT_ISLANDS.md. #}
+  <script src="{% static 'js/vendor/react-18.3.1.production.min.js' %}"></script>
+  <script src="{% static 'js/vendor/react-dom-18.3.1.production.min.js' %}"></script>
+  <script src="{% static 'react/lab.js' %}"></script>
 {% endblock %}

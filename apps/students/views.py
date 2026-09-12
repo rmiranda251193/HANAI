@@ -1,8 +1,12 @@
+import json
 import logging
 
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
+
+from config.react_bridge import wants_json
 
 from apps.ai.exceptions import AIError
 from apps.assessments.services import get_student_assessment_summary
@@ -416,13 +420,52 @@ def tutor_view(request, slug):
         (m for m in reversed(conversation) if m.role == TutorMessage.Role.TUTOR),
         None,
     )
+
+    if request.method == "POST" and wants_json(request):
+        # Same processing above, same errors, just returned as JSON for the
+        # additive React chat panel instead of a full-page re-render. No
+        # existing caller (the plain HTML form, the test suite) sends the
+        # header this branch checks for.
+        return JsonResponse(
+            {
+                "ok": "tutor_error" not in context,
+                "error": context.get("tutor_error", ""),
+                "workflowMessage": context.get("workflow_message", ""),
+                "conversation": [_serialize_tutor_message(m) for m in conversation],
+            }
+        )
+
     # Step 26: the teacher-authored activity sequence for a published lesson.
     # Read-only; an empty list (draft lesson or no activities) renders nothing,
     # so legacy lessons are unchanged.
     from apps.lessons.authoring_services import build_student_lesson_activities
 
     context["lesson_activities"] = build_student_lesson_activities(lesson)
+    # Bootstrap payload for the additive React chat panel
+    # (static/react/tutor.js). The plain HTML thread + form above it is the
+    # real page and needs no JavaScript; React, once mounted, takes over
+    # rendering new turns without a full-page reload.
+    context["tutor_react_state_json"] = json.dumps(
+        {
+            "lessonSlug": lesson.slug,
+            "initialQuestion": initial_question,
+            "conversation": [_serialize_tutor_message(m) for m in conversation],
+            "postUrl": reverse("students:tutor", args=[lesson.slug]),
+        }
+    )
     return render(request, "students/tutor.html", context)
+
+
+def _serialize_tutor_message(message):
+    """Plain-dict projection of one ``TutorMessage`` -- only what the
+    server-rendered thread already shows a student, nothing internal."""
+
+    return {
+        "role": message.role,
+        "content": message.content,
+        "mode": message.mode,
+        "createdAt": message.created_at.isoformat(),
+    }
 
 
 PRACTICE_RECORD_ERROR = "Your answer could not be recorded. Please try again."

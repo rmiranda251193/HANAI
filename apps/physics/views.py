@@ -232,6 +232,7 @@ def physics_lab_detail(request, slug):
         field: {"min": lo, "max": hi} for field, (lo, hi) in definition.bounds.items()
     }
     _scenario_list = [s.as_client_dict for s in scenarios_for(simulation.simulation_type)]
+    visualization = get_visualization(simulation.simulation_type)
     context = {
         "simulation": simulation,
         "concept": simulation.concept,
@@ -242,12 +243,52 @@ def physics_lab_detail(request, slug):
         "bounds": bounds,
         "equations": definition.equations,
         # Presentation-only: which client renderers may draw this simulation.
-        "visualization": get_visualization(simulation.simulation_type),
+        "visualization": visualization,
         "scenarios": _scenario_list,
         "scenarios_json": json.dumps({s["scenario_id"]: s for s in _scenario_list}),
         "preview": preview,
+        # Bootstrap payload for the optional React island (static/react/lab.js).
+        # A progressive enhancement only -- the server-rendered sections above
+        # are the real page and work with no JavaScript at all.
+        "lab_react_state_json": json.dumps(
+            {
+                "simulationSlug": simulation.slug,
+                "simulationTitle": simulation.title,
+                "simulationType": simulation.simulation_type,
+                "defaults": definition.default_state,
+                "bounds": bounds,
+                "equations": definition.equations,
+                "preview": preview,
+                "tutorUrl": _initial_tutor_url(tutor_lesson, simulation, definition),
+                "supportedViews": list(visualization.supported_views) if visualization else ["2d"],
+                "scenarios": _scenario_list,
+                "experimentAttempt": _serialize_experiment_attempt(experiment_attempt),
+                "endpoints": {
+                    "predict": reverse("physics_lab:experiment_predict", args=[simulation.slug]),
+                    "observe": reverse("physics_lab:experiment_observe", args=[simulation.slug]),
+                    "explain": reverse("physics_lab:experiment_explain", args=[simulation.slug]),
+                },
+            }
+        ),
     }
     return render(request, definition.template, context)
+
+
+def _serialize_experiment_attempt(attempt):
+    """Plain-dict projection of an in-progress attempt for the React bootstrap
+    payload -- only the fields a student is shown; never an internal status,
+    misconception code, or anything the server itself hasn't already decided
+    to show on the ordinary server-rendered page."""
+
+    if attempt is None:
+        return None
+    return {
+        "id": attempt.pk,
+        "prediction": attempt.prediction,
+        "observation": attempt.observation,
+        "explanation": attempt.explanation,
+        "parameters": attempt.parameters if isinstance(attempt.parameters, dict) else {},
+    }
 
 
 @require_POST

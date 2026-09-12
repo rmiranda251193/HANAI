@@ -1,4 +1,6 @@
 import csv
+import dataclasses
+import json
 import logging
 
 from django.http import Http404, HttpResponse
@@ -151,6 +153,37 @@ def create_goal(request, student_id):
 CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 
+def _serialize_analytics_snapshot(snapshot):
+    """Plain-dict, JSON-safe projection of an ``AnalyticsSnapshot``.
+
+    Reuses the already-computed snapshot -- no extra queries. Every row
+    dataclass here (``CountRow``/``ConceptRow``/...) holds only str/int
+    fields, so this is a direct, lossless mirror of what the server-rendered
+    tables already show; nothing is summarised or reinterpreted for the
+    React island.
+    """
+
+    as_rows = lambda rows: [dataclasses.asdict(r) for r in rows]  # noqa: E731
+    return {
+        "studentCount": snapshot.student_count,
+        "activeStudentCount": snapshot.active_student_count,
+        "activitySummary": as_rows(snapshot.activity_summary),
+        "conceptSummary": as_rows(snapshot.concept_summary),
+        "misconceptionSummary": as_rows(snapshot.misconception_summary),
+        "recoverySummary": as_rows(snapshot.recovery_summary),
+        "assessmentSummary": as_rows(snapshot.assessment_summary),
+        "practiceSummary": as_rows(snapshot.practice_summary),
+        "physicsLabSummary": as_rows(snapshot.physics_lab_summary),
+        "simulationUsage": as_rows(snapshot.simulation_usage),
+        "tutorSummary": as_rows(snapshot.tutor_summary),
+        "activityTypeSummary": as_rows(snapshot.activity_type_summary),
+        "attentionSignals": as_rows(snapshot.attention_signals),
+        "notes": list(snapshot.notes),
+        "rangeLabel": snapshot.filters.range_label,
+        "filterNotices": list(snapshot.filters.notices),
+    }
+
+
 @teacher_required
 @require_GET
 def analytics_dashboard(request):
@@ -172,6 +205,11 @@ def analytics_dashboard(request):
             "student_choices": students,
             "lesson_choices": lessons,
             "concept_choices": concepts,
+            # Bootstrap payload for the optional, additive React island
+            # (static/react/analytics.js) -- an interactive explorer laid
+            # over the same numbers already in the tables below. Read-only,
+            # no extra queries, no new endpoint.
+            "analytics_react_state_json": json.dumps(_serialize_analytics_snapshot(snapshot)),
         },
     )
 

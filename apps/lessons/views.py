@@ -1,11 +1,14 @@
+import json
 import logging
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+
+from config.react_bridge import wants_json
 
 from apps.ai.exceptions import AIError
 from apps.ai.requests import LessonGenerationRequest, LessonReviewRequest
@@ -554,6 +557,30 @@ def _require_lesson_owner(request, lesson):
         raise PermissionDenied("This lesson belongs to another teacher.")
 
 
+def _serialize_activities_for_react(lesson, activities):
+    """Plain-dict projection of the activity list for the additive React
+    panel (static/react/lesson-builder.js) -- id/order/type/title/
+    instructions only, the same fields the server-rendered cards already
+    show. Never the full context: AI assistant, review, preview and publish
+    stay server-rendered only."""
+
+    return {
+        "lessonSlug": lesson.slug,
+        "activities": [
+            {
+                "id": str(a.id),
+                "position": a.position,
+                "activityType": a.activity_type,
+                "activityTypeLabel": a.get_activity_type_display(),
+                "title": a.title,
+                "instructions": a.instructions,
+                "deleteUrl": reverse("lessons:activity_delete", args=[lesson.slug, a.id]),
+            }
+            for a in activities
+        ],
+    }
+
+
 def _build_context(request, lesson, **extra):
     activities = lesson_activities(lesson)
     context = {
@@ -577,6 +604,10 @@ def _build_context(request, lesson, **extra):
         "publish_reasons": validate_lesson_for_publish(lesson, activities=activities),
         "can_edit": lesson.created_by_id in (None, getattr(request.user, "id", None)),
         "lesson_history": get_lesson_history(lesson),
+        # Bootstrap payload for the additive, read/delete-only React panel.
+        "activities_react_state_json": json.dumps(
+            _serialize_activities_for_react(lesson, activities)
+        ),
     }
     context.update(extra)
     return context
@@ -591,7 +622,14 @@ def lesson_build(request, slug):
 
 
 def _authoring_post(request, slug, action, *, success):
-    """Shared POST wrapper: owner check, run ``action(lesson)``, PRG or re-render."""
+    """Shared POST wrapper: owner check, run ``action(lesson)``, PRG or re-render.
+
+    A request from the additive React panel (``wants_json``) gets a small
+    JSON acknowledgement instead of the redirect/re-render -- same owner
+    check, same ``action``, same error handling; only the response format
+    differs. No existing caller (a normal form POST, the test suite) sends
+    that header, so this branch changes nothing for them.
+    """
 
     lesson = _lesson_for_build(slug)
     try:
@@ -601,6 +639,8 @@ def _authoring_post(request, slug, action, *, success):
         raise
     except LessonAuthoringError as exc:
         lesson.refresh_from_db()
+        if wants_json(request):
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
         return render(
             request,
             "lessons/build.html",
@@ -609,6 +649,11 @@ def _authoring_post(request, slug, action, *, success):
     except Exception:
         logger.exception("Unexpected lesson authoring failure for lesson %s.", lesson.pk)
         lesson.refresh_from_db()
+        if wants_json(request):
+            return JsonResponse(
+                {"ok": False, "error": "That change could not be saved. Please try again."},
+                status=500,
+            )
         return render(
             request,
             "lessons/build.html",
@@ -617,6 +662,11 @@ def _authoring_post(request, slug, action, *, success):
                 lesson,
                 authoring_error="That change could not be saved. Please try again.",
             ),
+        )
+    if wants_json(request):
+        lesson.refresh_from_db()
+        return JsonResponse(
+            {"ok": True, "success": success, **_serialize_activities_for_react(lesson, lesson_activities(lesson))}
         )
     return redirect(f"{reverse('lessons:build', args=[lesson.slug])}?ok={success}")
 

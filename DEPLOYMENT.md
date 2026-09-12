@@ -100,6 +100,12 @@ gunicorn config.wsgi:application --config gunicorn.conf.py
 The Docker image does `collectstatic` at build time and starts Gunicorn; it does
 **not** migrate on start. Migrations are always an explicit step.
 
+The image also has a Node build stage that compiles the React islands
+(`frontend/` -> `static/react/*.js`; see `docs/REACT_ISLANDS.md`) before
+`collectstatic` runs. If that stage fails or is skipped, the build still
+succeeds -- the placeholder files already committed at `static/react/*.js`
+keep every page working, with the React enhancements simply absent.
+
 Create a staff (teacher) account once the database is migrated:
 
 ```bash

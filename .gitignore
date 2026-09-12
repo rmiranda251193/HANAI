@@ -28,3 +28,12 @@ htmlcov/
 .vscode/
 .idea/
 
+# React islands frontend build tooling (see docs/REACT_ISLANDS.md).
+# static/react/*.js IS committed (placeholders until built, then real
+# bundles), and so is frontend/package-lock.json once `npm install` has
+# generated it, for reproducible builds -- only the Node tooling itself
+# (node_modules) and Vite's default dist/ (unused; the real outDir is
+# ../static/react/) are ignored.
+frontend/node_modules/
+frontend/dist/
+

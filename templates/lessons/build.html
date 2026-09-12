@@ -137,6 +137,15 @@
     </form>
   </section>
 
+  {# Additive React island: a quick activity manager (reorder-free list +
+     delete) over the same activities shown below, using the existing
+     delete endpoint. Purely additive -- if the bundle is absent or fails,
+     this stays empty and Section 4 below is the complete, unaffected page.
+     See docs/REACT_ISLANDS.md. #}
+  <section class="surface-card" data-react-root="lesson-builder" id="react-lesson-builder-root"
+            data-state='{{ activities_react_state_json }}' hidden>
+  </section>
+
   {# ---------- 4. LEARNING ACTIVITIES ---------- #}
   <section class="surface-card lb-section" id="lb-activities" aria-labelledby="lb-activities-title">
     <p class="card-label">Section 4</p>
@@ -315,4 +324,12 @@
   </section>
 
   <script defer src="{% static 'js/lessons/builder.js' %}"></script>
+
+  {# React + ReactDOM are vendored UMD builds (MIT), same pattern as Three.js.
+     If static/react/lesson-builder.js is a placeholder (not yet built by
+     `npm run build` in frontend/), it does nothing and Section 4 above is
+     unaffected -- see docs/REACT_ISLANDS.md. #}
+  <script src="{% static 'js/vendor/react-18.3.1.production.min.js' %}"></script>
+  <script src="{% static 'js/vendor/react-dom-18.3.1.production.min.js' %}"></script>
+  <script src="{% static 'react/lesson-builder.js' %}"></script>
 {% endblock %}
