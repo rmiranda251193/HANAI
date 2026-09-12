@@ -90,6 +90,12 @@ class KinematicsLabPageTests(KinematicsDataMixin, TestCase):
         self.assertIn("data-lab-scene-2d", body)
         self.assertIn("data-physics3d-canvas", body)
 
+    def test_page_declares_the_cart_model_url_via_static(self):
+        body = self.client.get(self.url).content.decode()
+        self.assertIn("data-cart-model=", body)
+        self.assertIn("models/cart.json", body)
+        self.assertRegex(body, r'data-cart-model="[^"]*static[^"]*models/cart\.json"')
+
     def test_page_declares_the_vendored_three_module_via_import_map(self):
         body = self.client.get(self.url).content.decode()
         self.assertIn('<script type="importmap">', body)
@@ -236,7 +242,7 @@ class ClientModuleSafetyTests(TestCase):
     def _js(self, name):
         return (PHYSICS3D_DIR / name).read_text(encoding="utf-8")
 
-    _MODULES = ("scene-core.js", "kinematics-3d.js", "webgl.js", "home-motif.js")
+    _MODULES = ("scene-core.js", "kinematics-3d.js", "webgl.js", "home-motif.js", "model-loader.js")
 
     def test_no_eval_exec_or_dynamic_function_construction(self):
         for name in self._MODULES:
@@ -289,6 +295,8 @@ class StaticAssetTests(TestCase):
             "js/physics3d/kinematics-3d.js",
             "js/physics3d/webgl.js",
             "js/physics3d/home-motif.js",
+            "js/physics3d/model-loader.js",
+            "models/cart.json",
         ):
             self.assertIsNotNone(finders.find(path), f"missing static asset: {path}")
 
@@ -297,3 +305,71 @@ class StaticAssetTests(TestCase):
         head = Path(found).read_text(encoding="utf-8")[:400]
         self.assertIn("@license", head)
         self.assertIn("MIT", head)
+
+
+class ModelAssetTests(TestCase):
+    """Blender-authorable 3D model support: a validated JSON mesh format, not
+    a vendored glTF/OBJ parser (see docs/BLENDER_WORKFLOW.md and
+    static/js/vendor/README.md for why)."""
+
+    def test_cart_model_json_matches_the_loaders_own_validation_rules(self):
+        import json
+
+        found = finders.find("models/cart.json")
+        self.assertIsNotNone(found)
+        data = json.loads(Path(found).read_text(encoding="utf-8"))
+
+        positions = data["positions"]
+        indices = data["indices"]
+        self.assertGreater(len(positions), 0)
+        self.assertEqual(len(positions) % 3, 0)
+        self.assertTrue(all(isinstance(n, (int, float)) for n in positions))
+        self.assertGreater(len(indices), 0)
+        self.assertEqual(len(indices) % 3, 0)
+
+        vertex_count = len(positions) // 3
+        self.assertLessEqual(vertex_count, 20000)
+        self.assertLessEqual(len(indices) // 3, 20000)
+        for idx in indices:
+            self.assertIsInstance(idx, int)
+            self.assertGreaterEqual(idx, 0)
+            self.assertLess(idx, vertex_count)
+
+        normals = data.get("normals")
+        if normals is not None:
+            self.assertEqual(len(normals), len(positions))
+
+        # Matches the BoxGeometry(1.6, 1.1, 2) bounding box it replaces, so it
+        # drops in without moving the track, arrows or labels.
+        xs, ys, zs = positions[0::3], positions[1::3], positions[2::3]
+        self.assertAlmostEqual(min(xs), -0.8)
+        self.assertAlmostEqual(max(xs), 0.8)
+        self.assertAlmostEqual(min(ys), -0.55)
+        self.assertAlmostEqual(max(ys), 0.55)
+        self.assertAlmostEqual(min(zs), -1.0)
+        self.assertAlmostEqual(max(zs), 1.0)
+
+    def test_model_loader_validates_before_building_geometry(self):
+        src = (PHYSICS3D_DIR / "model-loader.js").read_text(encoding="utf-8")
+        for token in (
+            "positions.length % 3", "indices.length % 3", "Number.isInteger",
+            "maxVertices", "maxTriangles", "credentials: \"same-origin\"",
+            "computeVertexNormals",
+        ):
+            self.assertIn(token, src)
+
+    def test_kinematics_scene_creates_the_fallback_box_before_loading_a_model(self):
+        src = (PHYSICS3D_DIR / "kinematics-3d.js").read_text(encoding="utf-8")
+        self.assertLess(
+            src.index("new THREE_.BoxGeometry(1.6, 1.1, 2)"),
+            src.index("loadModelGeometry("),
+            "the fallback box must exist before a model load is even attempted",
+        )
+        self.assertIn(".catch(function ()", src)
+
+    def test_blender_workflow_is_documented(self):
+        doc = (BASE_DIR / "docs" / "BLENDER_WORKFLOW.md").read_text(encoding="utf-8")
+        self.assertIn("model-loader.js", doc)
+        self.assertIn("bpy", doc)
+        self.assertIn("positions", doc)
+        self.assertIn("indices", doc)

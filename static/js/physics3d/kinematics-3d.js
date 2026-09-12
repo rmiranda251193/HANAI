@@ -16,6 +16,7 @@
 import * as THREE from "three";
 import { createSceneCore } from "./scene-core.js";
 import { isWebGLAvailable, prefersReducedMotion } from "./webgl.js";
+import { loadModelGeometry } from "./model-loader.js";
 
 const VELOCITY_COLOR = 0x55d7eb; // cyan  -- also labelled "v"
 const ACCEL_COLOR = 0xf2b466; // amber -- also labelled "a"
@@ -39,8 +40,9 @@ function arrowLength(value, maxAbs) {
   return Math.max(ARROW_MIN_LEN, Math.min(ARROW_MAX_LEN, scaled));
 }
 
-function buildKinematicsScene(core) {
+function buildKinematicsScene(core, options) {
   const THREE_ = core.THREE;
+  const modelUrl = (options && options.modelUrl) || "";
 
   // Straight track along X (1 world unit == 1 metre).
   const track = new THREE_.Mesh(
@@ -73,12 +75,33 @@ function buildKinematicsScene(core) {
     tickLabels.push(label);
   }
 
+  // Start with the plain primitive so the scene is always complete; if a
+  // Blender-authored model is available at modelUrl (see model-loader.js and
+  // docs/BLENDER_WORKFLOW.md), swap its geometry in once it validates. A
+  // missing or malformed model file silently keeps this fallback box.
   const cart = new THREE_.Mesh(
     new THREE_.BoxGeometry(1.6, 1.1, 2),
     new THREE_.MeshStandardMaterial({ color: CART_COLOR, roughness: 0.5, metalness: 0.1 })
   );
   cart.position.y = 0.55;
   core.content.add(cart);
+
+  if (modelUrl) {
+    loadModelGeometry(THREE_, modelUrl)
+      .then(function (geometry) {
+        if (core.isDisposed()) {
+          geometry.dispose();
+          return;
+        }
+        const old = cart.geometry;
+        cart.geometry = geometry;
+        old.dispose();
+        core.render();
+      })
+      .catch(function () {
+        // Keep the fallback box -- never surface a loader error to the student.
+      });
+  }
 
   const marker = new THREE_.Mesh(
     new THREE_.ConeGeometry(0.35, 0.7, 16),
@@ -168,6 +191,9 @@ function boot() {
   const build = Object.prototype.hasOwnProperty.call(RENDERERS, rendererSlug)
     ? RENDERERS[rendererSlug]
     : null;
+  // Server-resolved static URL (respects hashed filenames in production) --
+  // never built from user input, and safe to omit ("" disables model loading).
+  const cartModelUrl = mount.getAttribute("data-cart-model") || "";
 
   const wrap2d = document.querySelector("[data-lab-scene-2d]");
   const wrap3d = document.querySelector("[data-physics3d-canvas-wrap]");
@@ -212,7 +238,7 @@ function boot() {
         gridSize: 60,
         gridDivisions: 30,
       });
-      scene = build(core);
+      scene = build(core, { modelUrl: cartModelUrl });
       if (lastState) {
         scene.update(lastState);
         announce(summary, lastState);

@@ -440,7 +440,7 @@
     {% endif %}
 
     {% if visualization.has_3d %}
-      <div data-physics3d data-renderer="{{ visualization.renderer }}" hidden></div>
+      <div data-physics3d data-renderer="{{ visualization.renderer }}" data-cart-model="{% static 'models/cart.json' %}" hidden></div>
     {% endif %}
   </div>
 
