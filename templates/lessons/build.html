@@ -221,7 +221,7 @@
                 </details>
                 <form method="post" action="{% url 'lessons:activity_delete' lesson.slug activity.pk %}" class="lb-activity-delete">
                   {% csrf_token %}
-                  <button type="submit" class="button button-secondary">Delete</button>
+                  <button type="submit" class="button button-danger">Delete</button>
                 </form>
               </div>
             {% endif %}
