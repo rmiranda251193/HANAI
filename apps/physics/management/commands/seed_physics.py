@@ -638,6 +638,28 @@ PHYSICS_TOPICS = [
     },
     # --- Waves -----------------------------------------------------------------
     {
+        "name": "Simple harmonic motion",
+        "description": (
+            "A mass on a spring (or a pendulum swinging through a small "
+            "angle) oscillates with a restoring force proportional to its "
+            "displacement from equilibrium, so its acceleration is always "
+            "directed back toward the centre. Its position over time traces "
+            "the same cosine curve as one axis of uniform circular motion -- "
+            "simple harmonic motion is that circular motion's shadow."
+        ),
+        "topic": "Oscillations",
+        "difficulty": PhysicsConcept.Difficulty.INTERMEDIATE,
+        "common_misconceptions": [
+            "Believing the restoring force (and so the acceleration) is "
+            "constant, rather than proportional to displacement.",
+            "Believing the mass moves fastest at the amplitude, rather than "
+            "at the centre where displacement is zero.",
+        ],
+        "prerequisites": ["Uniform circular motion"],
+        "equations": ["x = A cos(omega t)", "a = -omega^2 x", "omega = 2 pi / T"],
+        "si_units": ["m", "s", "rad/s"],
+    },
+    {
         "name": "Wave properties: wavelength, frequency and amplitude",
         "description": (
             "A wave transfers energy without transporting matter. Its "

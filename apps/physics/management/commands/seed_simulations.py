@@ -41,6 +41,32 @@ PHYSICS_SIMULATIONS = [
             "gravity is constant."
         ),
     },
+    {
+        "slug": "circular-motion",
+        "title": "Circular Motion Lab",
+        "concept_name": "Uniform circular motion",
+        "simulation_type": PhysicsSimulation.SimulationType.CIRCULAR_MOTION,
+        "description": (
+            "Set a radius and a period and watch an object move at constant "
+            "speed around a circle through v = 2*pi*r / T, while its "
+            "centripetal acceleration a_c = v^2 / r keeps pointing toward "
+            "the centre. Idealized model: perfectly circular motion at a "
+            "perfectly constant speed, with no friction or air resistance."
+        ),
+    },
+    {
+        "slug": "simple-harmonic-motion",
+        "title": "Simple Harmonic Motion Lab",
+        "concept_name": "Simple harmonic motion",
+        "simulation_type": PhysicsSimulation.SimulationType.SIMPLE_HARMONIC_MOTION,
+        "description": (
+            "Set an amplitude and a period and watch a mass oscillate on a "
+            "spring through x = A*cos(omega*t), with acceleration always "
+            "pulling it back toward the centre through a = -omega^2*x. "
+            "Idealized model: no friction or air resistance, and the "
+            "oscillation never loses amplitude."
+        ),
+    },
 ]
 
 

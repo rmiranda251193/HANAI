@@ -53,10 +53,13 @@ class ExperimentContext:
     ``initial_position_m``/``initial_velocity_m_s``/``position_m``/
     ``velocity_m_s`` are Kinematics-specific; ``initial_speed_m_s``/
     ``launch_angle_deg``/``initial_height_m``/``position_x_m``/
-    ``position_y_m`` are Projectile Motion-specific. ``time_s`` and
-    ``acceleration_m_s2`` are shared where they apply. A given experiment
-    only ever populates the fields for its own simulation type -- the rest
-    stay ``None``.
+    ``position_y_m`` are Projectile Motion-specific; ``radius_m``/
+    ``period_s`` are Circular Motion-specific (which also reuses
+    ``position_x_m``/``position_y_m``/``velocity_m_s`` for its own position
+    and speed). ``time_s`` and ``acceleration_m_s2`` are shared where they
+    apply (``acceleration_m_s2`` is Circular Motion's centripetal
+    acceleration). A given experiment only ever populates the fields for
+    its own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -74,6 +77,9 @@ class ExperimentContext:
     initial_height_m: float | None = None
     position_x_m: float | None = None
     position_y_m: float | None = None
+    radius_m: float | None = None
+    period_s: float | None = None
+    amplitude_m: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -102,6 +108,9 @@ class ExperimentContext:
                 self.launch_angle_deg is not None,
                 self.position_x_m is not None,
                 self.position_y_m is not None,
+                self.radius_m is not None,
+                self.period_s is not None,
+                self.amplitude_m is not None,
             ]
         )
 
@@ -140,6 +149,25 @@ class ExperimentContext:
                 time_s=params.get("observed_time_s"),
                 position_x_m=params.get("observed_position_x_m"),
                 position_y_m=params.get("observed_position_y_m"),
+            )
+        elif simulation_type == "circular_motion":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                radius_m=params.get("radius_m"),
+                period_s=params.get("period_s"),
+                time_s=params.get("observed_time_s"),
+                position_x_m=params.get("observed_position_x_m"),
+                position_y_m=params.get("observed_position_y_m"),
+                velocity_m_s=params.get("observed_speed_m_s"),
+            )
+        elif simulation_type == "simple_harmonic_motion":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                amplitude_m=params.get("amplitude_m"),
+                period_s=params.get("period_s"),
+                time_s=params.get("observed_time_s"),
+                position_m=params.get("observed_position_m"),
+                velocity_m_s=params.get("observed_velocity_m_s"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

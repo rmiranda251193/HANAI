@@ -23,5 +23,5 @@ class PhysicsConceptTests(TestCase):
         call_command("seed_physics", stdout=output)
         call_command("seed_physics", stdout=output)
 
-        self.assertEqual(PhysicsConcept.objects.count(), 88)
-        self.assertIn("0 created, 88 updated", output.getvalue())
+        self.assertEqual(PhysicsConcept.objects.count(), 89)
+        self.assertIn("0 created, 89 updated", output.getvalue())

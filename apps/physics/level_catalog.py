@@ -81,7 +81,7 @@ _BY_KEY: dict[str, PhysicsLevel] = {lvl.key: lvl for lvl in LEVELS}
 
 # A DISPLAY mapping only -- connects the level taxonomy to data that already
 # exists (PhysicsConcept.difficulty) instead of requiring every one of the
-# existing 88 concepts to be re-tagged before the taxonomy is useful at all.
+# existing concepts to be re-tagged before the taxonomy is useful at all.
 # It is deliberately a *range*: a concept marked "advanced" today is not
 # claimed to reach graduate depth, only that it is *typically first studied*
 # somewhere in that range.

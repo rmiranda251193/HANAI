@@ -86,7 +86,7 @@ _DOMAINS: tuple[PhysicsDomain, ...] = (
                   level_range=("senior_high", "advanced_undergraduate")),
     PhysicsDomain("waves", "Waves", 110,
                   "Wave motion, superposition, standing waves and resonance.",
-                  ("Waves", "Wave Motion"),
+                  ("Waves", "Wave Motion", "Oscillations"),
                   level_range=("senior_high", "advanced_undergraduate")),
     PhysicsDomain("sound", "Sound", 120,
                   "Sound waves, intensity, the Doppler effect and acoustics.",

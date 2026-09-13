@@ -110,6 +110,63 @@ HANDS_ON_EXPERIMENTS: dict[str, HandsOnExperiment] = {
         "virtual lab's idealized model ignores -- this is an "
         "estimate-and-compare exercise, not an exact match.",
     ),
+    "circular_motion": HandsOnExperiment(
+        title="Swing a weight in a horizontal circle",
+        materials=(
+            "A small soft weight (a sock with something light inside works well)",
+            "A length of string",
+            "A stopwatch or phone timer",
+            "A ruler or tape measure",
+            "An open, safe space",
+        ),
+        steps=(
+            "Measure the length of the string from your hand to the "
+            "weight -- this is your radius.",
+            "Swing the weight in a steady horizontal circle above your "
+            "head or out in front of you at a comfortable, gentle speed.",
+            "Time how long 10 full revolutions take, then divide by 10 "
+            "to get the period of one revolution.",
+            "Enter your measured radius and period into the virtual lab "
+            "and compare the predicted speed and centripetal acceleration.",
+            "Try a shorter string at the same period, and see how the "
+            "virtual lab predicts the centripetal acceleration should change.",
+        ),
+        safety_note="Use a soft weight, keep well clear of people and "
+        "objects, and stop immediately if the string frays or the weight "
+        "slips.",
+        compare_note="Keeping the speed perfectly steady by hand is hard, "
+        "so treat your period as an average over many spins, and expect "
+        "your real acceleration estimate to be rougher than the virtual "
+        "lab's exact value.",
+    ),
+    "simple_harmonic_motion": HandsOnExperiment(
+        title="Time a rubber band or spring bouncing a weight",
+        materials=(
+            "A rubber band or a lightweight spring (a slinky works well)",
+            "A small weight (a bag of coins or a small toy)",
+            "A ruler",
+            "A stopwatch or phone timer",
+        ),
+        steps=(
+            "Hang the rubber band or spring, attach the weight, and let it "
+            "settle at rest -- this rest position is the centre.",
+            "Pull the weight down a measured distance (your amplitude) and "
+            "let go without pushing it.",
+            "Time how long 10 full up-and-down cycles take, then divide by "
+            "10 to get the period of one cycle.",
+            "Enter your measured amplitude and period into the virtual lab "
+            "and compare the predicted position and velocity over time.",
+            "Watch where the weight moves fastest (through the centre) and "
+            "where it pauses (at the top and bottom) -- compare that against "
+            "the graph.",
+        ),
+        safety_note="Keep the weight light and the pull short so it doesn't "
+        "snap back forcefully; keep your face and others clear of the path.",
+        compare_note="A real rubber band or spring loses a little energy "
+        "each cycle (the swings get smaller over time), while the virtual "
+        "lab's amplitude never decays -- that difference is itself worth "
+        "noticing and explaining.",
+    ),
 }
 
 

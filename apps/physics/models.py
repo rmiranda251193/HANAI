@@ -130,6 +130,8 @@ class PhysicsSimulation(models.Model):
         NEWTONS_SECOND_LAW = "newtons_second_law", "Newton's Second Law"
         KINEMATICS = "kinematics", "Kinematics"
         PROJECTILE_MOTION = "projectile_motion", "Projectile Motion"
+        CIRCULAR_MOTION = "circular_motion", "Circular Motion"
+        SIMPLE_HARMONIC_MOTION = "simple_harmonic_motion", "Simple Harmonic Motion"
 
     concept = models.ForeignKey(
         PhysicsConcept,

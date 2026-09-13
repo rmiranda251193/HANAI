@@ -136,6 +136,68 @@ Output contract:
                     f"position = {experiment.position_m:.2f} m, "
                     f"velocity = {experiment.velocity_m_s:.2f} m/s"
                 )
+        elif experiment.simulation_type == "projectile_motion":
+            if (
+                experiment.initial_speed_m_s is not None
+                and experiment.launch_angle_deg is not None
+            ):
+                setup = (
+                    f"- setup: initial speed = {experiment.initial_speed_m_s:.2f} m/s, "
+                    f"launch angle = {experiment.launch_angle_deg:.0f} degrees"
+                )
+                if experiment.initial_height_m is not None:
+                    setup += f", initial height = {experiment.initial_height_m:.2f} m"
+                exp_lines.append(setup)
+            if (
+                experiment.time_s is not None
+                and experiment.position_x_m is not None
+                and experiment.position_y_m is not None
+            ):
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    "x = v0*cos(theta)*t and y = y0 + v0*sin(theta)*t - 1/2*g*t^2, "
+                    f"computed by the app): horizontal distance = {experiment.position_x_m:.2f} m, "
+                    f"height = {experiment.position_y_m:.2f} m"
+                )
+        elif experiment.simulation_type == "circular_motion":
+            if experiment.radius_m is not None and experiment.period_s is not None:
+                exp_lines.append(
+                    f"- setup: radius = {experiment.radius_m:.2f} m, "
+                    f"period = {experiment.period_s:.2f} s"
+                )
+            if experiment.time_s is not None and experiment.velocity_m_s is not None:
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    "v = 2*pi*r/T, computed by the app): speed = "
+                    f"{experiment.velocity_m_s:.2f} m/s"
+                )
+            if experiment.acceleration_m_s2 is not None:
+                exp_lines.append(
+                    "- centripetal acceleration (deterministic a_c = v^2 / r, "
+                    f"computed by the app): {experiment.acceleration_m_s2:.2f} m/s^2"
+                )
+        elif experiment.simulation_type == "simple_harmonic_motion":
+            if experiment.amplitude_m is not None and experiment.period_s is not None:
+                exp_lines.append(
+                    f"- setup: amplitude = {experiment.amplitude_m:.2f} m, "
+                    f"period = {experiment.period_s:.2f} s"
+                )
+            if (
+                experiment.time_s is not None
+                and experiment.position_m is not None
+                and experiment.velocity_m_s is not None
+            ):
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    "x = A*cos(omega*t), computed by the app): "
+                    f"position = {experiment.position_m:.2f} m, "
+                    f"velocity = {experiment.velocity_m_s:.2f} m/s"
+                )
+            if experiment.acceleration_m_s2 is not None:
+                exp_lines.append(
+                    "- acceleration (deterministic a = -omega^2 * x, "
+                    f"computed by the app): {experiment.acceleration_m_s2:.2f} m/s^2"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

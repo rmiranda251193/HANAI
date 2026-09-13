@@ -21,10 +21,13 @@ MODULE_PATH = Path(settings.BASE_DIR) / "apps" / "physics" / "hands_on_experimen
 
 
 class HandsOnExperimentCatalogTests(TestCase):
-    def test_exactly_the_three_real_simulation_types_are_covered(self):
+    def test_exactly_the_real_simulation_types_are_covered(self):
         self.assertEqual(
             set(HANDS_ON_EXPERIMENTS.keys()),
-            {"kinematics", "newtons_second_law", "projectile_motion"},
+            {
+                "kinematics", "newtons_second_law", "projectile_motion",
+                "circular_motion", "simple_harmonic_motion",
+            },
         )
 
     def test_every_experiment_has_real_materials_steps_and_notes(self):

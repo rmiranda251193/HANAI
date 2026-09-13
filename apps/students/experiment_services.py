@@ -48,6 +48,23 @@ from apps.physics.simulations_projectile import (
 )
 from apps.physics.simulations_projectile import clamp_time as clamp_projectile_time
 from apps.physics.simulations_projectile import projectile_state
+from apps.physics.simulations_circular_motion import (
+    MAX_PERIOD_S,
+    MAX_RADIUS_M,
+)
+from apps.physics.simulations_circular_motion import MAX_TIME_S as CIRCULAR_MAX_TIME_S
+from apps.physics.simulations_circular_motion import clamp_period, clamp_radius
+from apps.physics.simulations_circular_motion import clamp_time as clamp_circular_time
+from apps.physics.simulations_circular_motion import circular_motion_state
+from apps.physics.simulations_shm import (
+    MAX_AMPLITUDE_M,
+    MAX_PERIOD_S as SHM_MAX_PERIOD_S,
+)
+from apps.physics.simulations_shm import MAX_TIME_S as SHM_MAX_TIME_S
+from apps.physics.simulations_shm import clamp_amplitude
+from apps.physics.simulations_shm import clamp_period as clamp_shm_period
+from apps.physics.simulations_shm import clamp_time as clamp_shm_time
+from apps.physics.simulations_shm import shm_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -68,6 +85,14 @@ SPEED_HARD_MAX_MS = MAX_INITIAL_SPEED_MS * 5
 ANGLE_HARD_MAX_DEG = 360.0
 HEIGHT_HARD_MAX_M = MAX_INITIAL_HEIGHT_M * 5
 PROJECTILE_TIME_HARD_MAX_S = PROJECTILE_MAX_TIME_S * 5
+
+RADIUS_HARD_MAX_M = MAX_RADIUS_M * 5
+PERIOD_HARD_MAX_S = MAX_PERIOD_S * 5
+CIRCULAR_TIME_HARD_MAX_S = CIRCULAR_MAX_TIME_S * 5
+
+AMPLITUDE_HARD_MAX_M = MAX_AMPLITUDE_M * 5
+SHM_PERIOD_HARD_MAX_S = SHM_MAX_PERIOD_S * 5
+SHM_TIME_HARD_MAX_S = SHM_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -259,6 +284,125 @@ def validate_projectile_motion(
     )
 
 
+@dataclass(frozen=True)
+class ValidatedCircularMotion:
+    """Server-recomputed, deterministic Circular Motion values (SI units)."""
+
+    radius_m: float
+    period_s: float
+    time_s: float
+    position_x_m: float
+    position_y_m: float
+    speed_m_s: float
+    centripetal_acceleration_m_s2: float
+
+    def as_dict(self) -> dict:
+        return {
+            "radius_m": self.radius_m,
+            "period_s": self.period_s,
+            "time_s": self.time_s,
+            "position_x_m": self.position_x_m,
+            "position_y_m": self.position_y_m,
+            "speed_m_s": self.speed_m_s,
+            "centripetal_acceleration_m_s2": self.centripetal_acceleration_m_s2,
+        }
+
+
+def validate_circular_motion(radius_m, period_s, time_s) -> ValidatedCircularMotion:
+    """Recompute position/speed/centripetal acceleration on the server.
+    Reject nonsense; clamp to lab bounds."""
+
+    try:
+        r_raw = float(radius_m)
+        period_raw = float(period_s)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Radius, period and time must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (r_raw, period_raw, t_raw)):
+        raise ExperimentValidationError("Radius, period and time must be finite numbers.")
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if period_raw <= 0:
+        raise ExperimentValidationError("Period must be positive.")
+    if (
+        r_raw <= 0
+        or r_raw > RADIUS_HARD_MAX_M
+        or period_raw > PERIOD_HARD_MAX_S
+        or t_raw > CIRCULAR_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = circular_motion_state(radius=r_raw, period=period_raw, time=t_raw)
+    return ValidatedCircularMotion(
+        radius_m=clamp_radius(r_raw),
+        period_s=clamp_period(period_raw),
+        time_s=clamp_circular_time(t_raw),
+        position_x_m=state["position_x_m"],
+        position_y_m=state["position_y_m"],
+        speed_m_s=state["speed_m_s"],
+        centripetal_acceleration_m_s2=state["centripetal_acceleration_m_s2"],
+    )
+
+
+@dataclass(frozen=True)
+class ValidatedSHM:
+    """Server-recomputed, deterministic Simple Harmonic Motion values (SI units)."""
+
+    amplitude_m: float
+    period_s: float
+    time_s: float
+    position_m: float
+    velocity_m_s: float
+    acceleration_m_s2: float
+
+    def as_dict(self) -> dict:
+        return {
+            "amplitude_m": self.amplitude_m,
+            "period_s": self.period_s,
+            "time_s": self.time_s,
+            "position_m": self.position_m,
+            "velocity_m_s": self.velocity_m_s,
+            "acceleration_m_s2": self.acceleration_m_s2,
+        }
+
+
+def validate_shm(amplitude_m, period_s, time_s) -> ValidatedSHM:
+    """Recompute displacement/velocity/acceleration on the server. Reject
+    nonsense; clamp to lab bounds."""
+
+    try:
+        a_raw = float(amplitude_m)
+        period_raw = float(period_s)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Amplitude, period and time must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (a_raw, period_raw, t_raw)):
+        raise ExperimentValidationError("Amplitude, period and time must be finite numbers.")
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if period_raw <= 0:
+        raise ExperimentValidationError("Period must be positive.")
+    if (
+        a_raw <= 0
+        or a_raw > AMPLITUDE_HARD_MAX_M
+        or period_raw > SHM_PERIOD_HARD_MAX_S
+        or t_raw > SHM_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = shm_state(amplitude=a_raw, period=period_raw, time=t_raw)
+    return ValidatedSHM(
+        amplitude_m=clamp_amplitude(a_raw),
+        period_s=clamp_shm_period(period_raw),
+        time_s=clamp_shm_time(t_raw),
+        position_m=state["position_m"],
+        velocity_m_s=state["velocity_m_s"],
+        acceleration_m_s2=state["acceleration_m_s2"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -292,10 +436,28 @@ def _validate_projectile_motion(values: dict) -> ValidatedProjectileMotion:
     )
 
 
+def _validate_circular_motion(values: dict) -> ValidatedCircularMotion:
+    return validate_circular_motion(
+        values.get("radius_m"),
+        values.get("period_s"),
+        values.get("time_s"),
+    )
+
+
+def _validate_shm(values: dict) -> ValidatedSHM:
+    return validate_shm(
+        values.get("amplitude_m"),
+        values.get("period_s"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
     "projectile_motion": _validate_projectile_motion,
+    "circular_motion": _validate_circular_motion,
+    "simple_harmonic_motion": _validate_shm,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -305,6 +467,8 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "newtons_second_law": ("mass_kg", "force_n"),
     "kinematics": ("initial_position_m", "initial_velocity_m_s", "acceleration_m_s2", "time_s"),
     "projectile_motion": ("initial_speed_m_s", "launch_angle_deg", "initial_height_m", "time_s"),
+    "circular_motion": ("radius_m", "period_s", "time_s"),
+    "simple_harmonic_motion": ("amplitude_m", "period_s", "time_s"),
 }
 
 
@@ -326,10 +490,22 @@ def _apply_fields_projectile_motion(attempt, validated: ValidatedProjectileMotio
     pass
 
 
+def _apply_fields_circular_motion(attempt, validated: ValidatedCircularMotion) -> None:
+    # Centripetal acceleration IS a genuinely computed outcome here (unlike
+    # projectile motion's fixed gravity), so it fits the shared column.
+    attempt.acceleration_m_s2 = validated.centripetal_acceleration_m_s2
+
+
+def _apply_fields_shm(attempt, validated: ValidatedSHM) -> None:
+    attempt.acceleration_m_s2 = validated.acceleration_m_s2
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
     "projectile_motion": _apply_fields_projectile_motion,
+    "circular_motion": _apply_fields_circular_motion,
+    "simple_harmonic_motion": _apply_fields_shm,
 }
 
 
@@ -368,10 +544,38 @@ def _apply_parameters_projectile_motion(attempt, simulation, validated: Validate
     }
 
 
+def _apply_parameters_circular_motion(attempt, simulation, validated: ValidatedCircularMotion) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "radius_m": validated.radius_m,
+        "period_s": validated.period_s,
+        "observed_time_s": validated.time_s,
+        "observed_position_x_m": validated.position_x_m,
+        "observed_position_y_m": validated.position_y_m,
+        "observed_speed_m_s": validated.speed_m_s,
+        "observed_centripetal_acceleration_m_s2": validated.centripetal_acceleration_m_s2,
+    }
+
+
+def _apply_parameters_shm(attempt, simulation, validated: ValidatedSHM) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "amplitude_m": validated.amplitude_m,
+        "period_s": validated.period_s,
+        "observed_time_s": validated.time_s,
+        "observed_position_m": validated.position_m,
+        "observed_velocity_m_s": validated.velocity_m_s,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
     "projectile_motion": _apply_parameters_projectile_motion,
+    "circular_motion": _apply_parameters_circular_motion,
+    "simple_harmonic_motion": _apply_parameters_shm,
 }
 
 
@@ -455,6 +659,31 @@ def _base_context(attempt, simulation) -> dict:
             context["position_y_m"] = params["observed_position_y_m"]
         if "observed_speed_m_s" in params:
             context["speed_m_s"] = params["observed_speed_m_s"]
+    elif simulation.simulation_type == "circular_motion":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("radius_m", "period_s"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        if "observed_position_x_m" in params:
+            context["position_x_m"] = params["observed_position_x_m"]
+        if "observed_position_y_m" in params:
+            context["position_y_m"] = params["observed_position_y_m"]
+        if "observed_speed_m_s" in params:
+            context["speed_m_s"] = params["observed_speed_m_s"]
+    elif simulation.simulation_type == "simple_harmonic_motion":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        if "amplitude_m" in params:
+            context["amplitude_m"] = params["amplitude_m"]
+        if "period_s" in params:
+            context["period_s"] = params["period_s"]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        if "observed_position_m" in params:
+            context["position_m"] = params["observed_position_m"]
+        if "observed_velocity_m_s" in params:
+            context["velocity_m_s"] = params["observed_velocity_m_s"]
     return context
 
 

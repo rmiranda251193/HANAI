@@ -182,6 +182,9 @@ _FIELD_LABELS = {
     "position_x_m": "horizontal distance",
     "position_y_m": "height",
     "speed_m_s": "speed",
+    "radius_m": "radius",
+    "period_s": "period",
+    "amplitude_m": "amplitude",
 }
 
 
@@ -418,6 +421,36 @@ def _experiment_prefill(attempt):
             parts.append(f"horizontal distance = {ctx.position_x_m:.2f} m")
         if ctx.position_y_m is not None:
             parts.append(f"height at that time = {ctx.position_y_m:.2f} m")
+    elif ctx.simulation_type == "circular_motion":
+        if ctx.radius_m is not None:
+            parts.append(f"radius = {ctx.radius_m:.1f} m")
+        if ctx.period_s is not None:
+            parts.append(f"period = {ctx.period_s:.1f} s")
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.velocity_m_s is not None:
+            parts.append(f"speed = {ctx.velocity_m_s:.2f} m/s")
+        if ctx.acceleration_m_s2 is not None:
+            parts.append(
+                f"centripetal acceleration = {ctx.acceleration_m_s2:.2f} m/s^2 "
+                "(a_c = v^2 / r, computed by the app)"
+            )
+    elif ctx.simulation_type == "simple_harmonic_motion":
+        if ctx.amplitude_m is not None:
+            parts.append(f"amplitude = {ctx.amplitude_m:.2f} m")
+        if ctx.period_s is not None:
+            parts.append(f"period = {ctx.period_s:.1f} s")
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.position_m is not None:
+            parts.append(f"position = {ctx.position_m:.2f} m")
+        if ctx.velocity_m_s is not None:
+            parts.append(f"velocity = {ctx.velocity_m_s:.2f} m/s")
+        if ctx.acceleration_m_s2 is not None:
+            parts.append(
+                f"acceleration = {ctx.acceleration_m_s2:.2f} m/s^2 "
+                "(a = -omega^2 x, computed by the app)"
+            )
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -449,6 +482,22 @@ def _experiment_prefill(attempt):
 
 def _observation_message(simulation_type, validated):
     if simulation_type == "kinematics":
+        return (
+            "Observation saved. Server-computed position: "
+            f"{validated.position_m:.2f} m, velocity: {validated.velocity_m_s:.2f} m/s."
+        )
+    if simulation_type == "projectile_motion":
+        return (
+            "Observation saved. Server-computed position: "
+            f"{validated.position_x_m:.2f} m across, {validated.position_y_m:.2f} m high."
+        )
+    if simulation_type == "circular_motion":
+        return (
+            "Observation saved. Server-computed speed: "
+            f"{validated.speed_m_s:.2f} m/s, centripetal acceleration: "
+            f"{validated.centripetal_acceleration_m_s2:.2f} m/s²."
+        )
+    if simulation_type == "simple_harmonic_motion":
         return (
             "Observation saved. Server-computed position: "
             f"{validated.position_m:.2f} m, velocity: {validated.velocity_m_s:.2f} m/s."
