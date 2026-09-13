@@ -391,6 +391,17 @@ a { color: inherit; }
 .lab-index-card p { color: var(--muted); line-height: 1.6; }
 .lab-index-card .button { margin-top: 1rem; }
 .lab-model-note { max-width: 66rem; margin: 1rem 0 0; padding: .75rem .9rem; border-left: 3px solid var(--amber); background: rgba(242, 180, 102, .08); color: var(--text-secondary); font-size: .9rem; line-height: 1.55; }
+/* Hands-on, real-materials experiment companion (apps/physics/hands_on_experiments.py) */
+.hands-on-experiment { max-width: 66rem; margin: .8rem 0 0; padding: .75rem .9rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface); }
+.hands-on-experiment summary { cursor: pointer; font-weight: 700; color: var(--cyan); font-size: .92rem; }
+.hands-on-experiment summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.hands-on-body { margin-top: .8rem; }
+.hands-on-body h3 { margin: .9rem 0 .4rem; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.hands-on-body h3:first-child { margin-top: 0; }
+.hands-on-body ul, .hands-on-body ol { margin: 0; padding-left: 1.2rem; color: var(--text-secondary); line-height: 1.6; }
+.hands-on-body li { margin: .2rem 0; }
+.hands-on-safety { margin: .9rem 0 0; padding: .5rem .65rem; border-left: 3px solid var(--amber); background: rgba(242, 180, 102, .08); color: var(--text-secondary); font-size: .88rem; line-height: 1.5; }
+.hands-on-compare { margin: .6rem 0 0; color: var(--text-secondary); font-size: .88rem; line-height: 1.55; }
 .lab-model-note code { color: var(--cyan); }
 .lab-heading-links { display: flex; flex-direction: column; align-items: end; gap: .3rem; }
 .lab-preview-banner { max-width: 66rem; margin: 1rem 0 0; padding: .75rem .9rem; border: 1px solid var(--cyan); border-radius: .5rem; background: rgba(85, 215, 235, .08); color: var(--text-secondary); font-size: .9rem; line-height: 1.55; }

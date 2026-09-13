@@ -33,6 +33,20 @@
     Values are computed from <code>v = v&#8320; + at</code> and <code>x = x&#8320; + v&#8320;t + &frac12;at&sup2;</code> &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
   </p>
 
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
   {# Additive, read-only React island: a compact equations/scenarios reference
      card. It never attaches to the existing forms below (five other scripts
      already own that interactivity) -- purely informational, purely

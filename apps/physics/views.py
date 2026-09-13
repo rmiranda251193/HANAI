@@ -21,6 +21,7 @@ from apps.students.views import _current_student
 from .depth_layers import depth_layers_for
 from .domain_catalog import all_domains, domain_for_topic, get_domain
 from .equation_catalog import equations_for_concept
+from .hands_on_experiments import hands_on_experiment_for
 from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
 from .level_catalog import level_range_for_difficulty
 from .models import PhysicsConcept, PhysicsSimulation
@@ -257,6 +258,7 @@ def physics_lab_detail(request, slug):
         "scenarios": _scenario_list,
         "scenarios_json": json.dumps({s["scenario_id"]: s for s in _scenario_list}),
         "preview": preview,
+        "hands_on": hands_on_experiment_for(simulation.simulation_type),
         # Bootstrap payload for the optional React island (static/react/lab.js).
         # A progressive enhancement only -- the server-rendered sections above
         # are the real page and work with no JavaScript at all.
