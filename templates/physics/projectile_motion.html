@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; DodongOS Physics AI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: there is no air resistance, and gravity is constant at 9.8 m/s&sup2;.
+    Values are computed from <code>x = v&#8320;cos(&theta;)t</code> and <code>y = y&#8320; + v&#8320;sin(&theta;)t &minus; &frac12;gt&sup2;</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-mass="{{ defaults.initial_speed_m_s }}"
+       data-force="{{ defaults.launch_angle_deg }}"
+       data-mass-min="{{ bounds.initial_speed_m_s.min }}"
+       data-mass-max="{{ bounds.initial_speed_m_s.max }}"
+       data-force-min="{{ bounds.launch_angle_deg.min }}"
+       data-force-max="{{ bounds.launch_angle_deg.max }}"
+       data-v0="{{ defaults.initial_speed_m_s }}"
+       data-angle="{{ defaults.launch_angle_deg }}"
+       data-h0="{{ defaults.initial_height_m }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to how far the projectile travels if you launch it at 45&deg; instead of a steeper or shallower angle? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. A 45-degree launch angle will travel the farthest.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 640 280" role="img"
+               data-lab-scene aria-label="A projectile launched at an angle, following a curved path above the ground.">
+            <desc data-scene-desc>A projectile follows a curved path above the ground, launched at an angle.</desc>
+            <line x1="10" y1="250" x2="630" y2="250" class="lab-track" data-ground-line />
+            <polyline points="" class="lab-trace" data-traj-path style="fill:none;" />
+            <g data-cart transform="translate(36,250)">
+              <circle cx="0" cy="0" r="9" class="lab-cart-body" />
+            </g>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of height against time.">
+            <desc>A graph of height against time.</desc>
+            <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
+            <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
+            <text x="10" y="14" class="lab-axis-label">y</text>
+            <text x="332" y="176" class="lab-axis-label">t</text>
+            <polyline points="" class="lab-trace" data-lab-trace />
+          </svg>
+          <p class="lab-graph-caption">Height vs time. The curve peaks at the apex of the flight, then falls.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Initial speed</span>
+                <span class="lab-value-number"><span data-value-speed>{{ defaults.initial_speed_m_s }}</span> m/s</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Launch angle</span>
+                <span class="lab-value-number"><span data-value-angle>{{ defaults.launch_angle_deg }}</span>&deg;</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Initial height</span>
+                <span class="lab-value-number"><span data-value-height>{{ defaults.initial_height_m|floatformat:1 }}</span> m</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">x = v&#8320;cos(&theta;)t &nbsp; y = y&#8320; + v&#8320;sin(&theta;)t &minus; &frac12;gt&sup2;</p>
+              <p class="lab-eq-worked">
+                x = <span data-eq-x>0.00</span> m &nbsp; y = <span data-eq-y>0.00</span> m
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Time</dt><dd><span data-value-time>0.00</span> s</dd></div>
+              <div><dt>Horizontal (x)</dt><dd><span data-value-x>0.00</span> m</dd></div>
+              <div><dt>Height (y)</dt><dd><span data-value-y>0.00</span> m</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-speed">Initial speed (m/s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-speed" data-input-speed
+                     min="{{ bounds.initial_speed_m_s.min }}" max="{{ bounds.initial_speed_m_s.max }}" step="0.5"
+                     value="{{ defaults.initial_speed_m_s }}" aria-describedby="lab-speed-out">
+              <output id="lab-speed-out" for="lab-speed" data-out-speed>{{ defaults.initial_speed_m_s }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-angle">Launch angle (&deg;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-angle" data-input-angle
+                     min="{{ bounds.launch_angle_deg.min }}" max="{{ bounds.launch_angle_deg.max }}" step="1"
+                     value="{{ defaults.launch_angle_deg }}" aria-describedby="lab-angle-out">
+              <output id="lab-angle-out" for="lab-angle" data-out-angle>{{ defaults.launch_angle_deg }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-height">Initial height (m)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-height" data-input-height
+                     min="{{ bounds.initial_height_m.min }}" max="{{ bounds.initial_height_m.max }}" step="0.5"
+                     value="{{ defaults.initial_height_m }}" aria-describedby="lab-height-out">
+              <output id="lab-height-out" for="lab-height" data-out-height>{{ defaults.initial_height_m }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-primary" data-action-start>Start</button>
+            <button type="button" class="button button-secondary" data-action-pause>Pause</button>
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+          <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating.</p>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the horizontal distance and height you saw at the time you stopped at.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="initial_speed_m_s" data-field="initialSpeedMs" value="{{ defaults.initial_speed_m_s }}">
+        <input type="hidden" name="launch_angle_deg" data-field="launchAngleDeg" value="{{ defaults.launch_angle_deg }}">
+        <input type="hidden" name="initial_height_m" data-field="initialHeightM" value="{{ defaults.initial_height_m }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. At 45 degrees, the projectile travelled about 23 metres before reaching the ground.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_position_x_m is not None %}Last saved: server-computed position ({{ experiment_attempt.parameters.observed_position_x_m|floatformat:2 }} m, {{ experiment_attempt.parameters.observed_position_y_m|floatformat:2 }} m).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="initial_speed_m_s" data-field="initialSpeedMs" value="{{ defaults.initial_speed_m_s }}">
+        <input type="hidden" name="launch_angle_deg" data-field="launchAngleDeg" value="{{ defaults.launch_angle_deg }}">
+        <input type="hidden" name="initial_height_m" data-field="initialHeightM" value="{{ defaults.initial_height_m }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. The horizontal and vertical motions are independent, so gravity only changes the vertical speed.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationships it shows are <strong>x = v&#8320;cos(&theta;)t</strong> and <strong>y = y&#8320; + v&#8320;sin(&theta;)t &minus; &frac12;gt&sup2;</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/projectile.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

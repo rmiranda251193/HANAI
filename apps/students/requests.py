@@ -50,10 +50,13 @@ class ExperimentContext:
     The numeric fields are the server-recomputed deterministic values, so the
     tutor reasons about the same values the app computed, not a browser
     number. ``mass_kg``/``force_n`` are Newton's Second Law-specific;
-    ``initial_position_m``/``initial_velocity_m_s``/``time_s``/``position_m``/
-    ``velocity_m_s`` are Kinematics-specific. ``acceleration_m_s2`` is shared
-    by both. A given experiment only ever populates the fields for its own
-    simulation type -- the rest stay ``None``.
+    ``initial_position_m``/``initial_velocity_m_s``/``position_m``/
+    ``velocity_m_s`` are Kinematics-specific; ``initial_speed_m_s``/
+    ``launch_angle_deg``/``initial_height_m``/``position_x_m``/
+    ``position_y_m`` are Projectile Motion-specific. ``time_s`` and
+    ``acceleration_m_s2`` are shared where they apply. A given experiment
+    only ever populates the fields for its own simulation type -- the rest
+    stay ``None``.
     """
 
     simulation: str = ""
@@ -66,6 +69,11 @@ class ExperimentContext:
     time_s: float | None = None
     position_m: float | None = None
     velocity_m_s: float | None = None
+    initial_speed_m_s: float | None = None
+    launch_angle_deg: float | None = None
+    initial_height_m: float | None = None
+    position_x_m: float | None = None
+    position_y_m: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -90,6 +98,10 @@ class ExperimentContext:
                 self.initial_velocity_m_s is not None,
                 self.position_m is not None,
                 self.velocity_m_s is not None,
+                self.initial_speed_m_s is not None,
+                self.launch_angle_deg is not None,
+                self.position_x_m is not None,
+                self.position_y_m is not None,
             ]
         )
 
@@ -118,6 +130,16 @@ class ExperimentContext:
                 time_s=params.get("observed_time_s"),
                 position_m=params.get("observed_position_m"),
                 velocity_m_s=params.get("observed_velocity_m_s"),
+            )
+        elif simulation_type == "projectile_motion":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                initial_speed_m_s=params.get("initial_speed_m_s"),
+                launch_angle_deg=params.get("launch_angle_deg"),
+                initial_height_m=params.get("initial_height_m"),
+                time_s=params.get("observed_time_s"),
+                position_x_m=params.get("observed_position_x_m"),
+                position_y_m=params.get("observed_position_y_m"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

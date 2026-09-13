@@ -171,6 +171,12 @@ _FIELD_LABELS = {
     "time_s": "time",
     "position_m": "position",
     "velocity_m_s": "velocity",
+    "initial_speed_m_s": "initial speed",
+    "launch_angle_deg": "launch angle",
+    "initial_height_m": "initial height",
+    "position_x_m": "horizontal distance",
+    "position_y_m": "height",
+    "speed_m_s": "speed",
 }
 
 
@@ -393,6 +399,19 @@ def _experiment_prefill(attempt):
             parts.append(f"position = {ctx.position_m:.2f} m")
         if ctx.velocity_m_s is not None:
             parts.append(f"velocity = {ctx.velocity_m_s:.2f} m/s")
+    elif ctx.simulation_type == "projectile_motion":
+        if ctx.initial_speed_m_s is not None:
+            parts.append(f"initial speed = {ctx.initial_speed_m_s:.1f} m/s")
+        if ctx.launch_angle_deg is not None:
+            parts.append(f"launch angle = {ctx.launch_angle_deg:.0f} degrees")
+        if ctx.initial_height_m is not None:
+            parts.append(f"initial height = {ctx.initial_height_m:.1f} m")
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.position_x_m is not None:
+            parts.append(f"horizontal distance = {ctx.position_x_m:.2f} m")
+        if ctx.position_y_m is not None:
+            parts.append(f"height at that time = {ctx.position_y_m:.2f} m")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")

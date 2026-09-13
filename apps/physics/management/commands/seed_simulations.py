@@ -28,6 +28,19 @@ PHYSICS_SIMULATIONS = [
             "friction or air resistance."
         ),
     },
+    {
+        "slug": "projectile-motion",
+        "title": "Projectile Motion Lab",
+        "concept_name": "Projectile motion",
+        "simulation_type": PhysicsSimulation.SimulationType.PROJECTILE_MOTION,
+        "description": (
+            "Launch a projectile at a chosen speed, angle and starting height "
+            "and watch its horizontal and vertical position change over time "
+            "through x = v0*cos(theta)*t and y = y0 + v0*sin(theta)*t - "
+            "(1/2)*g*t^2. Idealized model: there is no air resistance and "
+            "gravity is constant."
+        ),
+    },
 ]
 
 

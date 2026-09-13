@@ -74,10 +74,11 @@ class PhysicsSimulationModelTests(TestCase):
         self.assertEqual(
             PhysicsSimulation.objects.filter(slug="newtons-second-law").count(), 1
         )
-        # Step 24 added a second built-in simulation (Kinematics); the seed
-        # command still creates every row exactly once and only updates on
-        # every re-run.
-        self.assertIn("0 created, 2 updated", out.getvalue())
+        # Step 24 added a second built-in simulation (Kinematics), and a
+        # later step added a third (Projectile Motion); the seed command
+        # still creates every row exactly once and only updates on every
+        # re-run.
+        self.assertIn("0 created, 3 updated", out.getvalue())
         simulation = PhysicsSimulation.objects.get(slug="newtons-second-law")
         self.assertEqual(simulation.concept.name, "Newton's Second Law")
 

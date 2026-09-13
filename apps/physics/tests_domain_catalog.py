@@ -175,9 +175,11 @@ class RegistryReadinessTests(TestCase):
         d = get_simulation_definition("kinematics")
         for attr in ("bounds", "default_state", "input_fields", "equations", "units", "template"):
             self.assertTrue(hasattr(d, attr))
-        # kinematics + newtons_second_law are the registered simulations today
+        # kinematics + newtons_second_law + projectile_motion are the
+        # registered simulations today
         from apps.physics.simulation_registry import registered_simulation_types
 
         self.assertEqual(
-            set(registered_simulation_types()), {"kinematics", "newtons_second_law"}
+            set(registered_simulation_types()),
+            {"kinematics", "newtons_second_law", "projectile_motion"},
         )

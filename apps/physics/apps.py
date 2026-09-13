@@ -11,6 +11,7 @@ class PhysicsConfig(AppConfig):
         # same way apps.teachers.apps wires up its signal receivers.
         from . import simulations  # noqa: F401
         from . import simulations_kinematics  # noqa: F401
+        from . import simulations_projectile  # noqa: F401
 
         # Populate the visualization registry (2D/3D renderer definitions), the
         # code-defined Physics Lab scenario challenges, and the Physics domain /

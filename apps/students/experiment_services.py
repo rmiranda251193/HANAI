@@ -35,6 +35,19 @@ from apps.physics.simulations_kinematics import (
     clamp_time,
     kinematics_state,
 )
+from apps.physics.simulations_projectile import (
+    MAX_INITIAL_HEIGHT_M,
+    MAX_INITIAL_SPEED_MS,
+    MAX_LAUNCH_ANGLE_DEG,
+)
+from apps.physics.simulations_projectile import MAX_TIME_S as PROJECTILE_MAX_TIME_S
+from apps.physics.simulations_projectile import (
+    clamp_initial_height,
+    clamp_initial_speed,
+    clamp_launch_angle,
+)
+from apps.physics.simulations_projectile import clamp_time as clamp_projectile_time
+from apps.physics.simulations_projectile import projectile_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -50,6 +63,11 @@ POSITION_HARD_MAX_M = MAX_INITIAL_POSITION_M * 5
 VELOCITY_HARD_MAX_MS = MAX_INITIAL_VELOCITY_MS * 5
 ACCELERATION_HARD_MAX_MS2 = MAX_ACCELERATION_MS2 * 5
 TIME_HARD_MAX_S = MAX_TIME_S * 5
+
+SPEED_HARD_MAX_MS = MAX_INITIAL_SPEED_MS * 5
+ANGLE_HARD_MAX_DEG = 360.0
+HEIGHT_HARD_MAX_M = MAX_INITIAL_HEIGHT_M * 5
+PROJECTILE_TIME_HARD_MAX_S = PROJECTILE_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -170,6 +188,77 @@ def validate_kinematics(
     )
 
 
+@dataclass(frozen=True)
+class ValidatedProjectileMotion:
+    """Server-recomputed, deterministic Projectile Motion values (SI units)."""
+
+    initial_speed_m_s: float
+    launch_angle_deg: float
+    initial_height_m: float
+    time_s: float
+    position_x_m: float
+    position_y_m: float
+    speed_m_s: float
+
+    def as_dict(self) -> dict:
+        return {
+            "initial_speed_m_s": self.initial_speed_m_s,
+            "launch_angle_deg": self.launch_angle_deg,
+            "initial_height_m": self.initial_height_m,
+            "time_s": self.time_s,
+            "position_x_m": self.position_x_m,
+            "position_y_m": self.position_y_m,
+            "speed_m_s": self.speed_m_s,
+        }
+
+
+def validate_projectile_motion(
+    initial_speed_m_s, launch_angle_deg, initial_height_m, time_s
+) -> ValidatedProjectileMotion:
+    """Recompute x/y position on the server. Reject nonsense; clamp to lab bounds."""
+
+    try:
+        v0_raw = float(initial_speed_m_s)
+        angle_raw = float(launch_angle_deg)
+        h0_raw = float(initial_height_m)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError(
+            "Initial speed, launch angle, initial height and time must be numbers."
+        )
+
+    if any(math.isnan(v) or math.isinf(v) for v in (v0_raw, angle_raw, h0_raw, t_raw)):
+        raise ExperimentValidationError(
+            "Initial speed, launch angle, initial height and time must be finite numbers."
+        )
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if (
+        v0_raw < 0
+        or v0_raw > SPEED_HARD_MAX_MS
+        or abs(angle_raw) > ANGLE_HARD_MAX_DEG
+        or h0_raw < 0
+        or h0_raw > HEIGHT_HARD_MAX_M
+        or t_raw > PROJECTILE_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError(
+            "Those values are outside the simulation's range."
+        )
+
+    state = projectile_state(
+        initial_speed=v0_raw, launch_angle=angle_raw, initial_height=h0_raw, time=t_raw
+    )
+    return ValidatedProjectileMotion(
+        initial_speed_m_s=clamp_initial_speed(v0_raw),
+        launch_angle_deg=clamp_launch_angle(angle_raw),
+        initial_height_m=clamp_initial_height(h0_raw),
+        time_s=clamp_projectile_time(t_raw),
+        position_x_m=state["position_x_m"],
+        position_y_m=state["position_y_m"],
+        speed_m_s=state["speed_m_s"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -194,9 +283,19 @@ def _validate_kinematics(values: dict) -> ValidatedKinematics:
     )
 
 
+def _validate_projectile_motion(values: dict) -> ValidatedProjectileMotion:
+    return validate_projectile_motion(
+        values.get("initial_speed_m_s"),
+        values.get("launch_angle_deg"),
+        values.get("initial_height_m"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
+    "projectile_motion": _validate_projectile_motion,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -205,6 +304,7 @@ _VALIDATORS = {
 _EXPLAIN_REQUIRED_FIELDS = {
     "newtons_second_law": ("mass_kg", "force_n"),
     "kinematics": ("initial_position_m", "initial_velocity_m_s", "acceleration_m_s2", "time_s"),
+    "projectile_motion": ("initial_speed_m_s", "launch_angle_deg", "initial_height_m", "time_s"),
 }
 
 
@@ -218,9 +318,18 @@ def _apply_fields_kinematics(attempt, validated: ValidatedKinematics) -> None:
     attempt.acceleration_m_s2 = validated.acceleration_m_s2
 
 
+def _apply_fields_projectile_motion(attempt, validated: ValidatedProjectileMotion) -> None:
+    # No ExperimentAttempt column fits (there is no single "acceleration"
+    # result here -- gravity is a fixed constant, not a computed outcome).
+    # Everything lives in attempt.parameters, exactly like the rest of
+    # Kinematics' non-acceleration values already do.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
+    "projectile_motion": _apply_fields_projectile_motion,
 }
 
 
@@ -245,9 +354,24 @@ def _apply_parameters_kinematics(attempt, simulation, validated: ValidatedKinema
     }
 
 
+def _apply_parameters_projectile_motion(attempt, simulation, validated: ValidatedProjectileMotion) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "initial_speed_m_s": validated.initial_speed_m_s,
+        "launch_angle_deg": validated.launch_angle_deg,
+        "initial_height_m": validated.initial_height_m,
+        "observed_time_s": validated.time_s,
+        "observed_position_x_m": validated.position_x_m,
+        "observed_position_y_m": validated.position_y_m,
+        "observed_speed_m_s": validated.speed_m_s,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
+    "projectile_motion": _apply_parameters_projectile_motion,
 }
 
 
@@ -318,6 +442,19 @@ def _base_context(attempt, simulation) -> dict:
             context["position_m"] = params["observed_position_m"]
         if "observed_velocity_m_s" in params:
             context["velocity_m_s"] = params["observed_velocity_m_s"]
+    elif simulation.simulation_type == "projectile_motion":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("initial_speed_m_s", "launch_angle_deg", "initial_height_m"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        if "observed_position_x_m" in params:
+            context["position_x_m"] = params["observed_position_x_m"]
+        if "observed_position_y_m" in params:
+            context["position_y_m"] = params["observed_position_y_m"]
+        if "observed_speed_m_s" in params:
+            context["speed_m_s"] = params["observed_speed_m_s"]
     return context
 
 
