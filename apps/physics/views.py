@@ -18,9 +18,11 @@ from apps.students.experiment_services import (
 from apps.students.models import TutorSession
 from apps.students.views import _current_student
 
+from .depth_layers import depth_layers_for
 from .domain_catalog import all_domains, domain_for_topic, get_domain
 from .equation_catalog import equations_for_concept
 from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
+from .level_catalog import level_range_for_difficulty
 from .models import PhysicsConcept, PhysicsSimulation
 from .simulation_registry import get_simulation_definition
 from .visualization_registry import get_visualization
@@ -92,6 +94,8 @@ def physics_library(request):
             "difficulty": concept.get_difficulty_display(),
             "equations": equations_for_concept(concept.slug),
             "simulations": sims,
+            "level_range": level_range_for_difficulty(concept.difficulty),
+            "depth_layers": depth_layers_for(concept.slug),
         }
         grouped.setdefault(dom.key, {}).setdefault(concept.topic or "General", []).append(row)
 

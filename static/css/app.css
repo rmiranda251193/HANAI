@@ -497,6 +497,17 @@ a { color: inherit; }
 .lib-concept-formulas, .lib-concept-units { margin: .55rem 0 0; color: var(--muted); font-size: .85rem; line-height: 1.5; }
 .lib-concept-formulas code { color: var(--cyan); margin-right: .1rem; }
 .lib-concept-sims { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 0; }
+.lib-level-range { color: var(--muted); font-size: .78rem; font-weight: 500; }
+.lib-depth-toggle { margin-top: .8rem; padding: .7rem .85rem; border: 1px solid var(--line); border-radius: .5rem; }
+.lib-depth-toggle summary { cursor: pointer; font-weight: 700; color: var(--cyan); font-size: .88rem; }
+.lib-depth-toggle summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.lib-depth-list { margin: .8rem 0 0; display: grid; gap: .8rem; }
+.lib-depth-layer { padding-top: .8rem; border-top: 1px solid var(--line); }
+.lib-depth-layer:first-child { padding-top: 0; border-top: 0; }
+.lib-depth-layer dt { color: var(--amber); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.lib-depth-layer dd { margin: .35rem 0 0; }
+.lib-depth-layer dd p { margin: 0 0 .4rem; color: var(--text-secondary); line-height: 1.6; }
+.lib-depth-layer dd code { display: inline-block; padding: .2rem .5rem; border-radius: .3rem; background: var(--surface-inset); color: var(--cyan); font-size: .84rem; }
 .lib-views { color: var(--muted); font-weight: 400; font-size: .78rem; }
 @media (max-width: 720px) { .lab-hud-grid { grid-template-columns: 1fr 1fr; } .lab-measure-row input { max-width: 5rem; } .lab-whatif .button { flex-basis: 100%; } }
 .lab { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1rem; max-width: 72rem; margin-top: 1.5rem; align-items: start; }

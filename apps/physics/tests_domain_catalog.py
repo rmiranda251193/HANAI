@@ -59,6 +59,31 @@ class DomainCatalogTests(TestCase):
         for bad in (None, 1, "does-not-exist", object()):
             self.assertIsNone(get_domain(bad))
 
+    def test_every_domain_declares_a_valid_ascending_level_range(self):
+        """level_range is a scope statement about the field of Physics, not a
+        content-completeness claim -- but it must still reference real,
+        correctly-ordered levels from level_catalog.py."""
+
+        from apps.physics.level_catalog import get_level
+
+        for domain in all_domains():
+            self.assertEqual(len(domain.level_range), 2)
+            low_key, high_key = domain.level_range
+            low, high = get_level(low_key), get_level(high_key)
+            self.assertIsNotNone(low, f"{domain.key} has an unknown low level {low_key!r}")
+            self.assertIsNotNone(high, f"{domain.key} has an unknown high level {high_key!r}")
+            self.assertLessEqual(
+                low.order, high.order,
+                f"{domain.key}'s level_range is not ascending: {domain.level_range}",
+            )
+
+    def test_gravitation_genuinely_spans_to_graduate_level(self):
+        """The spec's own worked example: gravity legitimately runs from
+        junior-high "things fall down" to graduate General Relativity."""
+
+        gravitation = get_domain("gravitation")
+        self.assertEqual(gravitation.level_range, ("junior_high", "graduate_prep"))
+
 
 class EquationCatalogTests(TestCase):
     def test_equations_are_display_metadata_only(self):
@@ -156,6 +181,45 @@ class PhysicsLibraryPageTests(TestCase):
     def test_lab_index_still_lists_simulations(self):
         body = self.client.get(reverse("physics_lab:index")).content.decode()
         self.assertIn("Kinematics Lab", body)
+
+
+class LibraryLevelAndDepthTests(TestCase):
+    """The level-range annotation and the Depth Toggle pilot on the Library
+    page -- both additive to the existing card markup."""
+
+    def setUp(self):
+        self.url = reverse("physics_lab:library")
+        self.n2l = PhysicsConcept.objects.create(
+            name="Newton's Second Law", slug="newtons-second-law",
+            description="Net force determines acceleration.",
+            topic="Dynamics", difficulty="intermediate",
+        )
+        self.force = PhysicsConcept.objects.create(
+            name="Force", slug="force", description="A push or a pull.",
+            topic="Dynamics", difficulty="foundational",
+        )
+
+    def test_level_range_annotation_renders_for_every_concept(self):
+        body = self.client.get(self.url).content.decode()
+        self.assertIn("Typically studied:", body)
+        self.assertIn("Senior High", body)  # part of the intermediate range
+
+    def test_depth_toggle_renders_only_for_the_one_piloted_concept(self):
+        body = self.client.get(self.url).content.decode()
+        self.assertIn("Explore this at different depths", body)
+        self.assertIn(">Understand<", body)
+        self.assertIn(">Derive<", body)
+        self.assertIn(">Explore Deeper<", body)
+        self.assertIn(">Advanced<", body)
+        self.assertIn("F_net = ma", body)
+        # Force has no depth-layer entry -- no fabricated toggle for it.
+        self.assertEqual(body.count("lib-depth-toggle"), 1)
+
+    def test_depth_layer_text_is_escaped(self):
+        # A defence-in-depth check, not a claim that this content is
+        # user-editable today -- it is a hand-authored Python literal.
+        body = self.client.get(self.url).content.decode()
+        self.assertNotIn("<script>", body)
 
 
 class RegistryReadinessTests(TestCase):

@@ -65,8 +65,27 @@
                 <div class="lib-concept-head">
                   <h4>{{ row.concept.name }}</h4>
                   <span class="lib-badge lib-badge-{{ row.concept.difficulty }}">{{ row.difficulty }}</span>
+                  {% if row.level_range %}
+                    <span class="lib-level-range">Typically studied: {{ row.level_range.0.title }}{% if row.level_range.1.key != row.level_range.0.key %} &ndash; {{ row.level_range.1.title }}{% endif %}</span>
+                  {% endif %}
                 </div>
                 {% if row.concept.description %}<p class="lib-concept-desc">{{ row.concept.description }}</p>{% endif %}
+                {% if row.depth_layers %}
+                  <details class="lib-depth-toggle">
+                    <summary>Explore this at different depths</summary>
+                    <dl class="lib-depth-list">
+                      {% for layer in row.depth_layers %}
+                        <div class="lib-depth-layer">
+                          <dt>{{ layer.label }}</dt>
+                          <dd>
+                            <p>{{ layer.explanation }}</p>
+                            {% if layer.equation %}<code>{{ layer.equation }}</code>{% endif %}
+                          </dd>
+                        </div>
+                      {% endfor %}
+                    </dl>
+                  </details>
+                {% endif %}
                 {% if row.equations %}
                   <dl class="lib-equations">
                     {% for eq in row.equations %}
