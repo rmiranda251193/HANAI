@@ -38,6 +38,7 @@ from .models import (
 )
 from .activity_planner import build_adaptive_activity_plan
 from .concept_path_services import build_student_concept_path
+from .notebook_services import build_student_notebook
 from .pattern_services import build_student_learning_patterns
 from .practice_services import (
     AnswerValidationError,
@@ -200,6 +201,19 @@ def student_progress(request):
     context["assessment_summary"] = get_student_assessment_summary(student=student)
     context["recovery_preview"] = preview_recovery_for_student(student)
     return render(request, "students/progress.html", context)
+
+
+def notebook_view(request):
+    """The current student's own Experiment Notebook -- a read-only record of
+    each Physics Lab experiment's prediction, variables, observation,
+    measurements and explanation. The student is always resolved from the
+    existing session mechanism; nothing here is scoreable or evaluative."""
+
+    student = _current_student(request)
+    entries = build_student_notebook(student=student)
+    return render(
+        request, "students/notebook.html", {"student": student, "entries": entries}
+    )
 
 
 def learning_patterns(request):

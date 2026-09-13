@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Experiment Notebook &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Student workspace</p>
+      <h1>Experiment Notebook</h1>
+      <p>A record of what you predicted, tried, observed and explained in the Physics Lab &mdash; in your own words and your own numbers, not a report card.</p>
+    </div>
+  </section>
+
+  {% if entries %}
+    <ol class="notebook-list">
+      {% for entry in entries %}
+        <li class="surface-card notebook-entry">
+          <div class="notebook-entry-head">
+            <div>
+              <p class="card-label">{{ entry.concept_name }}{% if entry.lesson_title %} &middot; {{ entry.lesson_title }}{% endif %}</p>
+              <h2>{{ entry.simulation_title }}</h2>
+            </div>
+            <div class="notebook-entry-meta">
+              <span class="status-badge {% if entry.is_complete %}status-completed{% else %}status-pending{% endif %}">
+                {% if entry.is_complete %}Completed{% else %}In progress{% endif %}
+              </span>
+              <time datetime="{{ entry.started_at|date:'c' }}">{{ entry.started_at|date:"M j, Y, g:i A" }}</time>
+            </div>
+          </div>
+
+          {% if entry.prediction %}
+            <div class="notebook-section">
+              <h3>Prediction</h3>
+              <p>{{ entry.prediction }}</p>
+            </div>
+          {% endif %}
+
+          {% if entry.variables %}
+            <div class="notebook-section">
+              <h3>Variables</h3>
+              <dl class="journey-experiment">
+                {% for label, value, unit in entry.variables %}
+                  <div><dt>{{ label }}</dt><dd>{{ value|floatformat:2 }} {{ unit }}</dd></div>
+                {% endfor %}
+              </dl>
+            </div>
+          {% endif %}
+
+          {% if entry.observation %}
+            <div class="notebook-section">
+              <h3>Observation</h3>
+              <p>{{ entry.observation }}</p>
+            </div>
+          {% endif %}
+
+          {% if entry.measurements %}
+            <div class="notebook-section">
+              <h3>Measurements</h3>
+              <dl class="journey-experiment">
+                {% for label, value, unit in entry.measurements %}
+                  <div><dt>{{ label }}</dt><dd>{{ value|floatformat:2 }} {{ unit }}</dd></div>
+                {% endfor %}
+              </dl>
+            </div>
+          {% endif %}
+
+          {% if entry.explanation %}
+            <div class="notebook-section">
+              <h3>Explanation</h3>
+              <p>{{ entry.explanation }}</p>
+            </div>
+          {% endif %}
+
+          <div class="form-actions">
+            <a class="text-link" href="{{ entry.lab_url }}">Open this lab again</a>
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">Nothing recorded yet</p>
+      <h2>Your notebook is empty.</h2>
+      <p>Run an experiment in the Physics Lab &mdash; predict, observe and explain what happened &mdash; and it will appear here.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'physics_lab:index' %}">Explore the Physics Lab</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
