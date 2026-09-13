@@ -37,18 +37,22 @@ function boot() {
   const group = new THREE.Group();
   scene.add(group);
 
+  // Colors tuned for the light workspace background (Section 5 of the
+  // light-scientific-UI brief): a pale wireframe that popped on the old
+  // dark theme all but disappears on a light backdrop, so this uses the
+  // same deep "electric physics blue" as --cyan / a warm --amber core.
   const shellGeom = new THREE.IcosahedronGeometry(3, 1);
   const shellMat = new THREE.MeshBasicMaterial({
-    color: 0x55d7eb,
+    color: 0x1261ff,
     wireframe: true,
     transparent: true,
-    opacity: 0.25,
+    opacity: 0.35,
   });
   const shell = new THREE.Mesh(shellGeom, shellMat);
   group.add(shell);
 
   const coreGeom = new THREE.SphereGeometry(0.5, 16, 16);
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xf2b466, transparent: true, opacity: 0.5 });
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xc9740f, transparent: true, opacity: 0.55 });
   const orb = new THREE.Mesh(coreGeom, coreMat);
   group.add(orb);
 

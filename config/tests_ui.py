@@ -156,8 +156,11 @@ class DesignSystemTests(TestCase):
     def test_semantic_colors_route_through_tokens_not_bare_hex(self):
         # Each hex value legitimately appears exactly once: the :root
         # definition of its token. Every other occurrence must be var(...).
+        # (Values updated for the premium-light-scientific palette; the
+        # invariant under test -- routed through tokens, not scattered -- is
+        # unchanged.)
         css_outside_root = re.sub(r":root\s*\{.*?\}", "", APP_CSS, count=1, flags=re.S)
-        for bare_hex in ("#8be7af", "#ffad9f", "#ff8e7d", "#ffcabf", "#b8f1cb"):
+        for bare_hex in ("#1f8a4c", "#c22e22", "#a3251b", "#9c2a1f", "#2f7a4c"):
             self.assertNotIn(bare_hex, css_outside_root)
             self.assertIn(bare_hex, APP_CSS)  # still defined, just once, in :root
         self.assertIn("var(--success)", APP_CSS)
@@ -168,14 +171,25 @@ class DesignSystemTests(TestCase):
         occurrences), --text and --text-secondary were each already declared
         as tokens but the literal hex kept being used instead almost
         everywhere. Consolidated onto the tokens -- same exact colors, zero
-        visual change, but now defined in exactly one place each."""
+        visual change, but now defined in exactly one place each. (Hex
+        values updated for the premium-light-scientific palette.)"""
 
         css_outside_root = re.sub(r":root\s*\{.*?\}", "", APP_CSS, count=1, flags=re.S)
-        for bare_hex in ("#0b1724", "#edf6fb", "#dbeaf1"):
+        for bare_hex in ("#f6faff", "#0c1b33", "#33455f"):
             self.assertNotIn(bare_hex, css_outside_root)
             self.assertIn(bare_hex, APP_CSS)
         self.assertIn("var(--field-bg)", APP_CSS)
         self.assertIn("var(--text-secondary)", APP_CSS)
+
+    def test_instrument_screens_stay_dark_by_design(self):
+        """The Physics Lab's SVG scene/graph and the 3D canvas are
+        deliberately kept as dark "instrument readout" screens against the
+        light workspace (Section 13/17 of the light-scientific-UI brief) --
+        not an oversight left over from the old dark theme."""
+
+        for selector in (".lab-scene", ".lab-graph-svg", ".physics3d-canvas"):
+            self.assertIn(selector + " {", APP_CSS.replace("\n", " "))
+        self.assertEqual(APP_CSS.count("background: rgba(9, 18, 29, .5);"), 3)
 
     def test_button_hierarchy_includes_ghost_and_danger(self):
         self.assertIn(".button-ghost", APP_CSS)
@@ -193,6 +207,51 @@ class DesignSystemTests(TestCase):
 
     def test_reduced_motion_still_respected_for_new_hover_transforms(self):
         self.assertIn("@media (prefers-reduced-motion: no-preference) { .surface-card:hover", APP_CSS)
+
+
+class PremiumLightThemeTests(TestCase):
+    """"HANAI premium light scientific workspace" pass: the workspace moved
+    from a dark theme to a light one, while the sidebar/nav stays dark navy
+    on purpose for contrast and brand identity (design brief Section 2)."""
+
+    def test_root_declares_a_light_color_scheme(self):
+        root_match = re.search(r":root\s*\{(.*?)\}", APP_CSS, re.S)
+        self.assertIsNotNone(root_match)
+        self.assertIn("color-scheme: light", root_match.group(1))
+
+    def test_nav_tokens_are_distinct_from_the_light_workspace_tokens(self):
+        for token in ("--nav-bg", "--nav-text", "--nav-text-muted", "--nav-line", "--nav-accent"):
+            self.assertIn(token + ":", APP_CSS)
+        # the sidebar routes through the nav-* tokens, not the (now light)
+        # generic --background/--text/--line tokens, so it stays dark navy
+        self.assertIn(".sidebar { padding:", APP_CSS)
+        sidebar_rule = re.search(r"\.sidebar \{[^}]*\}", APP_CSS).group(0)
+        self.assertIn("var(--nav-bg)", sidebar_rule)
+        self.assertIn("var(--nav-text)", sidebar_rule)
+        self.assertNotIn("var(--background)", sidebar_rule)
+
+    def test_no_dark_glass_surface_literals_remain_outside_instrument_screens(self):
+        """Regression guard for the systematic pass that replaced the old
+        dark-theme "glass card" literals (rgba(17,31,46,*) / rgba(9,18,29,.42))
+        with light surface tokens across every template's shared CSS classes.
+        Only the three deliberately-dark instrument screens keep a literal
+        rgba(9,18,29,.5) background (see test_instrument_screens_stay_dark_by_design)."""
+
+        self.assertNotIn("rgba(17, 31, 46", APP_CSS)
+        self.assertNotIn("rgba(9, 18, 29, .42)", APP_CSS)
+        self.assertIn("var(--surface-inset)", APP_CSS)
+
+    def test_brand_reads_hanai_not_the_old_project_codename(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('<span class="brand-name">HANAI</span>', body)
+        self.assertIn("AI Physics Learning System", body)
+        self.assertIn("<title>HANAI</title>", body)
+
+    def test_primary_button_text_is_readable_on_the_new_accent(self):
+        # var(--cyan) is now a saturated "electric physics blue" used as a
+        # solid button fill -- its text must be light, not the old
+        # near-black tuned for a pale cyan fill.
+        self.assertIn(".button-primary { color: #ffffff; background: var(--cyan); }", APP_CSS)
 
 
 class PhysicsLabTimelineTests(TestCase):
