@@ -1,4 +1,4 @@
-{% load static %}
+{% load static icons %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -14,7 +14,7 @@
       <aside class="sidebar">
         <div class="sidebar-head">
           <a class="brand" href="{% url 'home' %}">
-            <span class="brand-mark" aria-hidden="true">◉</span>
+            {% icon 'atom' cls='brand-mark' %}
             <span class="brand-name">HANAI</span>
           </a>
         </div>
@@ -25,46 +25,69 @@
             <span class="nav-toggle-icon" aria-hidden="true"></span>
           </summary>
           <nav class="navigation" aria-label="Primary">
-            <a class="nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Overview</a>
-
-            <p class="nav-group-label" id="nav-learn">Learn</p>
-            <a class="nav-link {% if request.resolver_match.namespace == 'students' and request.resolver_match.url_name != 'progress' and request.resolver_match.url_name != 'plan' and request.resolver_match.url_name != 'learning' and request.resolver_match.url_name != 'path' and request.resolver_match.url_name != 'goals' and 'recommendation' not in request.resolver_match.url_name|default:'' and 'assessment' not in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:lessons' %}">My Lessons</a>
-            <a class="nav-link {% if request.resolver_match.namespace == 'physics_lab' and request.resolver_match.url_name != 'library' %}is-active{% endif %}" href="{% url 'physics_lab:index' %}">Physics Lab</a>
-            <a class="nav-link {% if request.resolver_match.url_name == 'library' %}is-active{% endif %}" href="{% url 'physics_lab:library' %}">Physics Library</a>
-            <a class="nav-link {% if request.resolver_match.url_name == 'plan' %}is-active{% endif %}" href="{% url 'students:plan' %}">Next Activity</a>
-            <a class="nav-link {% if request.resolver_match.namespace == 'students' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:assessment_list' %}">Assessments</a>
-            <a class="nav-link {% if request.resolver_match.url_name == 'progress' %}is-active{% endif %}" href="{% url 'students:progress' %}">My Progress</a>
-            <a class="nav-link {% if request.resolver_match.url_name == 'goals' %}is-active{% endif %}" href="{% url 'students:goals' %}">Learning Goals</a>
-            <a class="nav-link {% if request.resolver_match.url_name == 'learning' %}is-active{% endif %}" href="{% url 'students:learning' %}">Learning Patterns</a>
-            <a class="nav-link {% if request.resolver_match.url_name == 'path' %}is-active{% endif %}" href="{% url 'students:path' %}">Learning Path</a>
-            <a class="nav-link {% if 'recommendation' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:recommendations' %}">Recommendations</a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'home' %}">{% icon 'home' cls='nav-icon' %}<span>Home</span></a>
 
             {% if user.is_staff %}
               <p class="nav-group-label" id="nav-teach">Teach</p>
-              <a class="nav-link {% if request.resolver_match.url_name == 'list' %}is-active{% endif %}" href="{% url 'lessons:list' %}">Lessons</a>
-              <a class="nav-link {% if request.resolver_match.url_name == 'create' %}is-active{% endif %}" href="{% url 'lessons:create' %}">Create Lesson</a>
-              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and request.resolver_match.url_name != 'question_bank' and request.resolver_match.url_name != 'question_create' and request.resolver_match.url_name != 'question_edit' and 'analytics' not in request.resolver_match.url_name|default:'' and 'assessment' not in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:student_list' %}">Students</a>
-              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'analytics' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:analytics' %}">Analytics</a>
-              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'question' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:question_bank' %}">Question Bank</a>
-              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:assessment_list_teacher' %}">Assessment Builder</a>
+              <a class="nav-link {% if request.resolver_match.url_name == 'list' %}is-active{% endif %}" href="{% url 'lessons:list' %}">{% icon 'book' cls='nav-icon' %}<span>Lessons</span></a>
+              <a class="nav-link {% if request.resolver_match.url_name == 'create' %}is-active{% endif %}" href="{% url 'lessons:create' %}">{% icon 'plus' cls='nav-icon' %}<span>Create Lesson</span></a>
+              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and request.resolver_match.url_name != 'question_bank' and request.resolver_match.url_name != 'question_create' and request.resolver_match.url_name != 'question_edit' and 'analytics' not in request.resolver_match.url_name|default:'' and 'assessment' not in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:student_list' %}">{% icon 'users' cls='nav-icon' %}<span>Students</span></a>
+              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'analytics' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:analytics' %}">{% icon 'bar-chart' cls='nav-icon' %}<span>Analytics</span></a>
+              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'question' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:question_bank' %}">{% icon 'file-text' cls='nav-icon' %}<span>Question Bank</span></a>
+              <a class="nav-link {% if request.resolver_match.namespace == 'teachers' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'teachers:assessment_list_teacher' %}">{% icon 'file-text' cls='nav-icon' %}<span>Assessment Builder</span></a>
+            {% endif %}
 
+            <p class="nav-group-label" id="nav-lab">Lab</p>
+            <a class="nav-link {% if request.resolver_match.namespace == 'physics_lab' and request.resolver_match.url_name != 'library' %}is-active{% endif %}" href="{% url 'physics_lab:index' %}">{% icon 'flask' cls='nav-icon' %}<span>Physics Lab</span></a>
+
+            <p class="nav-group-label" id="nav-learn">Learn</p>
+            <a class="nav-link {% if request.resolver_match.url_name == 'library' %}is-active{% endif %}" href="{% url 'physics_lab:library' %}">{% icon 'book' cls='nav-icon' %}<span>Physics Library</span></a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'progress' %}is-active{% endif %}" href="{% url 'students:progress' %}">{% icon 'trending-up' cls='nav-icon' %}<span>My Progress</span></a>
+            <a class="nav-link {% if request.resolver_match.namespace == 'students' and request.resolver_match.url_name != 'progress' and request.resolver_match.url_name != 'plan' and request.resolver_match.url_name != 'learning' and request.resolver_match.url_name != 'path' and request.resolver_match.url_name != 'goals' and 'recommendation' not in request.resolver_match.url_name|default:'' and 'assessment' not in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:lessons' %}">{% icon 'book' cls='nav-icon' %}<span>My Lessons</span></a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'plan' %}is-active{% endif %}" href="{% url 'students:plan' %}">{% icon 'activity' cls='nav-icon' %}<span>Next Activity</span></a>
+            <a class="nav-link {% if request.resolver_match.namespace == 'students' and 'assessment' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:assessment_list' %}">{% icon 'file-text' cls='nav-icon' %}<span>Assessments</span></a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'goals' %}is-active{% endif %}" href="{% url 'students:goals' %}">{% icon 'alert-triangle' cls='nav-icon' %}<span>Learning Goals</span></a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'learning' %}is-active{% endif %}" href="{% url 'students:learning' %}">{% icon 'brain' cls='nav-icon' %}<span>Learning Patterns</span></a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'path' %}is-active{% endif %}" href="{% url 'students:path' %}">{% icon 'trending-up' cls='nav-icon' %}<span>Learning Path</span></a>
+            <a class="nav-link {% if 'recommendation' in request.resolver_match.url_name|default:'' %}is-active{% endif %}" href="{% url 'students:recommendations' %}">{% icon 'bell' cls='nav-icon' %}<span>Recommendations</span></a>
+
+            {% if user.is_staff %}
               <p class="nav-group-label" id="nav-system">System</p>
-              <a class="nav-link" href="/admin/">Admin</a>
-              <a class="nav-link" href="/health/">Health</a>
+              <a class="nav-link" href="/health/">{% icon 'activity' cls='nav-icon' %}<span>Health</span></a>
+              <a class="nav-link" href="/admin/">{% icon 'settings' cls='nav-icon' %}<span>Admin</span></a>
             {% endif %}
           </nav>
         </details>
+        <div class="sidebar-foot">
+          {% icon 'atom' cls='sidebar-foot-mark' %}
+          <p>Better Questions.<br>Deeper Understanding.</p>
+        </div>
       </aside>
       <main class="content" id="main-content" tabindex="-1">
         <header class="topbar">
-          <p class="eyebrow">Scientific learning workspace</p>
-          <p class="role-indicator">
-            {% if user.is_staff %}
-              <span class="role-badge role-badge-teacher">Teacher</span> {{ user.username }}
-            {% else %}
-              <span class="role-badge role-badge-student">Student session</span>
-            {% endif %}
-          </p>
+          <form class="topbar-search" method="get" action="{% url 'physics_lab:library' %}" role="search">
+            {% icon 'search' cls='topbar-search-icon' %}
+            <label for="topbar-search-input" class="visually-hidden">Search concepts, lessons, or experiments</label>
+            <input id="topbar-search-input" type="search" name="q" placeholder="Search concepts, lessons, or experiments&hellip;">
+          </form>
+          <div class="topbar-actions">
+            <button type="button" class="topbar-icon-button" aria-label="Notifications">
+              {% icon 'bell' %}
+            </button>
+            <div class="topbar-profile">
+              <span class="topbar-avatar" aria-hidden="true">{{ user.username|default:"S"|first|upper }}</span>
+              <p class="role-indicator">
+                {% if user.is_staff %}
+                  <span class="role-name">{{ user.username }}</span>
+                  <span class="role-badge role-badge-teacher">Teacher</span>
+                {% else %}
+                  <span class="role-name">Student</span>
+                  <span class="role-badge role-badge-student">Student session</span>
+                {% endif %}
+              </p>
+              {% icon 'chevron-down' cls='topbar-chevron' %}
+            </div>
+          </div>
         </header>
         {% block content %}{% endblock %}
       </main>

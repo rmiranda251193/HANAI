@@ -118,6 +118,79 @@ class HomeHeroTests(TestCase):
         self.assertIn(reverse("physics_lab:index"), body)
         self.assertIn(reverse("lessons:list"), body)
 
+    def test_hero_has_the_physics_headline_and_subline(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('<h1 class="hero-headline">PHYSICS</h1>', body)
+        self.assertIn('class="hero-subline">Explore. Experiment. Understand.<', body)
+
+    def test_hero_visual_illustration_is_decorative(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('class="hero-visual" aria-hidden="true"', body)
+        self.assertIn('class="hero-atom"', body)
+
+
+class TopbarTests(TestCase):
+    def test_search_form_targets_the_real_physics_library_search(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('class="topbar-search"', body)
+        self.assertIn(f'action="{reverse("physics_lab:library")}"', body)
+        self.assertIn('name="q"', body)
+        # a real, working destination -- not a decorative dead form
+        response = self.client.get(reverse("physics_lab:library"), {"q": "velocity"})
+        self.assertEqual(response.status_code, 200)
+
+    def test_notification_button_has_no_fabricated_unread_badge(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('class="topbar-icon-button" aria-label="Notifications"', body)
+        # no invented "you have unread notifications" claim with nothing behind it
+        self.assertNotIn("topbar-badge", body)
+
+    def test_avatar_uses_initials_not_a_fabricated_photo(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('class="topbar-avatar"', body)
+        self.assertNotIn("<img", body)
+
+
+class FeatureGridTests(TestCase):
+    """The 6 homepage capability cards -- every link is a real, working
+    destination; the one genuinely staff-gated capability (Teacher
+    Analytics) never becomes a 403 dead end for a non-staff viewer."""
+
+    _TITLES = (
+        "AI Lesson Assistant", "Interactive Physics Lab", "AI Tutor",
+        "Misconception Recovery", "Learning Evidence", "Teacher Analytics",
+    )
+
+    def test_all_six_cards_render_for_an_anonymous_session(self):
+        body = self.client.get(reverse("home")).content.decode()
+        for title in self._TITLES:
+            self.assertIn(f"<h2>{title}</h2>", body)
+
+    def test_teacher_analytics_card_is_not_a_clickable_dead_end_for_a_student(self):
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn('class="surface-card feature-card feature-card-static"', body)
+        self.assertNotIn(reverse("teachers:analytics"), body)
+
+    def test_teacher_analytics_card_links_out_for_staff(self):
+        staff = get_user_model().objects.create_user("home_teacher", password="pw", is_staff=True)
+        self.client.force_login(staff)
+        body = self.client.get(reverse("home")).content.decode()
+        self.assertIn(reverse("teachers:analytics"), body)
+
+    def test_every_card_link_resolves_without_a_403_for_an_anonymous_session(self):
+        response = self.client.get(reverse("home"))
+        body = response.content.decode()
+        checked = 0
+        for url in (
+            reverse("lessons:create"), reverse("physics_lab:index"),
+            reverse("students:home"), reverse("students:recommendations"),
+            reverse("students:progress"),
+        ):
+            if url in body:
+                checked += 1
+                self.assertNotEqual(self.client.get(url).status_code, 403)
+        self.assertEqual(checked, 5)
+
 
 class DesignSystemTests(TestCase):
     """Design tokens exist and hard-coded semantic colours were consolidated
@@ -269,8 +342,8 @@ class HomeMotionTests(TestCase):
         body = self.client.get(reverse("home")).content.decode()
         self.assertIn('class="home-parallax"', body)
         self.assertIn("data-parallax-depth=", body)
-        # both foundation-grid cards and the home-flow section reveal in
-        self.assertEqual(body.count("data-reveal"), 3)
+        # the 6 feature cards and the home-flow section reveal in
+        self.assertEqual(body.count("data-reveal"), 7)
         self.assertIn("js/home-motion.js", body)
         # the hero's own copy is never gated behind a reveal (visible at rest)
         self.assertNotIn('<h1 data-reveal', body)

@@ -282,7 +282,7 @@ class HomeMotifTests(TestCase):
         self.assertIn('aria-hidden="true"', body)
         self.assertIn("js/physics3d/home-motif.js", body)
         # the page's meaning does not live in the canvas
-        self.assertIn("Build understanding", body)
+        self.assertIn("PHYSICS", body)
         self.assertEqual(body.count("<h1"), 1)
         self.assertIn("prefers-reduced-motion", (BASE_DIR / "static" / "css" / "app.css").read_text())
 

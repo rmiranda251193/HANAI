@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}HANAI{% endblock %}
 
@@ -8,57 +9,96 @@
     <canvas data-home-motif></canvas>
   </div>
 
-  <section class="hero">
+  <section class="hero hero-split">
     <div class="home-parallax" aria-hidden="true">
       <div class="home-parallax-glow" data-parallax-depth="0.12"></div>
       <div class="home-parallax-grid" data-parallax-depth="0.06"></div>
     </div>
-    <p class="eyebrow">AI-Powered Physics Learning Platform</p>
-    <h1>Build understanding.<br><span>Keep teachers in control.</span></h1>
-    <p class="lead">
-      A Physics learning workspace where AI assists, teachers decide, and students
-      learn by thinking. Deterministic code &mdash; not a language model &mdash;
-      stays authoritative for every Physics calculation.
-    </p>
-    <p class="hero-actions">
-      <a class="button button-primary" href="{% url 'physics_lab:index' %}">Explore Physics Lab</a>
-      <a class="button button-secondary" href="{% url 'lessons:list' %}">Teacher Workspace</a>
-    </p>
+    <div class="hero-copy">
+      <p class="eyebrow">AI-Powered Physics Learning Platform</p>
+      <h1 class="hero-headline">PHYSICS</h1>
+      <p class="hero-subline">Explore. Experiment. Understand.</p>
+      <p class="lead">
+        HANAI helps teachers and students learn Physics through interactive
+        simulations, AI guidance, and real-world applications. Turn curiosity
+        into discovery, and ideas into understanding.
+      </p>
+      <p class="hero-actions">
+        <a class="button button-primary" href="{% url 'physics_lab:index' %}">{% icon 'flask' %}<span>Explore Physics Lab</span>{% icon 'arrow-right' %}</a>
+        <a class="button button-secondary" href="{% url 'lessons:list' %}">{% icon 'book' %}<span>Teacher Workspace</span>{% icon 'arrow-right' %}</a>
+      </p>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <svg class="hero-atom" viewBox="0 0 480 420">
+        <defs>
+          <radialGradient id="heroNucleus" cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stop-color="#aecbff"/>
+            <stop offset="55%" stop-color="#1261ff"/>
+            <stop offset="100%" stop-color="#0b2f85"/>
+          </radialGradient>
+        </defs>
+        <text x="16" y="78" class="hero-doodle-eq">F = ma</text>
+        <text x="326" y="384" class="hero-doodle-eq">E = mc&#178;</text>
+        <path class="hero-doodle-line" d="M14 194c10-26 20-26 30 0s20 26 30 0"/>
+        <polyline class="hero-doodle-line" points="26,336 26,306 52,306 52,284 78,284 78,254"/>
+        <polyline class="hero-doodle-line" points="374,58 400,58 406,46 412,70 418,58 444,58"/>
+        <circle class="hero-doodle-line" cx="444" cy="58" r="4"/>
+        <ellipse class="hero-orbit hero-orbit-blue" cx="240" cy="210" rx="188" ry="78"/>
+        <ellipse class="hero-orbit hero-orbit-amber" cx="240" cy="210" rx="188" ry="78" transform="rotate(64 240 210)"/>
+        <circle cx="240" cy="210" r="56" fill="url(#heroNucleus)"/>
+        <circle class="hero-electron hero-electron-blue" cx="424" cy="156" r="12"/>
+        <circle class="hero-electron hero-electron-blue" cx="58" cy="258" r="12"/>
+        <circle class="hero-electron hero-electron-amber" cx="322" cy="288" r="10"/>
+        <circle class="hero-electron hero-electron-amber" cx="150" cy="128" r="10"/>
+      </svg>
+    </div>
   </section>
 
-  <section class="foundation-grid" aria-label="Where to start">
-    <article class="surface-card" data-reveal>
-      <p class="card-label">For teachers</p>
-      <h2>Author and publish a lesson</h2>
-      <p>
-        Create a lesson, connect it to Physics concepts, generate an AI draft,
-        review the deterministic checks, decide what to keep, then publish
-        explicitly. Follow the evidence students produce and act on it.
-      </p>
-      <p class="home-links">
-        <a class="text-link" href="{% url 'lessons:list' %}">My lessons</a>
-        <a class="text-link" href="{% url 'lessons:create' %}">Create a lesson</a>
-        {% if user.is_staff %}
-          <a class="text-link" href="{% url 'teachers:student_list' %}">Student evidence</a>
-          <a class="text-link" href="{% url 'teachers:analytics' %}">Cohort analytics</a>
-        {% endif %}
-      </p>
-    </article>
-    <article class="surface-card accent-card" data-reveal>
-      <p class="card-label">For students</p>
-      <h2>Learn Physics by thinking</h2>
-      <p>
-        Open a lesson and work through it with the Physics Tutor, run an
-        experiment in the Physics Lab, try practice questions and assessments,
-        and see the record of your own reasoning grow.
-      </p>
-      <p class="home-links">
-        <a class="text-link" href="{% url 'students:lessons' %}">Study a lesson</a>
-        <a class="text-link" href="{% url 'physics_lab:index' %}">Physics Lab</a>
-        <a class="text-link" href="{% url 'students:plan' %}">My next activity</a>
-        <a class="text-link" href="{% url 'students:progress' %}">My progress</a>
-      </p>
-    </article>
+  <section class="foundation-grid feature-grid" aria-label="What HANAI offers">
+    <a class="surface-card feature-card" href="{% url 'lessons:create' %}" data-reveal>
+      <span class="feature-icon feature-icon-blue">{% icon 'brain' %}</span>
+      <h2>AI Lesson Assistant</h2>
+      <p>Get smart suggestions for better lessons.</p>
+      <span class="feature-arrow">{% icon 'arrow-right' %}</span>
+    </a>
+    <a class="surface-card feature-card" href="{% url 'physics_lab:index' %}" data-reveal>
+      <span class="feature-icon feature-icon-teal">{% icon 'flask' %}</span>
+      <h2>Interactive Physics Lab</h2>
+      <p>Explore concepts through 2D and 3D simulations.</p>
+      <span class="feature-arrow">{% icon 'arrow-right' %}</span>
+    </a>
+    <a class="surface-card feature-card" href="{% url 'students:home' %}" data-reveal>
+      <span class="feature-icon feature-icon-purple">{% icon 'message-circle' %}</span>
+      <h2>AI Tutor</h2>
+      <p>Get step-by-step help and personalized guidance.</p>
+      <span class="feature-arrow">{% icon 'arrow-right' %}</span>
+    </a>
+    <a class="surface-card feature-card" href="{% url 'students:recommendations' %}" data-reveal>
+      <span class="feature-icon feature-icon-amber">{% icon 'alert-triangle' %}</span>
+      <h2>Misconception Recovery</h2>
+      <p>Identify gaps and build correct understanding.</p>
+      <span class="feature-arrow">{% icon 'arrow-right' %}</span>
+    </a>
+    <a class="surface-card feature-card" href="{% if user.is_staff %}{% url 'teachers:student_list' %}{% else %}{% url 'students:progress' %}{% endif %}" data-reveal>
+      <span class="feature-icon feature-icon-teal">{% icon 'file-text' %}</span>
+      <h2>Learning Evidence</h2>
+      <p>Track progress and show real learning.</p>
+      <span class="feature-arrow">{% icon 'arrow-right' %}</span>
+    </a>
+    {% if user.is_staff %}
+      <a class="surface-card feature-card" href="{% url 'teachers:analytics' %}" data-reveal>
+        <span class="feature-icon feature-icon-purple">{% icon 'trending-up' %}</span>
+        <h2>Teacher Analytics</h2>
+        <p>See insights. Support better teaching.</p>
+        <span class="feature-arrow">{% icon 'arrow-right' %}</span>
+      </a>
+    {% else %}
+      <div class="surface-card feature-card feature-card-static" data-reveal>
+        <span class="feature-icon feature-icon-purple">{% icon 'trending-up' %}</span>
+        <h2>Teacher Analytics</h2>
+        <p>See insights. Support better teaching.</p>
+      </div>
+    {% endif %}
   </section>
 
   <section class="home-flow" aria-label="How HANAI fits together" data-reveal>
