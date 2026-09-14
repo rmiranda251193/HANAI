@@ -113,9 +113,12 @@ class ExperimentContext:
     magnetic force changes direction but never speed, which is the whole
     point of this lab). ``velocity_fraction_c``/``proper_time_s``/
     ``proper_length_m``/``lorentz_factor``/``dilated_time_s``/
-    ``contracted_length_m`` are Time-Dilation-specific. A given experiment
-    only ever populates the fields for its own simulation type -- the rest
-    stay ``None``.
+    ``contracted_length_m`` are Time-Dilation-specific.
+    ``wavelength_nm``/``work_function_ev``/``light_intensity``/
+    ``photon_energy_ev``/``ejects_electrons``/``ke_max_ev``/
+    ``photoelectron_rate`` are Photoelectric-Effect-specific. A given
+    experiment only ever populates the fields for its own simulation type
+    -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -212,6 +215,13 @@ class ExperimentContext:
     lorentz_factor: float | None = None
     dilated_time_s: float | None = None
     contracted_length_m: float | None = None
+    wavelength_nm: float | None = None
+    work_function_ev: float | None = None
+    light_intensity: float | None = None
+    photon_energy_ev: float | None = None
+    ejects_electrons: bool | None = None
+    ke_max_ev: float | None = None
+    photoelectron_rate: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -261,6 +271,7 @@ class ExperimentContext:
                 self.source_freq_hz is not None,
                 self.charge_magnitude_c is not None,
                 self.lorentz_factor is not None,
+                self.wavelength_nm is not None,
             ]
         )
 
@@ -472,6 +483,17 @@ class ExperimentContext:
                 lorentz_factor=params.get("observed_lorentz_factor"),
                 dilated_time_s=params.get("observed_dilated_time_s"),
                 contracted_length_m=params.get("observed_contracted_length_m"),
+            )
+        elif simulation_type == "photoelectric_effect":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                wavelength_nm=params.get("wavelength_nm"),
+                work_function_ev=params.get("work_function_ev"),
+                light_intensity=params.get("intensity"),
+                photon_energy_ev=params.get("observed_photon_energy_ev"),
+                ejects_electrons=params.get("observed_ejects_electrons"),
+                ke_max_ev=params.get("observed_ke_max_ev"),
+                photoelectron_rate=params.get("observed_photoelectron_rate"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

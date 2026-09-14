@@ -484,6 +484,31 @@ Output contract:
                     f"contracted length = {experiment.contracted_length_m:.2f} m "
                     "(shorter than the proper length) -- both by the same factor of gamma"
                 )
+        elif experiment.simulation_type == "photoelectric_effect":
+            if experiment.wavelength_nm is not None:
+                exp_lines.append(
+                    f"- setup: light wavelength = {experiment.wavelength_nm:.0f} nm, "
+                    f"work function = {experiment.work_function_ev:.2f} eV, intensity = "
+                    f"{experiment.light_intensity:.1f} (arbitrary units)"
+                )
+            if experiment.photon_energy_ev is not None:
+                exp_lines.append(
+                    "- photon energy (deterministic, E = hf, computed by the app): "
+                    f"{experiment.photon_energy_ev:.2f} eV"
+                )
+            if experiment.ejects_electrons is not None:
+                if experiment.ejects_electrons:
+                    exp_lines.append(
+                        "- outcome (deterministic, KE_max = hf - phi, computed by the app): "
+                        f"electrons ejected with maximum kinetic energy {experiment.ke_max_ev:.2f} eV, "
+                        f"at a rate proportional to intensity ({experiment.photoelectron_rate:.1f})"
+                    )
+                else:
+                    exp_lines.append(
+                        "- outcome (deterministic, KE_max = hf - phi, computed by the app): "
+                        "no electrons ejected at all, no matter how high the intensity is set -- "
+                        "the photon energy is below the work function"
+                    )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: a single metal surface and monochromatic light, ignoring reflection losses.
+    Values are computed from <code>E<sub>photon</sub> = hf</code> and <code>KE<sub>max</sub> = hf &minus; &phi;</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-wavelength="{{ defaults.wavelength_nm }}"
+       data-work-function="{{ defaults.work_function_ev }}"
+       data-intensity="{{ defaults.intensity }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen if you turn the light's intensity all the way up, while its wavelength stays too long to eject electrons? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. Brighter light should eventually eject electrons, even at a wavelength that's too long.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 190" role="img"
+               data-lab-scene aria-label="Light striking a metal surface, ejecting an electron or not.">
+            <desc data-scene-desc>Light striking a metal surface, ejecting an electron if the photon energy exceeds the work function.</desc>
+            <rect x="260" y="30" width="30" height="140" class="lab-cart-body-alt" />
+            <text x="255" y="24" class="lab-axis-label">metal</text>
+            <line x1="60" y1="60" x2="260" y2="90" class="lab-track" stroke-width="2.5" />
+            <g data-electron>
+              <circle cx="330" cy="60" r="7" class="lab-cart-body" />
+              <line x1="290" y1="90" x2="330" y2="60" class="lab-track" stroke-width="2" />
+            </g>
+            <text data-blocked-note x="300" y="110" class="lab-axis-label">no ejection</text>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of maximum kinetic energy against light frequency.">
+            <desc data-graph-desc>A graph of the maximum kinetic energy of an ejected electron against the light's frequency, for the current work function.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">KE</text>
+            <text x="332" y="184" class="lab-axis-label">f</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="-10" cy="-10" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">Maximum kinetic energy versus light frequency. A straight line that only starts rising past the threshold frequency -- flat at zero below it.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Wavelength</span>
+                <span class="lab-value-number"><span data-value-wavelength>{{ defaults.wavelength_nm }}</span> nm</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Work function</span>
+                <span class="lab-value-number"><span data-value-work-function>{{ defaults.work_function_ev }}</span> eV</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Intensity</span>
+                <span class="lab-value-number"><span data-value-intensity>{{ defaults.intensity }}</span></span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">KE<sub>max</sub> = hf &minus; &phi;</p>
+              <p class="lab-eq-worked">KE<sub>max</sub> = <span data-eq-ke-max>0.00</span> eV</p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Photon energy</dt><dd><span data-value-photon-energy>0.00</span> eV</dd></div>
+              <div><dt>Outcome</dt><dd><span data-value-outcome>&ndash;</span></dd></div>
+              <div><dt>Max kinetic energy</dt><dd><span data-value-ke-max>0.00</span> eV</dd></div>
+              <div><dt>Photoelectron rate</dt><dd><span data-value-rate>0.0</span> (arbitrary units)</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-wavelength">Wavelength (nm)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-wavelength" data-input-wavelength
+                     min="{{ bounds.wavelength_nm.min }}" max="{{ bounds.wavelength_nm.max }}" step="5"
+                     value="{{ defaults.wavelength_nm }}" aria-describedby="lab-wavelength-out">
+              <output id="lab-wavelength-out" for="lab-wavelength" data-out-wavelength>{{ defaults.wavelength_nm }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-work-function">Work function (eV)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-work-function" data-input-work-function
+                     min="{{ bounds.work_function_ev.min }}" max="{{ bounds.work_function_ev.max }}" step="0.1"
+                     value="{{ defaults.work_function_ev }}" aria-describedby="lab-work-function-out">
+              <output id="lab-work-function-out" for="lab-work-function" data-out-work-function>{{ defaults.work_function_ev }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-intensity">Intensity (arbitrary units)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-intensity" data-input-intensity
+                     min="{{ bounds.intensity.min }}" max="{{ bounds.intensity.max }}" step="0.5"
+                     value="{{ defaults.intensity }}" aria-describedby="lab-intensity-out">
+              <output id="lab-intensity-out" for="lab-intensity" data-out-intensity>{{ defaults.intensity }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include whether electrons were ejected and, if so, their maximum kinetic energy.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="wavelength_nm" data-field="wavelengthNm" value="{{ defaults.wavelength_nm }}">
+        <input type="hidden" name="work_function_ev" data-field="workFunctionEv" value="{{ defaults.work_function_ev }}">
+        <input type="hidden" name="intensity" data-field="intensity" value="{{ defaults.intensity }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. No electrons came off, even at maximum intensity, until I shortened the wavelength.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_ejects_electrons is not None %}Last saved: server-computed outcome &mdash; {% if experiment_attempt.parameters.observed_ejects_electrons %}electrons ejected at {{ experiment_attempt.parameters.observed_ke_max_ev|floatformat:2 }} eV{% else %}no electrons ejected{% endif %}.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="wavelength_nm" data-field="wavelengthNm" value="{{ defaults.wavelength_nm }}">
+        <input type="hidden" name="work_function_ev" data-field="workFunctionEv" value="{{ defaults.work_function_ev }}">
+        <input type="hidden" name="intensity" data-field="intensity" value="{{ defaults.intensity }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Each photon carries a fixed amount of energy set by its frequency -- more photons (higher intensity) doesn't make any single photon carry more energy.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>KE<sub>max</sub> = hf &minus; &phi;</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/photoelectric-effect.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

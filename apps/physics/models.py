@@ -145,6 +145,7 @@ class PhysicsSimulation(models.Model):
         DOPPLER_EFFECT = "doppler_effect", "The Doppler Effect"
         MAGNETIC_FORCE = "magnetic_force", "Magnetic Force on a Moving Charge"
         TIME_DILATION = "time_dilation", "Time Dilation and Length Contraction"
+        PHOTOELECTRIC_EFFECT = "photoelectric_effect", "The Photoelectric Effect"
 
     concept = models.ForeignKey(
         PhysicsConcept,

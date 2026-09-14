@@ -221,6 +221,9 @@ _FIELD_LABELS = {
     "velocity_fraction_c": "velocity (fraction of c)",
     "proper_time_s": "proper time",
     "proper_length_m": "proper length",
+    "wavelength_nm": "wavelength",
+    "work_function_ev": "work function",
+    "intensity": "light intensity",
 }
 
 
@@ -664,6 +667,18 @@ def _experiment_prefill(attempt):
                 f"dilated time = {ctx.dilated_time_s:.2f} s, contracted length = "
                 f"{ctx.contracted_length_m:.2f} m"
             )
+    elif ctx.simulation_type == "photoelectric_effect":
+        if ctx.wavelength_nm is not None and ctx.work_function_ev is not None:
+            parts.append(
+                f"light wavelength = {ctx.wavelength_nm:.0f} nm, work function = "
+                f"{ctx.work_function_ev:.2f} eV"
+            )
+        if ctx.light_intensity is not None:
+            parts.append(f"intensity = {ctx.light_intensity:.1f} (arbitrary units)")
+        if ctx.photon_energy_ev is not None:
+            parts.append(f"photon energy = {ctx.photon_energy_ev:.2f} eV (computed by the app)")
+        if ctx.ejects_electrons is not None:
+            parts.append(_photoelectric_outcome_label(ctx.ejects_electrons, ctx.ke_max_ev))
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -713,6 +728,16 @@ def _refraction_outcome_label(angle2_deg, total_internal_reflection) -> str:
     if total_internal_reflection:
         return "total internal reflection -- no refracted ray, all light reflects"
     return f"refracts at {angle2_deg:.1f} degrees from the normal (computed by the app)"
+
+
+def _photoelectric_outcome_label(ejects_electrons, ke_max_ev) -> str:
+    """The 0.0 sentinel ``ke_max_ev`` carries no meaning on its own when no
+    electrons are ejected -- always check the flag first, exactly like
+    ``_coulomb_interaction_label`` and ``_refraction_outcome_label``."""
+
+    if not ejects_electrons:
+        return "no electrons ejected -- the photon energy is below the work function"
+    return f"electrons ejected with maximum kinetic energy {ke_max_ev:.2f} eV (computed by the app)"
 
 
 def _observation_message(simulation_type, validated):
@@ -812,6 +837,9 @@ def _observation_message(simulation_type, validated):
             f"{validated.dilated_time_s:.2f} s, contracted length "
             f"{validated.contracted_length_m:.2f} m)."
         )
+    if simulation_type == "photoelectric_effect":
+        outcome = _photoelectric_outcome_label(validated.ejects_electrons, validated.ke_max_ev)
+        return f"Observation saved. Server-computed outcome: {outcome}."
     return (
         "Observation saved. Server-computed acceleration: "
         f"{validated.acceleration_m_s2:.2f} m/s² (a = F / m)."

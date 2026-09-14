@@ -157,6 +157,15 @@ from apps.physics.simulations_time_dilation import (
 from apps.physics.simulations_time_dilation import clamp_proper_length, clamp_proper_time
 from apps.physics.simulations_time_dilation import clamp_velocity_fraction
 from apps.physics.simulations_time_dilation import time_dilation_state
+from apps.physics.simulations_photoelectric_effect import (
+    MAX_INTENSITY as PHOTO_MAX_INTENSITY,
+    MAX_WAVELENGTH_NM as PHOTO_MAX_WAVELENGTH_NM,
+)
+from apps.physics.simulations_photoelectric_effect import MAX_WORK_FUNCTION_EV as PHOTO_MAX_WORK_FUNCTION_EV
+from apps.physics.simulations_photoelectric_effect import clamp_intensity
+from apps.physics.simulations_photoelectric_effect import clamp_wavelength
+from apps.physics.simulations_photoelectric_effect import clamp_work_function
+from apps.physics.simulations_photoelectric_effect import photoelectric_effect_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -234,6 +243,10 @@ MAGNETIC_TIME_HARD_MAX_S = MAGNETIC_MAX_TIME_S * 5
 
 RELATIVITY_PROPER_TIME_HARD_MAX_S = RELATIVITY_MAX_PROPER_TIME_S * 5
 RELATIVITY_PROPER_LENGTH_HARD_MAX_M = RELATIVITY_MAX_PROPER_LENGTH_M * 5
+
+PHOTO_WAVELENGTH_HARD_MAX_NM = PHOTO_MAX_WAVELENGTH_NM * 5
+PHOTO_WORK_FUNCTION_HARD_MAX_EV = PHOTO_MAX_WORK_FUNCTION_EV * 5
+PHOTO_INTENSITY_HARD_MAX = PHOTO_MAX_INTENSITY * 5
 
 TEXT_LIMIT = 2000
 
@@ -1477,6 +1490,80 @@ def validate_time_dilation(velocity_fraction_c, proper_time_s, proper_length_m) 
     )
 
 
+@dataclass(frozen=True)
+class ValidatedPhotoelectricEffect:
+    """Server-recomputed, deterministic Photoelectric Effect values."""
+
+    wavelength_nm: float
+    work_function_ev: float
+    intensity: float
+    frequency_hz: float
+    photon_energy_ev: float
+    ejects_electrons: bool
+    ke_max_ev: float
+    photoelectron_rate: float
+    threshold_wavelength_nm: float
+
+    def as_dict(self) -> dict:
+        return {
+            "wavelength_nm": self.wavelength_nm,
+            "work_function_ev": self.work_function_ev,
+            "intensity": self.intensity,
+            "frequency_hz": self.frequency_hz,
+            "photon_energy_ev": self.photon_energy_ev,
+            "ejects_electrons": self.ejects_electrons,
+            "ke_max_ev": self.ke_max_ev,
+            "photoelectron_rate": self.photoelectron_rate,
+            "threshold_wavelength_nm": self.threshold_wavelength_nm,
+        }
+
+
+def validate_photoelectric_effect(wavelength_nm, work_function_ev, intensity) -> ValidatedPhotoelectricEffect:
+    """Recompute the photon energy/max kinetic energy/photoelectron rate on
+    the server. Reject nonsense; clamp to lab bounds. There is no time
+    input here -- see the module docstring in
+    ``simulations_photoelectric_effect.py`` for why."""
+
+    try:
+        wl_raw = float(wavelength_nm)
+        phi_raw = float(work_function_ev)
+        intensity_raw = float(intensity)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Wavelength, work function and intensity must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (wl_raw, phi_raw, intensity_raw)):
+        raise ExperimentValidationError(
+            "Wavelength, work function and intensity must be finite numbers."
+        )
+    if wl_raw <= 0:
+        raise ExperimentValidationError("Wavelength must be positive.")
+    if phi_raw <= 0:
+        raise ExperimentValidationError("Work function must be positive.")
+    if intensity_raw <= 0:
+        raise ExperimentValidationError("Intensity must be positive.")
+    if (
+        wl_raw > PHOTO_WAVELENGTH_HARD_MAX_NM
+        or phi_raw > PHOTO_WORK_FUNCTION_HARD_MAX_EV
+        or intensity_raw > PHOTO_INTENSITY_HARD_MAX
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = photoelectric_effect_state(
+        wavelength_nm=wl_raw, work_function_ev=phi_raw, intensity=intensity_raw
+    )
+    return ValidatedPhotoelectricEffect(
+        wavelength_nm=clamp_wavelength(wl_raw),
+        work_function_ev=clamp_work_function(phi_raw),
+        intensity=clamp_intensity(intensity_raw),
+        frequency_hz=state["frequency_hz"],
+        photon_energy_ev=state["photon_energy_ev"],
+        ejects_electrons=state["ejects_electrons"],
+        ke_max_ev=state["ke_max_ev"],
+        photoelectron_rate=state["photoelectron_rate"],
+        threshold_wavelength_nm=state["threshold_wavelength_nm"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1640,6 +1727,14 @@ def _validate_time_dilation(values: dict) -> ValidatedTimeDilation:
     )
 
 
+def _validate_photoelectric_effect(values: dict) -> ValidatedPhotoelectricEffect:
+    return validate_photoelectric_effect(
+        values.get("wavelength_nm"),
+        values.get("work_function_ev"),
+        values.get("intensity"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1659,6 +1754,7 @@ _VALIDATORS = {
     "doppler_effect": _validate_doppler_effect,
     "magnetic_force": _validate_magnetic_force,
     "time_dilation": _validate_time_dilation,
+    "photoelectric_effect": _validate_photoelectric_effect,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1688,6 +1784,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
         "charge_magnitude_c", "positive_charge", "mass_kg", "speed_m_s", "field_t", "time_s",
     ),
     "time_dilation": ("velocity_fraction_c", "proper_time_s", "proper_length_m"),
+    "photoelectric_effect": ("wavelength_nm", "work_function_ev", "intensity"),
 }
 
 
@@ -1823,6 +1920,13 @@ def _apply_fields_time_dilation(attempt, validated: ValidatedTimeDilation) -> No
     pass
 
 
+def _apply_fields_photoelectric_effect(attempt, validated: ValidatedPhotoelectricEffect) -> None:
+    # No ExperimentAttempt column fits a photon energy -- everything lives
+    # in attempt.parameters, like Coulomb's Law's and Collision's non-
+    # fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1842,6 +1946,7 @@ _FIELD_APPLIERS = {
     "doppler_effect": _apply_fields_doppler_effect,
     "magnetic_force": _apply_fields_magnetic_force,
     "time_dilation": _apply_fields_time_dilation,
+    "photoelectric_effect": _apply_fields_photoelectric_effect,
 }
 
 
@@ -2106,6 +2211,24 @@ def _apply_parameters_time_dilation(attempt, simulation, validated: ValidatedTim
     }
 
 
+def _apply_parameters_photoelectric_effect(
+    attempt, simulation, validated: ValidatedPhotoelectricEffect
+) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "wavelength_nm": validated.wavelength_nm,
+        "work_function_ev": validated.work_function_ev,
+        "intensity": validated.intensity,
+        "observed_frequency_hz": validated.frequency_hz,
+        "observed_photon_energy_ev": validated.photon_energy_ev,
+        "observed_ejects_electrons": validated.ejects_electrons,
+        "observed_ke_max_ev": validated.ke_max_ev,
+        "observed_photoelectron_rate": validated.photoelectron_rate,
+        "observed_threshold_wavelength_nm": validated.threshold_wavelength_nm,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -2125,6 +2248,7 @@ _PARAMETER_APPLIERS = {
     "doppler_effect": _apply_parameters_doppler_effect,
     "magnetic_force": _apply_parameters_magnetic_force,
     "time_dilation": _apply_parameters_time_dilation,
+    "photoelectric_effect": _apply_parameters_photoelectric_effect,
 }
 
 
@@ -2381,6 +2505,17 @@ def _base_context(attempt, simulation) -> dict:
         for key in (
             "observed_lorentz_factor", "observed_dilated_time_s",
             "observed_contracted_length_m",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "photoelectric_effect":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("wavelength_nm", "work_function_ev", "intensity"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_photon_energy_ev", "observed_ejects_electrons",
+            "observed_ke_max_ev", "observed_photoelectron_rate",
         ):
             if key in params:
                 context[key] = params[key]

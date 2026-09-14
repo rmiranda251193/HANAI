@@ -256,6 +256,21 @@ PHYSICS_SIMULATIONS = [
             "gravity involved."
         ),
     },
+    {
+        "slug": "photoelectric-effect",
+        "title": "The Photoelectric Effect Lab",
+        "concept_name": "The photoelectric effect",
+        "simulation_type": PhysicsSimulation.SimulationType.PHOTOELECTRIC_EFFECT,
+        "description": (
+            "Set the wavelength and intensity of light hitting a metal of "
+            "a chosen work function, and watch whether electrons are "
+            "ejected at all through KE_max = hf - phi -- and see that "
+            "cranking up the intensity alone can never eject electrons "
+            "below the threshold wavelength, only how many are ejected "
+            "above it. Idealized model: a single metal surface and "
+            "monochromatic light, ignoring reflection losses."
+        ),
+    },
 ]
 
 
