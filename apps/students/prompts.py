@@ -301,6 +301,30 @@ Output contract:
                     f"- total power delivered by the source: {experiment.total_power_w:.2f} W "
                     "(always equal to the sum of the power dissipated in each resistor)"
                 )
+        elif experiment.simulation_type == "coulombs_law":
+            if experiment.charge1_uc is not None and experiment.charge2_uc is not None:
+                exp_lines.append(
+                    f"- setup: charge 1 = {experiment.charge1_uc:.2f} uC, "
+                    f"charge 2 = {experiment.charge2_uc:.2f} uC, separation = "
+                    f"{experiment.coulomb_separation_m:.2f} m"
+                )
+            if experiment.coulomb_force_n is not None:
+                if experiment.coulomb_force_n == 0:
+                    interaction = "no force (one of the charges is zero)"
+                elif experiment.is_attractive:
+                    interaction = "attractive (opposite signs)"
+                else:
+                    interaction = "repulsive (same sign)"
+                exp_lines.append(
+                    "- force between them (deterministic, F = k|q1 q2|/r^2, "
+                    f"computed by the app): {experiment.coulomb_force_n:.4f} N, {interaction}"
+                )
+            if experiment.coulomb_potential_energy_j is not None:
+                exp_lines.append(
+                    "- electric potential energy (deterministic, U = k q1 q2 / r, "
+                    f"computed by the app): {experiment.coulomb_potential_energy_j:.6f} J "
+                    "(negative means attraction, positive means repulsion)"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

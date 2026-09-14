@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: two point charges with no size, in a vacuum, with no other charges nearby -- and unlike gravity, this force can be attractive OR repulsive.
+    Values are computed from <code>F = k|q<sub>1</sub>q<sub>2</sub>| / r&sup2;</code> and <code>U = k q<sub>1</sub>q<sub>2</sub> / r</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-charge1="{{ defaults.charge1_uc }}"
+       data-charge2="{{ defaults.charge2_uc }}"
+       data-separation="{{ defaults.separation_m }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the force between the charges if you flip the sign of one of them, keeping both magnitudes and the separation the same? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. The force will stay the same size but switch from a pull to a push.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 200" role="img"
+               data-lab-scene aria-label="Two point charges with the force between them.">
+            <desc data-scene-desc>Two point charges, a fixed distance apart, with the force between them shown as arrows.</desc>
+            <line x1="40" y1="100" x2="360" y2="100" class="lab-track" />
+            <line data-force-arrow-left x1="0" y1="100" x2="0" y2="100" class="lab-track" stroke-width="3" />
+            <line data-force-arrow-right x1="0" y1="100" x2="0" y2="100" class="lab-track" stroke-width="3" />
+            <circle data-charge-a cx="120" cy="100" r="16" class="lab-cart-body" />
+            <circle data-charge-b cx="280" cy="100" r="16" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of force against separation.">
+            <desc data-graph-desc>A graph of the force between the two charges against their separation distance, following the inverse-square law.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">F</text>
+            <text x="332" y="184" class="lab-axis-label">r</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="0" cy="0" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">Force versus separation, for the current charges. This traces the inverse-square curve &mdash; the same shape as gravity's force-versus-distance relationship.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Charge 1</span>
+                <span class="lab-value-number"><span data-value-charge1>{{ defaults.charge1_uc }}</span> &micro;C</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Charge 2</span>
+                <span class="lab-value-number"><span data-value-charge2>{{ defaults.charge2_uc }}</span> &micro;C</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Separation</span>
+                <span class="lab-value-number"><span data-value-separation>{{ defaults.separation_m }}</span> m</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">F = k|q<sub>1</sub>q<sub>2</sub>| / r&sup2; &nbsp; U = k q<sub>1</sub>q<sub>2</sub> / r</p>
+              <p class="lab-eq-worked">
+                F = <span data-eq-force>0.0000</span> N &nbsp; U = <span data-eq-pe>0.000000</span> J
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Force magnitude</dt><dd><span data-value-force>0.0000</span> N</dd></div>
+              <div><dt>Interaction</dt><dd><span data-value-interaction>&ndash;</span></dd></div>
+              <div><dt>Electric potential energy</dt><dd><span data-value-pe>0.000000</span> J</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-charge1">Charge 1 (&micro;C)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-charge1" data-input-charge1
+                     min="{{ bounds.charge1_uc.min }}" max="{{ bounds.charge1_uc.max }}" step="0.5"
+                     value="{{ defaults.charge1_uc }}" aria-describedby="lab-charge1-out">
+              <output id="lab-charge1-out" for="lab-charge1" data-out-charge1>{{ defaults.charge1_uc }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-charge2">Charge 2 (&micro;C)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-charge2" data-input-charge2
+                     min="{{ bounds.charge2_uc.min }}" max="{{ bounds.charge2_uc.max }}" step="0.5"
+                     value="{{ defaults.charge2_uc }}" aria-describedby="lab-charge2-out">
+              <output id="lab-charge2-out" for="lab-charge2" data-out-charge2>{{ defaults.charge2_uc }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-separation">Separation (m)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-separation" data-input-separation
+                     min="{{ bounds.separation_m.min }}" max="{{ bounds.separation_m.max }}" step="0.1"
+                     value="{{ defaults.separation_m }}" aria-describedby="lab-separation-out">
+              <output id="lab-separation-out" for="lab-separation" data-out-separation>{{ defaults.separation_m }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the force you saw and whether it was attractive or repulsive.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="charge1_uc" data-field="charge1Uc" value="{{ defaults.charge1_uc }}">
+        <input type="hidden" name="charge2_uc" data-field="charge2Uc" value="{{ defaults.charge2_uc }}">
+        <input type="hidden" name="separation_m" data-field="separationM" value="{{ defaults.separation_m }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. With opposite signs, the charges pulled toward each other.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_force_n is not None %}Last saved: server-computed force ({{ experiment_attempt.parameters.observed_force_n|floatformat:4 }} N), {% if experiment_attempt.parameters.observed_force_n == 0 %}no force{% elif experiment_attempt.parameters.observed_is_attractive %}attractive{% else %}repulsive{% endif %}.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="charge1_uc" data-field="charge1Uc" value="{{ defaults.charge1_uc }}">
+        <input type="hidden" name="charge2_uc" data-field="charge2Uc" value="{{ defaults.charge2_uc }}">
+        <input type="hidden" name="separation_m" data-field="separationM" value="{{ defaults.separation_m }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Like charges repel and opposite charges attract, and the force falls off with the square of the distance.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>F = k|q<sub>1</sub>q<sub>2</sub>| / r&sup2;</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/coulombs-law.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

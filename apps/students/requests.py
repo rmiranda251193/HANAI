@@ -77,8 +77,13 @@ class ExperimentContext:
     ``current_1_a``/``current_2_a``/``voltage_1_v``/``voltage_2_v``/
     ``total_power_w`` are Series/Parallel-Circuit-specific -- there is no
     motion here at all, so this simulation shares no fields with any other.
-    A given experiment only ever populates the fields for its own
-    simulation type -- the rest stay ``None``.
+    ``charge1_uc``/``charge2_uc``/``coulomb_separation_m``/
+    ``coulomb_force_n``/``is_attractive``/``coulomb_potential_energy_j`` are
+    Coulomb's-Law-specific -- deliberately NOT sharing Orbital Motion's
+    ``radius_m``/``force_n``, since that would wrongly imply the same
+    physical meaning: gravity is always attractive, Coulomb's force can
+    attract or repel. A given experiment only ever populates the fields for
+    its own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -128,6 +133,12 @@ class ExperimentContext:
     voltage_1_v: float | None = None
     voltage_2_v: float | None = None
     total_power_w: float | None = None
+    charge1_uc: float | None = None
+    charge2_uc: float | None = None
+    coulomb_separation_m: float | None = None
+    coulomb_force_n: float | None = None
+    is_attractive: bool | None = None
+    coulomb_potential_energy_j: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -168,6 +179,7 @@ class ExperimentContext:
                 self.mu is not None,
                 self.voltage_v is not None,
                 self.total_current_a is not None,
+                self.charge1_uc is not None,
             ]
         )
 
@@ -282,6 +294,16 @@ class ExperimentContext:
                 voltage_1_v=params.get("observed_voltage_1_v"),
                 voltage_2_v=params.get("observed_voltage_2_v"),
                 total_power_w=params.get("observed_total_power_w"),
+            )
+        elif simulation_type == "coulombs_law":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                charge1_uc=params.get("charge1_uc"),
+                charge2_uc=params.get("charge2_uc"),
+                coulomb_separation_m=params.get("separation_m"),
+                coulomb_force_n=params.get("observed_force_n"),
+                is_attractive=params.get("observed_is_attractive"),
+                coulomb_potential_energy_j=params.get("observed_potential_energy_j"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

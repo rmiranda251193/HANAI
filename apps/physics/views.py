@@ -195,6 +195,9 @@ _FIELD_LABELS = {
     "resistance1_ohm": "resistance 1",
     "resistance2_ohm": "resistance 2",
     "series": "circuit type",
+    "charge1_uc": "charge 1",
+    "charge2_uc": "charge 2",
+    "separation_m": "separation",
 }
 
 
@@ -527,6 +530,19 @@ def _experiment_prefill(attempt):
             parts.append(f"voltage 1 = {ctx.voltage_1_v:.2f} V, voltage 2 = {ctx.voltage_2_v:.2f} V")
         if ctx.total_power_w is not None:
             parts.append(f"total power = {ctx.total_power_w:.2f} W")
+    elif ctx.simulation_type == "coulombs_law":
+        if ctx.charge1_uc is not None and ctx.charge2_uc is not None:
+            parts.append(f"charge 1 = {ctx.charge1_uc:.1f} uC, charge 2 = {ctx.charge2_uc:.1f} uC")
+        if ctx.coulomb_separation_m is not None:
+            parts.append(f"separation = {ctx.coulomb_separation_m:.2f} m")
+        if ctx.coulomb_force_n is not None:
+            parts.append(
+                f"force = {ctx.coulomb_force_n:.4f} N "
+                f"({_coulomb_interaction_label(ctx.coulomb_force_n, ctx.is_attractive)}, "
+                "computed by the app)"
+            )
+        if ctx.coulomb_potential_energy_j is not None:
+            parts.append(f"electric potential energy = {ctx.coulomb_potential_energy_j:.4f} J")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -554,6 +570,18 @@ def _experiment_prefill(attempt):
         parts.append(f"Why I think it happened: {ctx.explanation}")
     parts.append("Can you help me understand this?")
     return "\n".join(parts)
+
+
+def _coulomb_interaction_label(force_n, is_attractive) -> str:
+    """"attractive"/"repulsive" describe a nonzero force; a charge of exactly
+    zero produces exactly zero force, which is neither -- calling it
+    "repulsive" (the bare boolean's False case) would be factually wrong,
+    not just imprecise, so this is special-cased everywhere the label is
+    shown to a student."""
+
+    if force_n == 0:
+        return "no force"
+    return "attractive" if is_attractive else "repulsive"
 
 
 def _observation_message(simulation_type, validated):
@@ -601,6 +629,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed total current: "
             f"{validated.total_current_a:.2f} A (total power "
             f"{validated.total_power_w:.2f} W)."
+        )
+    if simulation_type == "coulombs_law":
+        interaction = _coulomb_interaction_label(validated.force_n, validated.is_attractive)
+        return (
+            "Observation saved. Server-computed force: "
+            f"{validated.force_n:.4f} N ({interaction})."
         )
     return (
         "Observation saved. Server-computed acceleration: "

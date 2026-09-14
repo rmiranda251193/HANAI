@@ -125,6 +125,20 @@ PHYSICS_SIMULATIONS = [
             "transients -- the circuit reaches its steady state instantly."
         ),
     },
+    {
+        "slug": "coulombs-law",
+        "title": "Coulomb's Law Lab",
+        "concept_name": "Electric charge and Coulomb's law",
+        "simulation_type": PhysicsSimulation.SimulationType.COULOMBS_LAW,
+        "description": (
+            "Set two point charges and the distance between them and watch "
+            "the force between them follow F = k|q1 q2| / r^2 -- the same "
+            "inverse-square shape as gravity, except this force can be "
+            "either attractive (opposite signs) or repulsive (same sign). "
+            "Idealized model: two point charges with no size, in a vacuum, "
+            "with no other charges nearby."
+        ),
+    },
 ]
 
 

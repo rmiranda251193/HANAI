@@ -99,6 +99,9 @@ from apps.physics.simulations_circuits import (
 )
 from apps.physics.simulations_circuits import circuit_state
 from apps.physics.simulations_circuits import clamp_resistance, clamp_series, clamp_voltage
+from apps.physics.simulations_coulombs_law import MAX_SEPARATION_M as COULOMB_MAX_SEPARATION_M
+from apps.physics.simulations_coulombs_law import coulombs_law_state
+from apps.physics.simulations_coulombs_law import clamp_charge, clamp_separation
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -143,6 +146,9 @@ ORBITAL_TIME_HARD_MAX_S = ORBITAL_MAX_TIME_S * 5
 
 CIRCUIT_VOLTAGE_HARD_MAX_V = CIRCUIT_MAX_VOLTAGE_V * 5
 CIRCUIT_RESISTANCE_HARD_MAX_OHM = CIRCUIT_MAX_RESISTANCE_OHM * 5
+
+COULOMB_CHARGE_HARD_MAX_UC = 40.0  # 5x the UI bound magnitude (+-8 uC)
+COULOMB_SEPARATION_HARD_MAX_M = COULOMB_MAX_SEPARATION_M * 5
 
 TEXT_LIMIT = 2000
 
@@ -769,6 +775,70 @@ def validate_circuit(voltage_v, resistance1_ohm, resistance2_ohm, series) -> Val
     )
 
 
+@dataclass(frozen=True)
+class ValidatedCoulomb:
+    """Server-recomputed, deterministic Coulomb's Law values (SI-shaped units)."""
+
+    charge1_uc: float
+    charge2_uc: float
+    separation_m: float
+    force_n: float
+    is_attractive: bool
+    potential_energy_j: float
+    field_1_at_2_n_per_c: float
+    field_2_at_1_n_per_c: float
+
+    def as_dict(self) -> dict:
+        return {
+            "charge1_uc": self.charge1_uc,
+            "charge2_uc": self.charge2_uc,
+            "separation_m": self.separation_m,
+            "force_n": self.force_n,
+            "is_attractive": self.is_attractive,
+            "potential_energy_j": self.potential_energy_j,
+            "field_1_at_2_n_per_c": self.field_1_at_2_n_per_c,
+            "field_2_at_1_n_per_c": self.field_2_at_1_n_per_c,
+        }
+
+
+def validate_coulombs_law(charge1_uc, charge2_uc, separation_m) -> ValidatedCoulomb:
+    """Recompute the force/energy/field between two point charges on the
+    server. Reject nonsense; clamp to lab bounds. Unlike every other
+    ``validate_*`` function here, the charge inputs are NOT rejected for
+    being zero or negative -- see the module docstring in
+    ``simulations_coulombs_law.py`` for why that's physically correct."""
+
+    try:
+        q1_raw = float(charge1_uc)
+        q2_raw = float(charge2_uc)
+        r_raw = float(separation_m)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Charge and separation must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (q1_raw, q2_raw, r_raw)):
+        raise ExperimentValidationError("Charge and separation must be finite numbers.")
+    if r_raw <= 0:
+        raise ExperimentValidationError("Separation must be positive.")
+    if (
+        abs(q1_raw) > COULOMB_CHARGE_HARD_MAX_UC
+        or abs(q2_raw) > COULOMB_CHARGE_HARD_MAX_UC
+        or r_raw > COULOMB_SEPARATION_HARD_MAX_M
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = coulombs_law_state(charge1=q1_raw, charge2=q2_raw, separation=r_raw)
+    return ValidatedCoulomb(
+        charge1_uc=clamp_charge(q1_raw),
+        charge2_uc=clamp_charge(q2_raw),
+        separation_m=clamp_separation(r_raw),
+        force_n=state["force_n"],
+        is_attractive=state["is_attractive"],
+        potential_energy_j=state["potential_energy_j"],
+        field_1_at_2_n_per_c=state["field_1_at_2_n_per_c"],
+        field_2_at_1_n_per_c=state["field_2_at_1_n_per_c"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -854,6 +924,14 @@ def _validate_circuit(values: dict) -> ValidatedCircuit:
     )
 
 
+def _validate_coulombs_law(values: dict) -> ValidatedCoulomb:
+    return validate_coulombs_law(
+        values.get("charge1_uc"),
+        values.get("charge2_uc"),
+        values.get("separation_m"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -864,6 +942,7 @@ _VALIDATORS = {
     "energy_incline": _validate_energy_incline,
     "orbital_motion": _validate_orbital_motion,
     "series_parallel_circuit": _validate_circuit,
+    "coulombs_law": _validate_coulombs_law,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -879,6 +958,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "energy_incline": ("height_m", "angle_deg", "mass_kg", "time_s"),
     "orbital_motion": ("mu", "radius_m", "time_s"),
     "series_parallel_circuit": ("voltage_v", "resistance1_ohm", "resistance2_ohm", "series"),
+    "coulombs_law": ("charge1_uc", "charge2_uc", "separation_m"),
 }
 
 
@@ -942,6 +1022,16 @@ def _apply_fields_circuit(attempt, validated: ValidatedCircuit) -> None:
     pass
 
 
+def _apply_fields_coulombs_law(attempt, validated: ValidatedCoulomb) -> None:
+    # force_n could in principle fit attempt.force_n, but that column means
+    # "net force on this attempt's object" everywhere else it's used (Newton's
+    # Second Law), and there is no single "object" here -- it's the mutual
+    # force between two charges, with a sign-derived attract/repel meaning
+    # that force_n's bare magnitude would lose. Keeping it in
+    # attempt.parameters only avoids that false-equivalence risk.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -952,6 +1042,7 @@ _FIELD_APPLIERS = {
     "energy_incline": _apply_fields_energy_incline,
     "orbital_motion": _apply_fields_orbital_motion,
     "series_parallel_circuit": _apply_fields_circuit,
+    "coulombs_law": _apply_fields_coulombs_law,
 }
 
 
@@ -1086,6 +1177,21 @@ def _apply_parameters_circuit(attempt, simulation, validated: ValidatedCircuit) 
     }
 
 
+def _apply_parameters_coulombs_law(attempt, simulation, validated: ValidatedCoulomb) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "charge1_uc": validated.charge1_uc,
+        "charge2_uc": validated.charge2_uc,
+        "separation_m": validated.separation_m,
+        "observed_force_n": validated.force_n,
+        "observed_is_attractive": validated.is_attractive,
+        "observed_potential_energy_j": validated.potential_energy_j,
+        "observed_field_1_at_2_n_per_c": validated.field_1_at_2_n_per_c,
+        "observed_field_2_at_1_n_per_c": validated.field_2_at_1_n_per_c,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1096,6 +1202,7 @@ _PARAMETER_APPLIERS = {
     "energy_incline": _apply_parameters_energy_incline,
     "orbital_motion": _apply_parameters_orbital_motion,
     "series_parallel_circuit": _apply_parameters_circuit,
+    "coulombs_law": _apply_parameters_coulombs_law,
 }
 
 
@@ -1258,6 +1365,16 @@ def _base_context(attempt, simulation) -> dict:
             "observed_current_1_a", "observed_current_2_a",
             "observed_voltage_1_v", "observed_voltage_2_v",
             "observed_total_power_w",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "coulombs_law":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("charge1_uc", "charge2_uc", "separation_m"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_force_n", "observed_is_attractive", "observed_potential_energy_j",
         ):
             if key in params:
                 context[key] = params[key]
