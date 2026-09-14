@@ -212,6 +212,21 @@ PHYSICS_SIMULATIONS = [
             "instantly to a new equilibrium state."
         ),
     },
+    {
+        "slug": "doppler-effect",
+        "title": "The Doppler Effect Lab",
+        "concept_name": "The Doppler effect",
+        "simulation_type": PhysicsSimulation.SimulationType.DOPPLER_EFFECT,
+        "description": (
+            "Set a source's frequency and let it (and the observer) move "
+            "toward or away along the line between them, and watch the "
+            "observed frequency shift higher when approaching and lower "
+            "when receding, through f_observed = f_source (v_sound + "
+            "v_observer) / (v_sound - v_source). Idealized model: motion "
+            "stays well below the speed of sound, and both source and "
+            "observer move along a single straight line."
+        ),
+    },
 ]
 
 

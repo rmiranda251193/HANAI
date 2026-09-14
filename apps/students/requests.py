@@ -103,8 +103,10 @@ class ExperimentContext:
     "mass of object 1/2" meaning in both). ``moles``/``temperature_k``/
     ``pressure_pa`` are Ideal-Gas-Law-specific (which reuses
     ``volume_m3`` from Buoyancy -- the same plain "volume" meaning in
-    both). A given experiment only ever populates the fields for its own
-    simulation type -- the rest stay ``None``.
+    both). ``source_freq_hz``/``source_velocity_m_s``/
+    ``observer_velocity_m_s``/``observed_freq_hz`` are Doppler-Effect-
+    specific. A given experiment only ever populates the fields for its
+    own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -188,6 +190,10 @@ class ExperimentContext:
     moles: float | None = None
     temperature_k: float | None = None
     pressure_pa: float | None = None
+    source_freq_hz: float | None = None
+    source_velocity_m_s: float | None = None
+    observer_velocity_m_s: float | None = None
+    observed_freq_hz: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -234,6 +240,7 @@ class ExperimentContext:
                 self.n1 is not None,
                 self.equilibrium_temp_c is not None,
                 self.moles is not None,
+                self.source_freq_hz is not None,
             ]
         )
 
@@ -411,6 +418,14 @@ class ExperimentContext:
                 temperature_k=params.get("temperature_k"),
                 volume_m3=params.get("volume_m3"),
                 pressure_pa=params.get("observed_pressure_pa"),
+            )
+        elif simulation_type == "doppler_effect":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                source_freq_hz=params.get("source_freq_hz"),
+                source_velocity_m_s=params.get("source_velocity_m_s"),
+                observer_velocity_m_s=params.get("observer_velocity_m_s"),
+                observed_freq_hz=params.get("observed_freq_hz"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

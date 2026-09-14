@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: motion stays well below the speed of sound, and both source and observer move along a single straight line.
+    Values are computed from <code>f<sub>observed</sub> = f<sub>source</sub> (v<sub>sound</sub> + v<sub>observer</sub>) / (v<sub>sound</sub> &minus; v<sub>source</sub>)</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-source-freq="{{ defaults.source_freq_hz }}"
+       data-source-velocity="{{ defaults.source_velocity_m_s }}"
+       data-observer-velocity="{{ defaults.observer_velocity_m_s }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the observed frequency if the source moves away from the observer instead of toward it, at the same speed? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. The pitch will drop instead of rise, since the sound waves get stretched out behind the source.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 160" role="img"
+               data-lab-scene aria-label="Sound wavefronts compressed ahead of a moving source and spread out behind it.">
+            <desc data-scene-desc>Sound wavefronts, compressed ahead of the source when it approaches, spread out behind it.</desc>
+            <g data-wavefronts></g>
+            <circle cx="200" cy="80" r="8" class="lab-cart-body" />
+            <text x="182" y="140" class="lab-axis-label">behind</text>
+            <text x="330" y="140" class="lab-axis-label">ahead</text>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of observed frequency against source velocity.">
+            <desc data-graph-desc>A graph of the observed frequency against the source's velocity, at the current source frequency and observer velocity.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">f</text>
+            <text x="332" y="184" class="lab-axis-label">v</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="-10" cy="-10" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">Observed frequency versus source velocity. Approaching (positive) raises the pitch; receding (negative) lowers it.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Source frequency</span>
+                <span class="lab-value-number"><span data-value-source-freq>{{ defaults.source_freq_hz }}</span> Hz</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Source velocity</span>
+                <span class="lab-value-number"><span data-value-source-velocity>{{ defaults.source_velocity_m_s }}</span> m/s</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Observer velocity</span>
+                <span class="lab-value-number"><span data-value-observer-velocity>{{ defaults.observer_velocity_m_s }}</span> m/s</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">f<sub>observed</sub> = f<sub>source</sub> (v<sub>sound</sub> + v<sub>observer</sub>) / (v<sub>sound</sub> &minus; v<sub>source</sub>)</p>
+              <p class="lab-eq-worked">f<sub>observed</sub> = <span data-eq-observed>0.0</span> Hz</p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Observed frequency</dt><dd><span data-value-observed-freq>0.0</span> Hz</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-source-freq">Source frequency (Hz)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-source-freq" data-input-source-freq
+                     min="{{ bounds.source_freq_hz.min }}" max="{{ bounds.source_freq_hz.max }}" step="10"
+                     value="{{ defaults.source_freq_hz }}" aria-describedby="lab-source-freq-out">
+              <output id="lab-source-freq-out" for="lab-source-freq" data-out-source-freq>{{ defaults.source_freq_hz }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-source-velocity">Source velocity (m/s, + = approaching)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-source-velocity" data-input-source-velocity
+                     min="{{ bounds.source_velocity_m_s.min }}" max="{{ bounds.source_velocity_m_s.max }}" step="1"
+                     value="{{ defaults.source_velocity_m_s }}" aria-describedby="lab-source-velocity-out">
+              <output id="lab-source-velocity-out" for="lab-source-velocity" data-out-source-velocity>{{ defaults.source_velocity_m_s }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-observer-velocity">Observer velocity (m/s, + = approaching)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-observer-velocity" data-input-observer-velocity
+                     min="{{ bounds.observer_velocity_m_s.min }}" max="{{ bounds.observer_velocity_m_s.max }}" step="1"
+                     value="{{ defaults.observer_velocity_m_s }}" aria-describedby="lab-observer-velocity-out">
+              <output id="lab-observer-velocity-out" for="lab-observer-velocity" data-out-observer-velocity>{{ defaults.observer_velocity_m_s }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the observed frequency you saw.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="source_freq_hz" data-field="sourceFreqHz" value="{{ defaults.source_freq_hz }}">
+        <input type="hidden" name="source_velocity_m_s" data-field="sourceVelocityMS" value="{{ defaults.source_velocity_m_s }}">
+        <input type="hidden" name="observer_velocity_m_s" data-field="observerVelocityMS" value="{{ defaults.observer_velocity_m_s }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. The pitch was higher than the source's actual frequency while it approached.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_freq_hz is not None %}Last saved: server-computed observed frequency ({{ experiment_attempt.parameters.observed_freq_hz|floatformat:1 }} Hz).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="source_freq_hz" data-field="sourceFreqHz" value="{{ defaults.source_freq_hz }}">
+        <input type="hidden" name="source_velocity_m_s" data-field="sourceVelocityMS" value="{{ defaults.source_velocity_m_s }}">
+        <input type="hidden" name="observer_velocity_m_s" data-field="observerVelocityMS" value="{{ defaults.observer_velocity_m_s }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. The source's own actual frequency never changes -- only the spacing of the wavefronts reaching the observer changes.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>f<sub>observed</sub> = f<sub>source</sub> (v<sub>sound</sub> + v<sub>observer</sub>) / (v<sub>sound</sub> &minus; v<sub>source</sub>)</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/doppler-effect.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

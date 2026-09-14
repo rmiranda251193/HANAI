@@ -212,6 +212,9 @@ _FIELD_LABELS = {
     "temp2_c": "temperature 2",
     "moles": "amount of gas",
     "temperature_k": "temperature",
+    "source_freq_hz": "source frequency",
+    "source_velocity_m_s": "source velocity",
+    "observer_velocity_m_s": "observer velocity",
 }
 
 
@@ -613,6 +616,15 @@ def _experiment_prefill(attempt):
             parts.append(f"volume = {ctx.volume_m3:.4f} m^3")
         if ctx.pressure_pa is not None:
             parts.append(f"pressure = {ctx.pressure_pa:.1f} Pa (computed by the app)")
+    elif ctx.simulation_type == "doppler_effect":
+        if ctx.source_freq_hz is not None:
+            parts.append(f"source frequency = {ctx.source_freq_hz:.0f} Hz")
+        if ctx.source_velocity_m_s is not None:
+            parts.append(f"source velocity (positive = approaching) = {ctx.source_velocity_m_s:.1f} m/s")
+        if ctx.observer_velocity_m_s is not None:
+            parts.append(f"observer velocity (positive = approaching) = {ctx.observer_velocity_m_s:.1f} m/s")
+        if ctx.observed_freq_hz is not None:
+            parts.append(f"observed frequency = {ctx.observed_freq_hz:.1f} Hz (computed by the app)")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -741,6 +753,12 @@ def _observation_message(simulation_type, validated):
         return (
             "Observation saved. Server-computed pressure: "
             f"{validated.pressure_pa:.1f} Pa."
+        )
+    if simulation_type == "doppler_effect":
+        return (
+            "Observation saved. Server-computed observed frequency: "
+            f"{validated.observed_freq_hz:.1f} Hz (source frequency was "
+            f"{validated.source_freq_hz:.0f} Hz)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

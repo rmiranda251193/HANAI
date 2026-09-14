@@ -142,6 +142,7 @@ class PhysicsSimulation(models.Model):
         REFRACTION = "refraction", "Refraction"
         CALORIMETRY = "calorimetry", "Calorimetry"
         IDEAL_GAS_LAW = "ideal_gas_law", "The Ideal Gas Law"
+        DOPPLER_EFFECT = "doppler_effect", "The Doppler Effect"
 
     concept = models.ForeignKey(
         PhysicsConcept,

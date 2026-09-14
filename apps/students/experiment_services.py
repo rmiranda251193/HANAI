@@ -131,6 +131,11 @@ from apps.physics.simulations_ideal_gas_law import MAX_VOLUME_M3 as GAS_MAX_VOLU
 from apps.physics.simulations_ideal_gas_law import clamp_moles, clamp_temperature
 from apps.physics.simulations_ideal_gas_law import clamp_volume as clamp_gas_volume
 from apps.physics.simulations_ideal_gas_law import ideal_gas_law_state
+from apps.physics.simulations_doppler_effect import MAX_FREQ_HZ as DOPPLER_MAX_FREQ_HZ
+from apps.physics.simulations_doppler_effect import MAX_VELOCITY_M_S as DOPPLER_MAX_VELOCITY_M_S
+from apps.physics.simulations_doppler_effect import clamp_freq as clamp_doppler_freq
+from apps.physics.simulations_doppler_effect import clamp_velocity as clamp_doppler_velocity
+from apps.physics.simulations_doppler_effect import doppler_effect_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -196,6 +201,9 @@ CALORIMETRY_TEMP_HARD_MAX_C = 1000.0  # generous vs the -20..300 UI range
 GAS_MOLES_HARD_MAX = GAS_MAX_MOLES * 5
 GAS_TEMPERATURE_HARD_MAX_K = GAS_MAX_TEMPERATURE_K * 5
 GAS_VOLUME_HARD_MAX_M3 = GAS_MAX_VOLUME_M3 * 5
+
+DOPPLER_FREQ_HARD_MAX_HZ = DOPPLER_MAX_FREQ_HZ * 5
+DOPPLER_VELOCITY_HARD_MAX_M_S = DOPPLER_MAX_VELOCITY_M_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -1216,6 +1224,64 @@ def validate_ideal_gas_law(moles, temperature_k, volume_m3) -> ValidatedIdealGas
     )
 
 
+@dataclass(frozen=True)
+class ValidatedDoppler:
+    """Server-recomputed, deterministic Doppler Effect values."""
+
+    source_freq_hz: float
+    source_velocity_m_s: float
+    observer_velocity_m_s: float
+    observed_freq_hz: float
+    wavelength_ahead_m: float
+    wavelength_behind_m: float
+
+    def as_dict(self) -> dict:
+        return {
+            "source_freq_hz": self.source_freq_hz,
+            "source_velocity_m_s": self.source_velocity_m_s,
+            "observer_velocity_m_s": self.observer_velocity_m_s,
+            "observed_freq_hz": self.observed_freq_hz,
+            "wavelength_ahead_m": self.wavelength_ahead_m,
+            "wavelength_behind_m": self.wavelength_behind_m,
+        }
+
+
+def validate_doppler_effect(source_freq_hz, source_velocity_m_s, observer_velocity_m_s) -> ValidatedDoppler:
+    """Recompute the observed frequency on the server. Reject nonsense;
+    clamp to lab bounds. There is no time input here -- see the module
+    docstring in ``simulations_doppler_effect.py`` for why."""
+
+    try:
+        freq_raw = float(source_freq_hz)
+        vs_raw = float(source_velocity_m_s)
+        vo_raw = float(observer_velocity_m_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Frequency and velocity must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (freq_raw, vs_raw, vo_raw)):
+        raise ExperimentValidationError("Frequency and velocity must be finite numbers.")
+    if freq_raw <= 0:
+        raise ExperimentValidationError("Source frequency must be positive.")
+    if (
+        freq_raw > DOPPLER_FREQ_HARD_MAX_HZ
+        or abs(vs_raw) > DOPPLER_VELOCITY_HARD_MAX_M_S
+        or abs(vo_raw) > DOPPLER_VELOCITY_HARD_MAX_M_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = doppler_effect_state(
+        source_freq=freq_raw, source_velocity=vs_raw, observer_velocity=vo_raw
+    )
+    return ValidatedDoppler(
+        source_freq_hz=clamp_doppler_freq(freq_raw),
+        source_velocity_m_s=clamp_doppler_velocity(vs_raw),
+        observer_velocity_m_s=clamp_doppler_velocity(vo_raw),
+        observed_freq_hz=state["observed_freq_hz"],
+        wavelength_ahead_m=state["wavelength_ahead_m"],
+        wavelength_behind_m=state["wavelength_behind_m"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1352,6 +1418,14 @@ def _validate_ideal_gas_law(values: dict) -> ValidatedIdealGasLaw:
     )
 
 
+def _validate_doppler_effect(values: dict) -> ValidatedDoppler:
+    return validate_doppler_effect(
+        values.get("source_freq_hz"),
+        values.get("source_velocity_m_s"),
+        values.get("observer_velocity_m_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1368,6 +1442,7 @@ _VALIDATORS = {
     "refraction": _validate_refraction,
     "calorimetry": _validate_calorimetry,
     "ideal_gas_law": _validate_ideal_gas_law,
+    "doppler_effect": _validate_doppler_effect,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1392,6 +1467,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
         "mass2_kg", "specific_heat2", "temp2_c",
     ),
     "ideal_gas_law": ("moles", "temperature_k", "volume_m3"),
+    "doppler_effect": ("source_freq_hz", "source_velocity_m_s", "observer_velocity_m_s"),
 }
 
 
@@ -1503,6 +1579,13 @@ def _apply_fields_ideal_gas_law(attempt, validated: ValidatedIdealGasLaw) -> Non
     pass
 
 
+def _apply_fields_doppler_effect(attempt, validated: ValidatedDoppler) -> None:
+    # No ExperimentAttempt column fits an observed frequency -- everything
+    # lives in attempt.parameters, like Coulomb's Law's and Collision's
+    # non-fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1519,6 +1602,7 @@ _FIELD_APPLIERS = {
     "refraction": _apply_fields_refraction,
     "calorimetry": _apply_fields_calorimetry,
     "ideal_gas_law": _apply_fields_ideal_gas_law,
+    "doppler_effect": _apply_fields_doppler_effect,
 }
 
 
@@ -1739,6 +1823,19 @@ def _apply_parameters_ideal_gas_law(attempt, simulation, validated: ValidatedIde
     }
 
 
+def _apply_parameters_doppler_effect(attempt, simulation, validated: ValidatedDoppler) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "source_freq_hz": validated.source_freq_hz,
+        "source_velocity_m_s": validated.source_velocity_m_s,
+        "observer_velocity_m_s": validated.observer_velocity_m_s,
+        "observed_freq_hz": validated.observed_freq_hz,
+        "observed_wavelength_ahead_m": validated.wavelength_ahead_m,
+        "observed_wavelength_behind_m": validated.wavelength_behind_m,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1755,6 +1852,7 @@ _PARAMETER_APPLIERS = {
     "refraction": _apply_parameters_refraction,
     "calorimetry": _apply_parameters_calorimetry,
     "ideal_gas_law": _apply_parameters_ideal_gas_law,
+    "doppler_effect": _apply_parameters_doppler_effect,
 }
 
 
@@ -1983,6 +2081,13 @@ def _base_context(attempt, simulation) -> dict:
                 context[key] = params[key]
         if "observed_pressure_pa" in params:
             context["pressure_pa"] = params["observed_pressure_pa"]
+    elif simulation.simulation_type == "doppler_effect":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("source_freq_hz", "source_velocity_m_s", "observer_velocity_m_s"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_freq_hz" in params:
+            context["observed_freq_hz"] = params["observed_freq_hz"]
     return context
 
 

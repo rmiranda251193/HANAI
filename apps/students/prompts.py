@@ -429,6 +429,20 @@ Output contract:
                     "- pressure (deterministic, P = nRT/V, computed by the app): "
                     f"{experiment.pressure_pa:.1f} Pa"
                 )
+        elif experiment.simulation_type == "doppler_effect":
+            if experiment.source_freq_hz is not None:
+                exp_lines.append(
+                    f"- setup: source frequency = {experiment.source_freq_hz:.0f} Hz, "
+                    f"source velocity = {experiment.source_velocity_m_s:.1f} m/s, "
+                    f"observer velocity = {experiment.observer_velocity_m_s:.1f} m/s "
+                    "(positive = approaching, negative = receding, for both)"
+                )
+            if experiment.observed_freq_hz is not None:
+                exp_lines.append(
+                    "- observed frequency (deterministic, f_observed = f_source * "
+                    "(v_sound + v_observer) / (v_sound - v_source), computed by the app): "
+                    f"{experiment.observed_freq_hz:.1f} Hz"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(
