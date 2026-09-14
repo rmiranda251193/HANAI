@@ -94,6 +94,22 @@ PHYSICS_SIMULATIONS = [
             "model: no friction or air resistance anywhere."
         ),
     },
+    {
+        "slug": "orbital-motion",
+        "title": "Orbital Motion Lab",
+        "concept_name": "Orbital motion and Kepler's laws",
+        "simulation_type": PhysicsSimulation.SimulationType.ORBITAL_MOTION,
+        "description": (
+            "Set a central body's gravitational parameter and an orbital "
+            "radius and watch a small body move at constant speed around a "
+            "stable circular orbit through v = sqrt(mu / r), while gravity "
+            "itself supplies the centripetal force (a_g = mu / r^2). Watch "
+            "the orbital period follow T = 2*pi*sqrt(r^3 / mu) -- Kepler's "
+            "third law. Idealized model: a perfectly circular orbit (real "
+            "orbits are generally elliptical) around a central body so much "
+            "more massive that its own motion is ignored."
+        ),
+    },
 ]
 
 

@@ -85,6 +85,14 @@ from apps.physics.simulations_energy_incline import clamp_height as clamp_energy
 from apps.physics.simulations_energy_incline import clamp_mass as clamp_energy_mass
 from apps.physics.simulations_energy_incline import clamp_time as clamp_energy_time
 from apps.physics.simulations_energy_incline import energy_incline_state
+from apps.physics.simulations_orbital_motion import (
+    MAX_MU as ORBITAL_MAX_MU,
+    MAX_RADIUS_M as ORBITAL_MAX_RADIUS_M,
+)
+from apps.physics.simulations_orbital_motion import MAX_TIME_S as ORBITAL_MAX_TIME_S
+from apps.physics.simulations_orbital_motion import clamp_mu, clamp_radius as clamp_orbital_radius
+from apps.physics.simulations_orbital_motion import clamp_time as clamp_orbital_time
+from apps.physics.simulations_orbital_motion import orbital_motion_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -122,6 +130,10 @@ ENERGY_HEIGHT_HARD_MAX_M = ENERGY_MAX_HEIGHT_M * 5
 ENERGY_ANGLE_HARD_MAX_DEG = 90.0
 ENERGY_MASS_HARD_MAX_KG = ENERGY_MAX_MASS_KG * 5
 ENERGY_TIME_HARD_MAX_S = ENERGY_MAX_TIME_S * 5
+
+ORBITAL_MU_HARD_MAX = ORBITAL_MAX_MU * 5
+ORBITAL_RADIUS_HARD_MAX_M = ORBITAL_MAX_RADIUS_M * 5
+ORBITAL_TIME_HARD_MAX_S = ORBITAL_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -593,6 +605,73 @@ def validate_energy_incline(height_m, angle_deg, mass_kg, time_s) -> ValidatedEn
     )
 
 
+@dataclass(frozen=True)
+class ValidatedOrbitalMotion:
+    """Server-recomputed, deterministic Orbital Motion values (SI-shaped units)."""
+
+    mu: float
+    radius_m: float
+    time_s: float
+    position_x_m: float
+    position_y_m: float
+    speed_m_s: float
+    period_s: float
+    gravitational_acceleration_m_s2: float
+
+    def as_dict(self) -> dict:
+        return {
+            "mu": self.mu,
+            "radius_m": self.radius_m,
+            "time_s": self.time_s,
+            "position_x_m": self.position_x_m,
+            "position_y_m": self.position_y_m,
+            "speed_m_s": self.speed_m_s,
+            "period_s": self.period_s,
+            "gravitational_acceleration_m_s2": self.gravitational_acceleration_m_s2,
+        }
+
+
+def validate_orbital_motion(mu, radius_m, time_s) -> ValidatedOrbitalMotion:
+    """Recompute the orbit's position/speed/period on the server. Reject
+    nonsense; clamp to lab bounds."""
+
+    try:
+        mu_raw = float(mu)
+        r_raw = float(radius_m)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Gravitational parameter, radius and time must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (mu_raw, r_raw, t_raw)):
+        raise ExperimentValidationError(
+            "Gravitational parameter, radius and time must be finite numbers."
+        )
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if mu_raw <= 0:
+        raise ExperimentValidationError("Gravitational parameter must be positive.")
+    if r_raw <= 0:
+        raise ExperimentValidationError("Orbital radius must be positive.")
+    if (
+        mu_raw > ORBITAL_MU_HARD_MAX
+        or r_raw > ORBITAL_RADIUS_HARD_MAX_M
+        or t_raw > ORBITAL_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = orbital_motion_state(mu=mu_raw, radius=r_raw, time=t_raw)
+    return ValidatedOrbitalMotion(
+        mu=clamp_mu(mu_raw),
+        radius_m=clamp_orbital_radius(r_raw),
+        time_s=clamp_orbital_time(t_raw),
+        position_x_m=state["position_x_m"],
+        position_y_m=state["position_y_m"],
+        speed_m_s=state["speed_m_s"],
+        period_s=state["period_s"],
+        gravitational_acceleration_m_s2=state["gravitational_acceleration_m_s2"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -661,6 +740,14 @@ def _validate_energy_incline(values: dict) -> ValidatedEnergyIncline:
     )
 
 
+def _validate_orbital_motion(values: dict) -> ValidatedOrbitalMotion:
+    return validate_orbital_motion(
+        values.get("mu"),
+        values.get("radius_m"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -669,6 +756,7 @@ _VALIDATORS = {
     "simple_harmonic_motion": _validate_shm,
     "momentum_collision": _validate_collision,
     "energy_incline": _validate_energy_incline,
+    "orbital_motion": _validate_orbital_motion,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -682,6 +770,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "simple_harmonic_motion": ("amplitude_m", "period_s", "time_s"),
     "momentum_collision": ("mass1_kg", "mass2_kg", "initial_velocity_m_s", "elastic", "time_s"),
     "energy_incline": ("height_m", "angle_deg", "mass_kg", "time_s"),
+    "orbital_motion": ("mu", "radius_m", "time_s"),
 }
 
 
@@ -728,6 +817,15 @@ def _apply_fields_energy_incline(attempt, validated: ValidatedEnergyIncline) -> 
     attempt.mass_kg = validated.mass_kg
 
 
+def _apply_fields_orbital_motion(attempt, validated: ValidatedOrbitalMotion) -> None:
+    # Gravitational acceleration IS a genuinely computed outcome here (the
+    # same v^2/r shape as Circular Motion's centripetal acceleration, with
+    # gravity supplying the centripetal force), so it fits the shared column
+    # exactly like Circular Motion's does. mu/radius/period don't fit any
+    # other column and live in attempt.parameters instead.
+    attempt.acceleration_m_s2 = validated.gravitational_acceleration_m_s2
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -736,6 +834,7 @@ _FIELD_APPLIERS = {
     "simple_harmonic_motion": _apply_fields_shm,
     "momentum_collision": _apply_fields_collision,
     "energy_incline": _apply_fields_energy_incline,
+    "orbital_motion": _apply_fields_orbital_motion,
 }
 
 
@@ -835,6 +934,21 @@ def _apply_parameters_energy_incline(attempt, simulation, validated: ValidatedEn
     }
 
 
+def _apply_parameters_orbital_motion(attempt, simulation, validated: ValidatedOrbitalMotion) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "mu": validated.mu,
+        "radius_m": validated.radius_m,
+        "observed_time_s": validated.time_s,
+        "observed_position_x_m": validated.position_x_m,
+        "observed_position_y_m": validated.position_y_m,
+        "observed_speed_m_s": validated.speed_m_s,
+        "observed_period_s": validated.period_s,
+        "observed_gravitational_acceleration_m_s2": validated.gravitational_acceleration_m_s2,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -843,6 +957,7 @@ _PARAMETER_APPLIERS = {
     "simple_harmonic_motion": _apply_parameters_shm,
     "momentum_collision": _apply_parameters_collision,
     "energy_incline": _apply_parameters_energy_incline,
+    "orbital_motion": _apply_parameters_orbital_motion,
 }
 
 
@@ -980,6 +1095,21 @@ def _base_context(attempt, simulation) -> dict:
         ):
             if key in params:
                 context[key] = params[key]
+    elif simulation.simulation_type == "orbital_motion":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("mu", "radius_m"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        if "observed_period_s" in params:
+            context["period_s"] = params["observed_period_s"]
+        if "observed_position_x_m" in params:
+            context["position_x_m"] = params["observed_position_x_m"]
+        if "observed_position_y_m" in params:
+            context["position_y_m"] = params["observed_position_y_m"]
+        if "observed_speed_m_s" in params:
+            context["speed_m_s"] = params["observed_speed_m_s"]
     return context
 
 

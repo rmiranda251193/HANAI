@@ -190,6 +190,7 @@ _FIELD_LABELS = {
     "elastic": "collision type",
     "height_m": "height",
     "angle_deg": "incline angle",
+    "mu": "gravitational parameter (mu)",
 }
 
 
@@ -490,6 +491,22 @@ def _experiment_prefill(attempt):
             )
         if ctx.total_energy_j is not None:
             parts.append(f"total mechanical energy = {ctx.total_energy_j:.2f} J (conserved, no friction)")
+    elif ctx.simulation_type == "orbital_motion":
+        if ctx.mu is not None:
+            parts.append(f"gravitational parameter (mu) = {ctx.mu:.1f} m^3/s^2")
+        if ctx.radius_m is not None:
+            parts.append(f"orbital radius = {ctx.radius_m:.1f} m")
+        if ctx.period_s is not None:
+            parts.append(f"orbital period = {ctx.period_s:.2f} s (computed by the app, T = 2*pi*sqrt(r^3/mu))")
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.velocity_m_s is not None:
+            parts.append(f"speed = {ctx.velocity_m_s:.2f} m/s")
+        if ctx.acceleration_m_s2 is not None:
+            parts.append(
+                f"gravitational acceleration = {ctx.acceleration_m_s2:.2f} m/s^2 "
+                "(a_g = mu / r^2, computed by the app)"
+            )
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -552,6 +569,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed speed: "
             f"{validated.speed_m_s:.2f} m/s (total mechanical energy "
             f"{validated.total_energy_j:.2f} J, conserved throughout)."
+        )
+    if simulation_type == "orbital_motion":
+        return (
+            "Observation saved. Server-computed speed: "
+            f"{validated.speed_m_s:.2f} m/s, orbital period: "
+            f"{validated.period_s:.2f} s (Kepler's third law)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

@@ -65,12 +65,15 @@ class ExperimentContext:
     for cart 1's starting speed); ``height_m``/``angle_deg``/``distance_m``/
     ``height_dropped_m``/``kinetic_energy_j``/``potential_energy_j``/
     ``total_energy_j`` are Energy-on-an-Incline-specific (which reuses
-    ``mass_kg`` and ``velocity_m_s`` for its own mass and speed). ``time_s``
-    and ``acceleration_m_s2`` are shared where they apply
-    (``acceleration_m_s2`` is Circular Motion's centripetal acceleration or
-    Simple Harmonic Motion's restoring acceleration). A given experiment
-    only ever populates the fields for its own simulation type -- the rest
-    stay ``None``.
+    ``mass_kg`` and ``velocity_m_s`` for its own mass and speed). ``mu`` is
+    Orbital-Motion-specific (which reuses ``radius_m``/``period_s``/
+    ``position_x_m``/``position_y_m``/``velocity_m_s`` from Circular Motion
+    for its own radius, period, position and speed). ``time_s`` and
+    ``acceleration_m_s2`` are shared where they apply (``acceleration_m_s2``
+    is Circular Motion's centripetal acceleration, Simple Harmonic Motion's
+    restoring acceleration, or Orbital Motion's gravitational/centripetal
+    acceleration). A given experiment only ever populates the fields for its
+    own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -108,6 +111,7 @@ class ExperimentContext:
     kinetic_energy_j: float | None = None
     potential_energy_j: float | None = None
     total_energy_j: float | None = None
+    mu: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -145,6 +149,7 @@ class ExperimentContext:
                 self.position_2_m is not None,
                 self.height_m is not None,
                 self.distance_m is not None,
+                self.mu is not None,
             ]
         )
 
@@ -232,6 +237,17 @@ class ExperimentContext:
                 kinetic_energy_j=params.get("observed_kinetic_energy_j"),
                 potential_energy_j=params.get("observed_potential_energy_j"),
                 total_energy_j=params.get("observed_total_energy_j"),
+            )
+        elif simulation_type == "orbital_motion":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                mu=params.get("mu"),
+                radius_m=params.get("radius_m"),
+                period_s=params.get("observed_period_s"),
+                time_s=params.get("observed_time_s"),
+                position_x_m=params.get("observed_position_x_m"),
+                position_y_m=params.get("observed_position_y_m"),
+                velocity_m_s=params.get("observed_speed_m_s"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

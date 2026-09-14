@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: a perfectly circular orbit (real orbits are generally elliptical) around a central body so much more massive that its own motion is ignored -- there is no drag.
+    Values are computed from <code>v = &radic;(&mu; / r)</code> and <code>T = 2&pi;&radic;(r&sup3; / &mu;)</code> (Kepler&rsquo;s third law)
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-mu="{{ defaults.mu }}"
+       data-radius="{{ defaults.radius_m }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the orbital period if you increase the orbital radius while keeping the central body&rsquo;s gravitational parameter (mu) the same? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. A bigger orbit at the same mu will take longer to complete.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 280" role="img"
+               data-lab-scene aria-label="A small body moving around a stable circular orbit.">
+            <desc data-scene-desc>A small body moves at a constant speed around a stable circular orbit.</desc>
+            <circle cx="200" cy="140" r="4" class="lab-cart-body" aria-hidden="true" />
+            <circle cx="200" cy="140" r="108" class="lab-track" data-orbit-circle fill="none" />
+            <line x1="200" y1="140" x2="308" y2="140" class="lab-track" data-radius-line />
+            <g data-cart transform="translate(308,140)">
+              <circle cx="0" cy="0" r="9" class="lab-cart-body" />
+            </g>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of y-position against time.">
+            <desc>A graph of y-position against time.</desc>
+            <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
+            <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
+            <text x="10" y="14" class="lab-axis-label">y</text>
+            <text x="332" y="176" class="lab-axis-label">t</text>
+            <polyline points="" class="lab-trace" data-lab-trace />
+          </svg>
+          <p class="lab-graph-caption">y-position vs time. This traces out a sine wave -- an orbit viewed from the side looks like an oscillation, exactly like Circular Motion.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Gravitational parameter (&mu;)</span>
+                <span class="lab-value-number"><span data-value-mu>{{ defaults.mu }}</span> m&sup3;/s&sup2;</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Orbital radius</span>
+                <span class="lab-value-number"><span data-value-radius>{{ defaults.radius_m }}</span> m</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">v = &radic;(&mu; / r) &nbsp; T = 2&pi;&radic;(r&sup3; / &mu;) &nbsp; a<sub>g</sub> = &mu; / r&sup2;</p>
+              <p class="lab-eq-worked">
+                v = <span data-eq-speed>0.00</span> m/s &nbsp; T = <span data-eq-period>0.00</span> s &nbsp; a<sub>g</sub> = <span data-eq-accel>0.00</span> m/s&sup2;
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Orbital period (derived)</dt><dd><span data-value-period>0.00</span> s</dd></div>
+              <div><dt>Time</dt><dd><span data-value-time>0.00</span> s</dd></div>
+              <div><dt>x-position</dt><dd><span data-value-x>0.00</span> m</dd></div>
+              <div><dt>y-position</dt><dd><span data-value-y>0.00</span> m</dd></div>
+              <div><dt>Speed</dt><dd><span data-value-speed>0.00</span> m/s</dd></div>
+              <div><dt>Gravitational accel.</dt><dd><span data-value-accel>0.00</span> m/s&sup2;</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-mu">Gravitational parameter, &mu; (m&sup3;/s&sup2;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-mu" data-input-mu
+                     min="{{ bounds.mu.min }}" max="{{ bounds.mu.max }}" step="10"
+                     value="{{ defaults.mu }}" aria-describedby="lab-mu-out">
+              <output id="lab-mu-out" for="lab-mu" data-out-mu>{{ defaults.mu }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-radius">Orbital radius (m)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-radius" data-input-radius
+                     min="{{ bounds.radius_m.min }}" max="{{ bounds.radius_m.max }}" step="0.5"
+                     value="{{ defaults.radius_m }}" aria-describedby="lab-radius-out">
+              <output id="lab-radius-out" for="lab-radius" data-out-radius>{{ defaults.radius_m }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-time">Time (s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-time" data-input-time
+                     min="0" max="{{ bounds.time_s.max }}" step="0.1"
+                     value="0" aria-describedby="lab-time-out">
+              <output id="lab-time-out" for="lab-time" data-out-time>0.0</output>
+            </div>
+          </div>
+          <p class="lab-control-note">The orbital period is not a control here &mdash; it is entirely determined by &mu; and the radius above (Kepler&rsquo;s third law).</p>
+          <div class="lab-buttons">
+            <button type="button" class="button button-primary" data-action-start>Start</button>
+            <button type="button" class="button button-secondary" data-action-pause>Pause</button>
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+            <button type="button" class="button button-secondary" data-action-step>Step</button>
+          </div>
+          <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating.</p>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the speed and orbital period you saw at the time you stopped at.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="mu" data-field="mu" value="{{ defaults.mu }}">
+        <input type="hidden" name="radius_m" data-field="radiusM" value="{{ defaults.radius_m }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. The body kept a constant speed, and the orbit repeated every few seconds.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_speed_m_s is not None %}Last saved: server-computed speed ({{ experiment_attempt.parameters.observed_speed_m_s|floatformat:2 }} m/s), orbital period ({{ experiment_attempt.parameters.observed_period_s|floatformat:2 }} s).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="mu" data-field="mu" value="{{ defaults.mu }}">
+        <input type="hidden" name="radius_m" data-field="radiusM" value="{{ defaults.radius_m }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Gravity always pulls the body toward the center, which is exactly the centripetal force a circular orbit needs -- that is why the period depends only on mu and the radius.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationships it shows are <strong>v = &radic;(&mu; / r)</strong> and <strong>T = 2&pi;&radic;(r&sup3; / &mu;)</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/orbital-motion.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

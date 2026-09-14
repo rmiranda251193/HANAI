@@ -250,6 +250,29 @@ Output contract:
                     "- total mechanical energy (always conserved here, no "
                     f"friction): {experiment.total_energy_j:.2f} J"
                 )
+        elif experiment.simulation_type == "orbital_motion":
+            if experiment.mu is not None and experiment.radius_m is not None:
+                exp_lines.append(
+                    f"- setup: gravitational parameter (mu) = {experiment.mu:.2f} m^3/s^2, "
+                    f"orbital radius = {experiment.radius_m:.2f} m"
+                )
+            if experiment.period_s is not None:
+                exp_lines.append(
+                    "- orbital period (deterministic, Kepler's third law "
+                    f"T = 2*pi*sqrt(r^3/mu), computed by the app): "
+                    f"{experiment.period_s:.2f} s"
+                )
+            if experiment.time_s is not None and experiment.velocity_m_s is not None:
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    "v = sqrt(mu/r), computed by the app): speed = "
+                    f"{experiment.velocity_m_s:.2f} m/s"
+                )
+            if experiment.acceleration_m_s2 is not None:
+                exp_lines.append(
+                    "- gravitational acceleration (deterministic a_g = mu / r^2, "
+                    f"computed by the app): {experiment.acceleration_m_s2:.2f} m/s^2"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(
