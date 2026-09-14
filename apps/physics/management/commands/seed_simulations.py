@@ -81,6 +81,19 @@ PHYSICS_SIMULATIONS = [
             "Idealized model: no friction or air resistance."
         ),
     },
+    {
+        "slug": "energy-incline",
+        "title": "Energy on an Incline Lab",
+        "concept_name": "Conservation of mechanical energy",
+        "simulation_type": PhysicsSimulation.SimulationType.ENERGY_INCLINE,
+        "description": (
+            "A block starts from rest at a chosen height on a frictionless "
+            "ramp and slides down, then continues across frictionless flat "
+            "ground. Watch kinetic and potential energy trade off while "
+            "their total, KE + PE = mgh, stays exactly constant. Idealized "
+            "model: no friction or air resistance anywhere."
+        ),
+    },
 ]
 
 

@@ -188,6 +188,8 @@ _FIELD_LABELS = {
     "mass1_kg": "mass 1",
     "mass2_kg": "mass 2",
     "elastic": "collision type",
+    "height_m": "height",
+    "angle_deg": "incline angle",
 }
 
 
@@ -472,6 +474,22 @@ def _experiment_prefill(attempt):
             parts.append(f"total momentum = {ctx.momentum_total_kg_m_s:.2f} kg m/s")
         if ctx.kinetic_energy_total_j is not None:
             parts.append(f"total kinetic energy = {ctx.kinetic_energy_total_j:.2f} J")
+    elif ctx.simulation_type == "energy_incline":
+        if ctx.height_m is not None and ctx.angle_deg is not None:
+            parts.append(f"starting height = {ctx.height_m:.1f} m, incline angle = {ctx.angle_deg:.0f} degrees")
+        if ctx.mass_kg is not None:
+            parts.append(f"mass = {ctx.mass_kg:.1f} kg")
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.velocity_m_s is not None:
+            parts.append(f"speed = {ctx.velocity_m_s:.2f} m/s (computed by the app)")
+        if ctx.kinetic_energy_j is not None and ctx.potential_energy_j is not None:
+            parts.append(
+                f"kinetic energy = {ctx.kinetic_energy_j:.2f} J, potential energy = "
+                f"{ctx.potential_energy_j:.2f} J"
+            )
+        if ctx.total_energy_j is not None:
+            parts.append(f"total mechanical energy = {ctx.total_energy_j:.2f} J (conserved, no friction)")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -528,6 +546,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed velocities: "
             f"{validated.velocity_1_m_s:.2f} m/s and {validated.velocity_2_m_s:.2f} m/s "
             f"(total momentum {validated.momentum_total_kg_m_s:.2f} kg m/s)."
+        )
+    if simulation_type == "energy_incline":
+        return (
+            "Observation saved. Server-computed speed: "
+            f"{validated.speed_m_s:.2f} m/s (total mechanical energy "
+            f"{validated.total_energy_j:.2f} J, conserved throughout)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

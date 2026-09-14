@@ -133,6 +133,7 @@ class PhysicsSimulation(models.Model):
         CIRCULAR_MOTION = "circular_motion", "Circular Motion"
         SIMPLE_HARMONIC_MOTION = "simple_harmonic_motion", "Simple Harmonic Motion"
         MOMENTUM_COLLISION = "momentum_collision", "Momentum and Collisions"
+        ENERGY_INCLINE = "energy_incline", "Energy on an Incline"
 
     concept = models.ForeignKey(
         PhysicsConcept,

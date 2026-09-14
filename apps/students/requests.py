@@ -62,11 +62,15 @@ class ExperimentContext:
     ``position_1_m``/``position_2_m``/``velocity_1_m_s``/``velocity_2_m_s``/
     ``has_collided``/``momentum_total_kg_m_s``/``kinetic_energy_total_j``
     are Momentum/Collision-specific (which reuses ``initial_velocity_m_s``
-    for cart 1's starting speed). ``time_s`` and ``acceleration_m_s2`` are
-    shared where they apply (``acceleration_m_s2`` is Circular Motion's
-    centripetal acceleration or Simple Harmonic Motion's restoring
-    acceleration). A given experiment only ever populates the fields for
-    its own simulation type -- the rest stay ``None``.
+    for cart 1's starting speed); ``height_m``/``angle_deg``/``distance_m``/
+    ``height_dropped_m``/``kinetic_energy_j``/``potential_energy_j``/
+    ``total_energy_j`` are Energy-on-an-Incline-specific (which reuses
+    ``mass_kg`` and ``velocity_m_s`` for its own mass and speed). ``time_s``
+    and ``acceleration_m_s2`` are shared where they apply
+    (``acceleration_m_s2`` is Circular Motion's centripetal acceleration or
+    Simple Harmonic Motion's restoring acceleration). A given experiment
+    only ever populates the fields for its own simulation type -- the rest
+    stay ``None``.
     """
 
     simulation: str = ""
@@ -97,6 +101,13 @@ class ExperimentContext:
     has_collided: bool | None = None
     momentum_total_kg_m_s: float | None = None
     kinetic_energy_total_j: float | None = None
+    height_m: float | None = None
+    angle_deg: float | None = None
+    distance_m: float | None = None
+    height_dropped_m: float | None = None
+    kinetic_energy_j: float | None = None
+    potential_energy_j: float | None = None
+    total_energy_j: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -132,6 +143,8 @@ class ExperimentContext:
                 self.mass2_kg is not None,
                 self.position_1_m is not None,
                 self.position_2_m is not None,
+                self.height_m is not None,
+                self.distance_m is not None,
             ]
         )
 
@@ -205,6 +218,20 @@ class ExperimentContext:
                 has_collided=params.get("observed_has_collided"),
                 momentum_total_kg_m_s=params.get("observed_momentum_total_kg_m_s"),
                 kinetic_energy_total_j=params.get("observed_kinetic_energy_total_j"),
+            )
+        elif simulation_type == "energy_incline":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                mass_kg=attempt.mass_kg,
+                height_m=params.get("height_m"),
+                angle_deg=params.get("angle_deg"),
+                time_s=params.get("observed_time_s"),
+                distance_m=params.get("observed_distance_m"),
+                height_dropped_m=params.get("observed_height_dropped_m"),
+                velocity_m_s=params.get("observed_speed_m_s"),
+                kinetic_energy_j=params.get("observed_kinetic_energy_j"),
+                potential_energy_j=params.get("observed_potential_energy_j"),
+                total_energy_j=params.get("observed_total_energy_j"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

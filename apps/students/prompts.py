@@ -225,6 +225,31 @@ Output contract:
                 exp_lines.append(
                     f"- total kinetic energy: {experiment.kinetic_energy_total_j:.2f} J"
                 )
+        elif experiment.simulation_type == "energy_incline":
+            if experiment.height_m is not None and experiment.angle_deg is not None:
+                exp_lines.append(
+                    f"- setup: starting height = {experiment.height_m:.2f} m, "
+                    f"incline angle = {experiment.angle_deg:.1f} degrees, "
+                    f"mass = {experiment.mass_kg:.2f} kg"
+                )
+            if experiment.time_s is not None and experiment.velocity_m_s is not None:
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    f"computed by the app): speed = {experiment.velocity_m_s:.2f} m/s"
+                )
+            if (
+                experiment.kinetic_energy_j is not None
+                and experiment.potential_energy_j is not None
+            ):
+                exp_lines.append(
+                    f"- kinetic energy = {experiment.kinetic_energy_j:.2f} J, "
+                    f"potential energy = {experiment.potential_energy_j:.2f} J"
+                )
+            if experiment.total_energy_j is not None:
+                exp_lines.append(
+                    "- total mechanical energy (always conserved here, no "
+                    f"friction): {experiment.total_energy_j:.2f} J"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

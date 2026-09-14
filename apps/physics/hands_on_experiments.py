@@ -193,6 +193,34 @@ HANDS_ON_EXPERIMENTS: dict[str, HandsOnExperiment] = {
         "together. Your result will likely sit somewhere between the "
         "virtual lab's two idealized cases.",
     ),
+    "energy_incline": HandsOnExperiment(
+        title="Race a ball down a book ramp and measure its speed",
+        materials=(
+            "A ball or marble",
+            "A book or board to use as a ramp",
+            "A ruler or tape measure",
+            "A stopwatch or phone timer",
+        ),
+        steps=(
+            "Prop up one end of the board to make a ramp, and measure how "
+            "high the top of the ramp is above the table.",
+            "Release the ball from rest at the top and time how long it "
+            "takes to reach the bottom.",
+            "Measure the length of the ramp, and use it with your time to "
+            "estimate the ball's average speed.",
+            "Try a steeper ramp at the same starting height, and time it "
+            "again -- does the final speed near the bottom feel different?",
+            "Enter your measured height into the virtual lab and compare "
+            "its predicted speed at the bottom (v = the square root of "
+            "2 times gravity times height) to your estimate.",
+        ),
+        safety_note="Use a light, soft ball and keep the ramp low and "
+        "stable so it can't tip or roll off the table.",
+        compare_note="Real rolling balls also store some energy in "
+        "spinning, not just moving forward, so their measured speed at the "
+        "bottom will usually be a little slower than the virtual lab's "
+        "frictionless, non-rolling prediction.",
+    ),
 }
 
 

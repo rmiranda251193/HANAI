@@ -74,6 +74,17 @@ from apps.physics.simulations_collision import clamp_elastic, clamp_mass as clam
 from apps.physics.simulations_collision import clamp_initial_velocity as clamp_collision_velocity
 from apps.physics.simulations_collision import clamp_time as clamp_collision_time
 from apps.physics.simulations_collision import collision_state
+from apps.physics.simulations_energy_incline import (
+    MAX_ANGLE_DEG as ENERGY_MAX_ANGLE_DEG,
+    MAX_HEIGHT_M as ENERGY_MAX_HEIGHT_M,
+    MAX_MASS_KG as ENERGY_MAX_MASS_KG,
+)
+from apps.physics.simulations_energy_incline import MAX_TIME_S as ENERGY_MAX_TIME_S
+from apps.physics.simulations_energy_incline import clamp_angle as clamp_energy_angle
+from apps.physics.simulations_energy_incline import clamp_height as clamp_energy_height
+from apps.physics.simulations_energy_incline import clamp_mass as clamp_energy_mass
+from apps.physics.simulations_energy_incline import clamp_time as clamp_energy_time
+from apps.physics.simulations_energy_incline import energy_incline_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -106,6 +117,11 @@ SHM_TIME_HARD_MAX_S = SHM_MAX_TIME_S * 5
 COLLISION_MASS_HARD_MAX_KG = COLLISION_MAX_MASS_KG * 5
 COLLISION_VELOCITY_HARD_MAX_MS = COLLISION_MAX_VELOCITY_MS * 5
 COLLISION_TIME_HARD_MAX_S = COLLISION_MAX_TIME_S * 5
+
+ENERGY_HEIGHT_HARD_MAX_M = ENERGY_MAX_HEIGHT_M * 5
+ENERGY_ANGLE_HARD_MAX_DEG = 90.0
+ENERGY_MASS_HARD_MAX_KG = ENERGY_MAX_MASS_KG * 5
+ENERGY_TIME_HARD_MAX_S = ENERGY_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -505,6 +521,78 @@ def validate_collision(mass1_kg, mass2_kg, initial_velocity_m_s, elastic, time_s
     )
 
 
+@dataclass(frozen=True)
+class ValidatedEnergyIncline:
+    """Server-recomputed, deterministic Energy-on-an-Incline values (SI units)."""
+
+    height_m: float
+    angle_deg: float
+    mass_kg: float
+    time_s: float
+    distance_m: float
+    height_dropped_m: float
+    speed_m_s: float
+    kinetic_energy_j: float
+    potential_energy_j: float
+    total_energy_j: float
+
+    def as_dict(self) -> dict:
+        return {
+            "height_m": self.height_m,
+            "angle_deg": self.angle_deg,
+            "mass_kg": self.mass_kg,
+            "time_s": self.time_s,
+            "distance_m": self.distance_m,
+            "height_dropped_m": self.height_dropped_m,
+            "speed_m_s": self.speed_m_s,
+            "kinetic_energy_j": self.kinetic_energy_j,
+            "potential_energy_j": self.potential_energy_j,
+            "total_energy_j": self.total_energy_j,
+        }
+
+
+def validate_energy_incline(height_m, angle_deg, mass_kg, time_s) -> ValidatedEnergyIncline:
+    """Recompute distance/speed/energy on the server. Reject nonsense;
+    clamp to lab bounds."""
+
+    try:
+        h_raw = float(height_m)
+        angle_raw = float(angle_deg)
+        m_raw = float(mass_kg)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Height, angle, mass and time must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (h_raw, angle_raw, m_raw, t_raw)):
+        raise ExperimentValidationError("Height, angle, mass and time must be finite numbers.")
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if angle_raw <= 0 or angle_raw >= ENERGY_ANGLE_HARD_MAX_DEG:
+        raise ExperimentValidationError("Angle must be strictly between 0 and 90 degrees.")
+    if (
+        h_raw <= 0
+        or h_raw > ENERGY_HEIGHT_HARD_MAX_M
+        or m_raw <= 0
+        or m_raw > ENERGY_MASS_HARD_MAX_KG
+        or t_raw > ENERGY_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = energy_incline_state(height=h_raw, angle=angle_raw, mass=m_raw, time=t_raw)
+    return ValidatedEnergyIncline(
+        height_m=clamp_energy_height(h_raw),
+        angle_deg=clamp_energy_angle(angle_raw),
+        mass_kg=clamp_energy_mass(m_raw),
+        time_s=clamp_energy_time(t_raw),
+        distance_m=state["distance_m"],
+        height_dropped_m=state["height_dropped_m"],
+        speed_m_s=state["speed_m_s"],
+        kinetic_energy_j=state["kinetic_energy_j"],
+        potential_energy_j=state["potential_energy_j"],
+        total_energy_j=state["total_energy_j"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -564,6 +652,15 @@ def _validate_collision(values: dict) -> ValidatedCollision:
     )
 
 
+def _validate_energy_incline(values: dict) -> ValidatedEnergyIncline:
+    return validate_energy_incline(
+        values.get("height_m"),
+        values.get("angle_deg"),
+        values.get("mass_kg"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -571,6 +668,7 @@ _VALIDATORS = {
     "circular_motion": _validate_circular_motion,
     "simple_harmonic_motion": _validate_shm,
     "momentum_collision": _validate_collision,
+    "energy_incline": _validate_energy_incline,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -583,6 +681,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "circular_motion": ("radius_m", "period_s", "time_s"),
     "simple_harmonic_motion": ("amplitude_m", "period_s", "time_s"),
     "momentum_collision": ("mass1_kg", "mass2_kg", "initial_velocity_m_s", "elastic", "time_s"),
+    "energy_incline": ("height_m", "angle_deg", "mass_kg", "time_s"),
 }
 
 
@@ -621,6 +720,14 @@ def _apply_fields_collision(attempt, validated: ValidatedCollision) -> None:
     pass
 
 
+def _apply_fields_energy_incline(attempt, validated: ValidatedEnergyIncline) -> None:
+    # A single mass fits the shared column (same role as Newton's Second
+    # Law's own mass_kg); there is no single "acceleration" result here
+    # (it's g*sin(theta) on the ramp, then zero on flat ground), so that
+    # column is left alone, like Projectile Motion's fixed gravity.
+    attempt.mass_kg = validated.mass_kg
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -628,6 +735,7 @@ _FIELD_APPLIERS = {
     "circular_motion": _apply_fields_circular_motion,
     "simple_harmonic_motion": _apply_fields_shm,
     "momentum_collision": _apply_fields_collision,
+    "energy_incline": _apply_fields_energy_incline,
 }
 
 
@@ -711,6 +819,22 @@ def _apply_parameters_collision(attempt, simulation, validated: ValidatedCollisi
     }
 
 
+def _apply_parameters_energy_incline(attempt, simulation, validated: ValidatedEnergyIncline) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "height_m": validated.height_m,
+        "angle_deg": validated.angle_deg,
+        "observed_time_s": validated.time_s,
+        "observed_distance_m": validated.distance_m,
+        "observed_height_dropped_m": validated.height_dropped_m,
+        "observed_speed_m_s": validated.speed_m_s,
+        "observed_kinetic_energy_j": validated.kinetic_energy_j,
+        "observed_potential_energy_j": validated.potential_energy_j,
+        "observed_total_energy_j": validated.total_energy_j,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -718,6 +842,7 @@ _PARAMETER_APPLIERS = {
     "circular_motion": _apply_parameters_circular_motion,
     "simple_harmonic_motion": _apply_parameters_shm,
     "momentum_collision": _apply_parameters_collision,
+    "energy_incline": _apply_parameters_energy_incline,
 }
 
 
@@ -838,6 +963,20 @@ def _base_context(attempt, simulation) -> dict:
             "observed_velocity_1_m_s", "observed_velocity_2_m_s",
             "observed_has_collided", "observed_momentum_total_kg_m_s",
             "observed_kinetic_energy_total_j",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "energy_incline":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("height_m", "angle_deg"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        for key in (
+            "observed_distance_m", "observed_height_dropped_m",
+            "observed_speed_m_s", "observed_kinetic_energy_j",
+            "observed_potential_energy_j", "observed_total_energy_j",
         ):
             if key in params:
                 context[key] = params[key]

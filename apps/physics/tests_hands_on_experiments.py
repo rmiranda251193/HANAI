@@ -27,6 +27,7 @@ class HandsOnExperimentCatalogTests(TestCase):
             {
                 "kinematics", "newtons_second_law", "projectile_motion",
                 "circular_motion", "simple_harmonic_motion", "momentum_collision",
+                "energy_incline",
             },
         )
 
