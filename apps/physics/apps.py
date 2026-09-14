@@ -21,6 +21,7 @@ class PhysicsConfig(AppConfig):
         from . import simulations_coulombs_law  # noqa: F401
         from . import simulations_radioactive_decay  # noqa: F401
         from . import simulations_buoyancy  # noqa: F401
+        from . import simulations_refraction  # noqa: F401
 
         # Populate the visualization registry (2D/3D renderer definitions), the
         # code-defined Physics Lab scenario challenges, and the Physics domain /

@@ -167,6 +167,22 @@ PHYSICS_SIMULATIONS = [
             "instantly, with no drag or surface-tension effects."
         ),
     },
+    {
+        "slug": "refraction",
+        "title": "Refraction Lab",
+        "concept_name": "Refraction and Snell's law",
+        "simulation_type": PhysicsSimulation.SimulationType.REFRACTION,
+        "description": (
+            "Set two refractive indices and an angle of incidence and "
+            "watch a light ray bend at the interface through "
+            "n1 sin(theta1) = n2 sin(theta2). Going from a denser to a "
+            "less dense medium past the critical angle, watch it undergo "
+            "total internal reflection instead -- no refracted ray at "
+            "all. Idealized model: a single ray at a flat interface "
+            "between two uniform, transparent media, with no absorption "
+            "or dispersion."
+        ),
+    },
 ]
 
 

@@ -92,8 +92,12 @@ class ExperimentContext:
     ``force_n`` for its net force -- 0 while floating in equilibrium,
     positive/downward while sinking -- since that IS a genuine single-object
     net force, the same meaning ``force_n`` has for Newton's Second Law,
-    unlike Coulomb's Law's mutual two-charge force). A given experiment only
-    ever populates the fields for its own simulation type -- the rest stay
+    unlike Coulomb's Law's mutual two-charge force). ``n1``/``n2``/
+    ``angle1_deg``/``angle2_deg``/``has_critical_angle``/
+    ``critical_angle_deg``/``total_internal_reflection`` are Refraction-
+    specific (deliberately NOT reusing Energy-on-an-Incline's ``angle_deg``,
+    a different physical angle entirely). A given experiment only ever
+    populates the fields for its own simulation type -- the rest stay
     ``None``.
     """
 
@@ -162,6 +166,13 @@ class ExperimentContext:
     buoyant_force_n: float | None = None
     submerged_fraction: float | None = None
     floats: bool | None = None
+    n1: float | None = None
+    n2: float | None = None
+    angle1_deg: float | None = None
+    angle2_deg: float | None = None
+    has_critical_angle: bool | None = None
+    critical_angle_deg: float | None = None
+    total_internal_reflection: bool | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -205,6 +216,7 @@ class ExperimentContext:
                 self.charge1_uc is not None,
                 self.initial_count is not None,
                 self.object_density_kg_m3 is not None,
+                self.n1 is not None,
             ]
         )
 
@@ -351,6 +363,17 @@ class ExperimentContext:
                 buoyant_force_n=params.get("observed_buoyant_force_n"),
                 submerged_fraction=params.get("observed_submerged_fraction"),
                 floats=params.get("observed_floats"),
+            )
+        elif simulation_type == "refraction":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                n1=params.get("n1"),
+                n2=params.get("n2"),
+                angle1_deg=params.get("angle1_deg"),
+                has_critical_angle=params.get("observed_has_critical_angle"),
+                critical_angle_deg=params.get("observed_critical_angle_deg"),
+                total_internal_reflection=params.get("observed_total_internal_reflection"),
+                angle2_deg=params.get("observed_angle2_deg"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

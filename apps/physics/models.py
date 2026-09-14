@@ -139,6 +139,7 @@ class PhysicsSimulation(models.Model):
         COULOMBS_LAW = "coulombs_law", "Coulomb's Law"
         RADIOACTIVE_DECAY = "radioactive_decay", "Radioactive Decay"
         BUOYANCY = "buoyancy", "Buoyancy"
+        REFRACTION = "refraction", "Refraction"
 
     concept = models.ForeignKey(
         PhysicsConcept,

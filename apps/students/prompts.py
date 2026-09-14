@@ -367,6 +367,29 @@ Output contract:
                     f"- net force: {experiment.force_n:.2f} N "
                     "(0 means floating in equilibrium; positive means still sinking)"
                 )
+        elif experiment.simulation_type == "refraction":
+            if experiment.n1 is not None and experiment.n2 is not None:
+                exp_lines.append(
+                    f"- setup: n1 = {experiment.n1:.2f}, n2 = {experiment.n2:.2f}, "
+                    f"angle of incidence = {experiment.angle1_deg:.1f} degrees"
+                )
+            if experiment.total_internal_reflection is not None:
+                if experiment.total_internal_reflection:
+                    exp_lines.append(
+                        "- outcome (deterministic, n1 sin(theta1) = n2 sin(theta2), computed "
+                        "by the app): total internal reflection -- no refracted ray, "
+                        "all the light reflects back"
+                    )
+                else:
+                    exp_lines.append(
+                        "- outcome (deterministic, n1 sin(theta1) = n2 sin(theta2), computed "
+                        f"by the app): refracts at {experiment.angle2_deg:.1f} degrees from the normal"
+                    )
+            if experiment.has_critical_angle and experiment.critical_angle_deg is not None:
+                exp_lines.append(
+                    f"- critical angle for this pair of media: {experiment.critical_angle_deg:.1f} "
+                    "degrees (past this, total internal reflection always happens)"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

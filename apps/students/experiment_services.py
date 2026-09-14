@@ -114,6 +114,10 @@ from apps.physics.simulations_buoyancy import MAX_DENSITY_KG_M3 as BUOYANCY_MAX_
 from apps.physics.simulations_buoyancy import MAX_VOLUME_M3 as BUOYANCY_MAX_VOLUME_M3
 from apps.physics.simulations_buoyancy import buoyancy_state
 from apps.physics.simulations_buoyancy import clamp_density, clamp_volume
+from apps.physics.simulations_refraction import MAX_ANGLE_DEG as REFRACTION_MAX_ANGLE_DEG
+from apps.physics.simulations_refraction import MAX_INDEX as REFRACTION_MAX_INDEX
+from apps.physics.simulations_refraction import clamp_angle as clamp_refraction_angle
+from apps.physics.simulations_refraction import clamp_index, refraction_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -168,6 +172,9 @@ DECAY_TIME_HARD_MAX_S = DECAY_MAX_TIME_S * 5
 
 BUOYANCY_DENSITY_HARD_MAX_KG_M3 = BUOYANCY_MAX_DENSITY_KG_M3 * 5
 BUOYANCY_VOLUME_HARD_MAX_M3 = BUOYANCY_MAX_VOLUME_M3 * 5
+
+REFRACTION_INDEX_HARD_MAX = REFRACTION_MAX_INDEX * 5
+REFRACTION_ANGLE_HARD_MAX_DEG = 90.0  # angles clamp at 89 deg; 90+ is meaningless here
 
 TEXT_LIMIT = 2000
 
@@ -986,6 +993,67 @@ def validate_buoyancy(object_density_kg_m3, fluid_density_kg_m3, volume_m3) -> V
     )
 
 
+@dataclass(frozen=True)
+class ValidatedRefraction:
+    """Server-recomputed, deterministic Refraction (Snell's Law) values."""
+
+    n1: float
+    n2: float
+    angle1_deg: float
+    has_critical_angle: bool
+    critical_angle_deg: float
+    total_internal_reflection: bool
+    angle2_deg: float
+
+    def as_dict(self) -> dict:
+        return {
+            "n1": self.n1,
+            "n2": self.n2,
+            "angle1_deg": self.angle1_deg,
+            "has_critical_angle": self.has_critical_angle,
+            "critical_angle_deg": self.critical_angle_deg,
+            "total_internal_reflection": self.total_internal_reflection,
+            "angle2_deg": self.angle2_deg,
+        }
+
+
+def validate_refraction(n1, n2, angle1_deg) -> ValidatedRefraction:
+    """Recompute the refracted/TIR angle on the server. Reject nonsense;
+    clamp to lab bounds. There is no time input here -- see the module
+    docstring in ``simulations_refraction.py`` for why."""
+
+    try:
+        n1_raw = float(n1)
+        n2_raw = float(n2)
+        angle_raw = float(angle1_deg)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Refractive index and angle must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (n1_raw, n2_raw, angle_raw)):
+        raise ExperimentValidationError("Refractive index and angle must be finite numbers.")
+    if n1_raw < 1.0 or n2_raw < 1.0:
+        raise ExperimentValidationError("Refractive index must be at least 1.0.")
+    if angle_raw < 0:
+        raise ExperimentValidationError("Angle of incidence cannot be negative.")
+    if (
+        n1_raw > REFRACTION_INDEX_HARD_MAX
+        or n2_raw > REFRACTION_INDEX_HARD_MAX
+        or angle_raw > REFRACTION_ANGLE_HARD_MAX_DEG
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = refraction_state(n1=n1_raw, n2=n2_raw, angle1_deg=angle_raw)
+    return ValidatedRefraction(
+        n1=clamp_index(n1_raw),
+        n2=clamp_index(n2_raw),
+        angle1_deg=clamp_refraction_angle(angle_raw),
+        has_critical_angle=state["has_critical_angle"],
+        critical_angle_deg=state["critical_angle_deg"],
+        total_internal_reflection=state["total_internal_reflection"],
+        angle2_deg=state["angle2_deg"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1095,6 +1163,14 @@ def _validate_buoyancy(values: dict) -> ValidatedBuoyancy:
     )
 
 
+def _validate_refraction(values: dict) -> ValidatedRefraction:
+    return validate_refraction(
+        values.get("n1"),
+        values.get("n2"),
+        values.get("angle1_deg"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1108,6 +1184,7 @@ _VALIDATORS = {
     "coulombs_law": _validate_coulombs_law,
     "radioactive_decay": _validate_radioactive_decay,
     "buoyancy": _validate_buoyancy,
+    "refraction": _validate_refraction,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1126,6 +1203,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "coulombs_law": ("charge1_uc", "charge2_uc", "separation_m"),
     "radioactive_decay": ("initial_count", "half_life_s", "time_s"),
     "buoyancy": ("object_density_kg_m3", "fluid_density_kg_m3", "volume_m3"),
+    "refraction": ("n1", "n2", "angle1_deg"),
 }
 
 
@@ -1216,6 +1294,13 @@ def _apply_fields_buoyancy(attempt, validated: ValidatedBuoyancy) -> None:
     attempt.force_n = validated.net_force_n
 
 
+def _apply_fields_refraction(attempt, validated: ValidatedRefraction) -> None:
+    # No ExperimentAttempt column fits an angle -- everything lives in
+    # attempt.parameters, like Coulomb's Law's and Collision's non-fitting
+    # values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1229,6 +1314,7 @@ _FIELD_APPLIERS = {
     "coulombs_law": _apply_fields_coulombs_law,
     "radioactive_decay": _apply_fields_radioactive_decay,
     "buoyancy": _apply_fields_buoyancy,
+    "refraction": _apply_fields_refraction,
 }
 
 
@@ -1407,6 +1493,20 @@ def _apply_parameters_buoyancy(attempt, simulation, validated: ValidatedBuoyancy
     }
 
 
+def _apply_parameters_refraction(attempt, simulation, validated: ValidatedRefraction) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "n1": validated.n1,
+        "n2": validated.n2,
+        "angle1_deg": validated.angle1_deg,
+        "observed_has_critical_angle": validated.has_critical_angle,
+        "observed_critical_angle_deg": validated.critical_angle_deg,
+        "observed_total_internal_reflection": validated.total_internal_reflection,
+        "observed_angle2_deg": validated.angle2_deg,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1420,6 +1520,7 @@ _PARAMETER_APPLIERS = {
     "coulombs_law": _apply_parameters_coulombs_law,
     "radioactive_decay": _apply_parameters_radioactive_decay,
     "buoyancy": _apply_parameters_buoyancy,
+    "refraction": _apply_parameters_refraction,
 }
 
 
@@ -1616,6 +1717,17 @@ def _base_context(attempt, simulation) -> dict:
         for key in (
             "observed_weight_n", "observed_buoyant_force_n",
             "observed_submerged_fraction", "observed_floats",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "refraction":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("n1", "n2", "angle1_deg"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_has_critical_angle", "observed_critical_angle_deg",
+            "observed_total_internal_reflection", "observed_angle2_deg",
         ):
             if key in params:
                 context[key] = params[key]

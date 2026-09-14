@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: a single ray at a flat interface between two uniform, transparent media, with no absorption or dispersion.
+    Values are computed from <code>n<sub>1</sub> sin(&theta;<sub>1</sub>) = n<sub>2</sub> sin(&theta;<sub>2</sub>)</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-n1="{{ defaults.n1 }}"
+       data-n2="{{ defaults.n2 }}"
+       data-angle1="{{ defaults.angle1_deg }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen if you swap which medium is denser, keeping the same angle of incidence? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. Going into a denser medium bends the ray toward the normal; going the other way bends it away.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 220" role="img"
+               data-lab-scene aria-label="A light ray refracting at the interface between two media.">
+            <desc data-scene-desc>A light ray bending as it crosses from one medium into another.</desc>
+            <rect x="40" y="40" width="320" height="70" class="lab-cart-body" opacity="0.2" />
+            <rect x="40" y="110" width="320" height="70" class="lab-cart-body-alt" opacity="0.2" />
+            <line x1="40" y1="110" x2="360" y2="110" class="lab-track" />
+            <line x1="200" y1="40" x2="200" y2="180" class="lab-track" stroke-dasharray="4 3" />
+            <text x="205" y="50" class="lab-axis-label">normal</text>
+            <line data-incident-ray x1="200" y1="40" x2="200" y2="110" class="lab-track" stroke-width="2.5" />
+            <line data-outgoing-ray x1="200" y1="110" x2="200" y2="180" class="lab-track" stroke-width="2.5" />
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of the refraction angle against the angle of incidence.">
+            <desc data-graph-desc>A graph of the refraction angle against the angle of incidence, for these two refractive indices.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">&theta;2</text>
+            <text x="332" y="184" class="lab-axis-label">&theta;1</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="-10" cy="-10" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">Refraction angle versus angle of incidence. If n1 is greater than n2, the curve stops at the critical angle &mdash; past that, total internal reflection takes over.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">n1</span>
+                <span class="lab-value-number"><span data-value-n1>{{ defaults.n1 }}</span></span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">n2</span>
+                <span class="lab-value-number"><span data-value-n2>{{ defaults.n2 }}</span></span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Angle of incidence</span>
+                <span class="lab-value-number"><span data-value-angle1>{{ defaults.angle1_deg }}</span>&deg;</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">n<sub>1</sub> sin(&theta;<sub>1</sub>) = n<sub>2</sub> sin(&theta;<sub>2</sub>)</p>
+              <p class="lab-eq-worked">
+                &theta;<sub>2</sub> = <span data-eq-angle2>0.0</span>&deg;
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Outcome</dt><dd><span data-value-outcome>&ndash;</span></dd></div>
+              <div><dt>Refraction angle</dt><dd><span data-value-angle2>0.0</span>&deg;</dd></div>
+              <div><dt>Critical angle</dt><dd><span data-value-critical>n/a</span></dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-n1">Refractive index n1</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-n1" data-input-n1
+                     min="{{ bounds.n1.min }}" max="{{ bounds.n1.max }}" step="0.05"
+                     value="{{ defaults.n1 }}" aria-describedby="lab-n1-out">
+              <output id="lab-n1-out" for="lab-n1" data-out-n1>{{ defaults.n1 }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-n2">Refractive index n2</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-n2" data-input-n2
+                     min="{{ bounds.n2.min }}" max="{{ bounds.n2.max }}" step="0.05"
+                     value="{{ defaults.n2 }}" aria-describedby="lab-n2-out">
+              <output id="lab-n2-out" for="lab-n2" data-out-n2>{{ defaults.n2 }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-angle1">Angle of incidence (&deg;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-angle1" data-input-angle1
+                     min="{{ bounds.angle1_deg.min }}" max="{{ bounds.angle1_deg.max }}" step="1"
+                     value="{{ defaults.angle1_deg }}" aria-describedby="lab-angle1-out">
+              <output id="lab-angle1-out" for="lab-angle1" data-out-angle1>{{ defaults.angle1_deg }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include whether the ray refracted or totally internally reflected.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="n1" data-field="n1" value="{{ defaults.n1 }}">
+        <input type="hidden" name="n2" data-field="n2" value="{{ defaults.n2 }}">
+        <input type="hidden" name="angle1_deg" data-field="angle1Deg" value="{{ defaults.angle1_deg }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. The ray bent toward the normal going into the denser glass.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_total_internal_reflection is not None %}Last saved: server-computed outcome &mdash; {% if experiment_attempt.parameters.observed_total_internal_reflection %}total internal reflection, no refracted ray{% else %}refracts at {{ experiment_attempt.parameters.observed_angle2_deg|floatformat:1 }} degrees{% endif %}.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="n1" data-field="n1" value="{{ defaults.n1 }}">
+        <input type="hidden" name="n2" data-field="n2" value="{{ defaults.n2 }}">
+        <input type="hidden" name="angle1_deg" data-field="angle1Deg" value="{{ defaults.angle1_deg }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Past the critical angle, Snell's law would need a sine greater than 1, which is impossible, so the light can't leave and reflects instead.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>n<sub>1</sub> sin(&theta;<sub>1</sub>) = n<sub>2</sub> sin(&theta;<sub>2</sub>)</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/refraction.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

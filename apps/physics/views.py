@@ -203,6 +203,9 @@ _FIELD_LABELS = {
     "object_density_kg_m3": "object density",
     "fluid_density_kg_m3": "fluid density",
     "volume_m3": "volume",
+    "n1": "refractive index n1",
+    "n2": "refractive index n2",
+    "angle1_deg": "angle of incidence",
 }
 
 
@@ -571,6 +574,15 @@ def _experiment_prefill(attempt):
             parts.append(f"buoyant force = {ctx.buoyant_force_n:.2f} N")
         if ctx.force_n is not None:
             parts.append(f"net force = {ctx.force_n:.2f} N")
+    elif ctx.simulation_type == "refraction":
+        if ctx.n1 is not None and ctx.n2 is not None:
+            parts.append(f"n1 = {ctx.n1:.2f}, n2 = {ctx.n2:.2f}")
+        if ctx.angle1_deg is not None:
+            parts.append(f"angle of incidence = {ctx.angle1_deg:.1f} degrees")
+        if ctx.total_internal_reflection is not None:
+            parts.append(_refraction_outcome_label(ctx.angle2_deg, ctx.total_internal_reflection))
+        if ctx.has_critical_angle and ctx.critical_angle_deg is not None:
+            parts.append(f"critical angle = {ctx.critical_angle_deg:.1f} degrees")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -610,6 +622,16 @@ def _coulomb_interaction_label(force_n, is_attractive) -> str:
     if force_n == 0:
         return "no force"
     return "attractive" if is_attractive else "repulsive"
+
+
+def _refraction_outcome_label(angle2_deg, total_internal_reflection) -> str:
+    """The 0.0 sentinel ``angle2_deg`` carries no meaning on its own during
+    total internal reflection (there is no refracted ray at all) -- always
+    check the flag first, exactly like ``_coulomb_interaction_label``."""
+
+    if total_internal_reflection:
+        return "total internal reflection -- no refracted ray, all light reflects"
+    return f"refracts at {angle2_deg:.1f} degrees from the normal (computed by the app)"
 
 
 def _observation_message(simulation_type, validated):
@@ -676,6 +698,9 @@ def _observation_message(simulation_type, validated):
             f"Observation saved. The object {verdict} (buoyant force "
             f"{validated.buoyant_force_n:.2f} N, net force {validated.net_force_n:.2f} N)."
         )
+    if simulation_type == "refraction":
+        outcome = _refraction_outcome_label(validated.angle2_deg, validated.total_internal_reflection)
+        return f"Observation saved. Server-computed outcome: {outcome}."
     return (
         "Observation saved. Server-computed acceleration: "
         f"{validated.acceleration_m_s2:.2f} m/s² (a = F / m)."
