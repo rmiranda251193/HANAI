@@ -82,8 +82,13 @@ class ExperimentContext:
     Coulomb's-Law-specific -- deliberately NOT sharing Orbital Motion's
     ``radius_m``/``force_n``, since that would wrongly imply the same
     physical meaning: gravity is always attractive, Coulomb's force can
-    attract or repel. A given experiment only ever populates the fields for
-    its own simulation type -- the rest stay ``None``.
+    attract or repel. ``initial_count``/``half_life_s``/``remaining_count``/
+    ``decayed_count``/``remaining_fraction``/``activity_per_s`` are
+    Radioactive-Decay-specific (reusing shared ``time_s``) -- the first
+    simulation whose quantity never returns to an earlier value, unlike
+    every periodic/orbiting/oscillating one above. A given experiment only
+    ever populates the fields for its own simulation type -- the rest stay
+    ``None``.
     """
 
     simulation: str = ""
@@ -139,6 +144,12 @@ class ExperimentContext:
     coulomb_force_n: float | None = None
     is_attractive: bool | None = None
     coulomb_potential_energy_j: float | None = None
+    initial_count: float | None = None
+    half_life_s: float | None = None
+    remaining_count: float | None = None
+    decayed_count: float | None = None
+    remaining_fraction: float | None = None
+    activity_per_s: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -180,6 +191,7 @@ class ExperimentContext:
                 self.voltage_v is not None,
                 self.total_current_a is not None,
                 self.charge1_uc is not None,
+                self.initial_count is not None,
             ]
         )
 
@@ -304,6 +316,17 @@ class ExperimentContext:
                 coulomb_force_n=params.get("observed_force_n"),
                 is_attractive=params.get("observed_is_attractive"),
                 coulomb_potential_energy_j=params.get("observed_potential_energy_j"),
+            )
+        elif simulation_type == "radioactive_decay":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                initial_count=params.get("initial_count"),
+                half_life_s=params.get("half_life_s"),
+                time_s=params.get("observed_time_s"),
+                remaining_count=params.get("observed_remaining_count"),
+                decayed_count=params.get("observed_decayed_count"),
+                remaining_fraction=params.get("observed_remaining_fraction"),
+                activity_per_s=params.get("observed_activity_per_s"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

@@ -139,6 +139,20 @@ PHYSICS_SIMULATIONS = [
             "with no other charges nearby."
         ),
     },
+    {
+        "slug": "radioactive-decay",
+        "title": "Radioactive Decay Lab",
+        "concept_name": "Half-life",
+        "simulation_type": PhysicsSimulation.SimulationType.RADIOACTIVE_DECAY,
+        "description": (
+            "Set a sample's starting size and its half-life and watch it "
+            "shrink through N(t) = N0 * (1/2)^(t / T_half) -- half of "
+            "whatever remains decays every half-life, no matter how much "
+            "has already decayed. Idealized model: a statistically "
+            "predictable large sample, not a prediction about any single "
+            "unstable nucleus."
+        ),
+    },
 ]
 
 

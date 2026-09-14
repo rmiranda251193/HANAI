@@ -325,6 +325,28 @@ Output contract:
                     f"computed by the app): {experiment.coulomb_potential_energy_j:.6f} J "
                     "(negative means attraction, positive means repulsion)"
                 )
+        elif experiment.simulation_type == "radioactive_decay":
+            if experiment.initial_count is not None and experiment.half_life_s is not None:
+                exp_lines.append(
+                    f"- setup: initial count = {experiment.initial_count:.0f}, "
+                    f"half-life = {experiment.half_life_s:.2f} s"
+                )
+            if experiment.time_s is not None and experiment.remaining_count is not None:
+                exp_lines.append(
+                    f"- at t = {experiment.time_s:.2f} s (deterministic, "
+                    "N = N0 * (1/2)^(t/T_half), computed by the app): remaining count = "
+                    f"{experiment.remaining_count:.1f}"
+                )
+            if experiment.decayed_count is not None:
+                exp_lines.append(
+                    f"- decayed so far: {experiment.decayed_count:.1f} "
+                    "(remaining + decayed always equals the initial count)"
+                )
+            if experiment.activity_per_s is not None:
+                exp_lines.append(
+                    "- activity (deterministic, decays per second, computed by the app): "
+                    f"{experiment.activity_per_s:.2f} decays/s"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

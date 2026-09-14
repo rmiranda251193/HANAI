@@ -198,6 +198,8 @@ _FIELD_LABELS = {
     "charge1_uc": "charge 1",
     "charge2_uc": "charge 2",
     "separation_m": "separation",
+    "initial_count": "initial count",
+    "half_life_s": "half-life",
 }
 
 
@@ -543,6 +545,15 @@ def _experiment_prefill(attempt):
             )
         if ctx.coulomb_potential_energy_j is not None:
             parts.append(f"electric potential energy = {ctx.coulomb_potential_energy_j:.4f} J")
+    elif ctx.simulation_type == "radioactive_decay":
+        if ctx.initial_count is not None and ctx.half_life_s is not None:
+            parts.append(f"initial count = {ctx.initial_count:.0f}, half-life = {ctx.half_life_s:.1f} s")
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.remaining_count is not None:
+            parts.append(f"remaining count = {ctx.remaining_count:.1f} (computed by the app)")
+        if ctx.activity_per_s is not None:
+            parts.append(f"activity = {ctx.activity_per_s:.2f} decays/s")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -635,6 +646,12 @@ def _observation_message(simulation_type, validated):
         return (
             "Observation saved. Server-computed force: "
             f"{validated.force_n:.4f} N ({interaction})."
+        )
+    if simulation_type == "radioactive_decay":
+        return (
+            "Observation saved. Server-computed remaining count: "
+            f"{validated.remaining_count:.1f} of {validated.initial_count:.0f} "
+            f"(activity {validated.activity_per_s:.2f} decays/s)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

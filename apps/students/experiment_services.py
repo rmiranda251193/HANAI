@@ -102,6 +102,14 @@ from apps.physics.simulations_circuits import clamp_resistance, clamp_series, cl
 from apps.physics.simulations_coulombs_law import MAX_SEPARATION_M as COULOMB_MAX_SEPARATION_M
 from apps.physics.simulations_coulombs_law import coulombs_law_state
 from apps.physics.simulations_coulombs_law import clamp_charge, clamp_separation
+from apps.physics.simulations_radioactive_decay import (
+    MAX_HALF_LIFE_S as DECAY_MAX_HALF_LIFE_S,
+    MAX_INITIAL_COUNT as DECAY_MAX_INITIAL_COUNT,
+)
+from apps.physics.simulations_radioactive_decay import MAX_TIME_S as DECAY_MAX_TIME_S
+from apps.physics.simulations_radioactive_decay import clamp_half_life, clamp_initial_count
+from apps.physics.simulations_radioactive_decay import clamp_time as clamp_decay_time
+from apps.physics.simulations_radioactive_decay import radioactive_decay_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -149,6 +157,10 @@ CIRCUIT_RESISTANCE_HARD_MAX_OHM = CIRCUIT_MAX_RESISTANCE_OHM * 5
 
 COULOMB_CHARGE_HARD_MAX_UC = 40.0  # 5x the UI bound magnitude (+-8 uC)
 COULOMB_SEPARATION_HARD_MAX_M = COULOMB_MAX_SEPARATION_M * 5
+
+DECAY_INITIAL_COUNT_HARD_MAX = DECAY_MAX_INITIAL_COUNT * 5
+DECAY_HALF_LIFE_HARD_MAX_S = DECAY_MAX_HALF_LIFE_S * 5
+DECAY_TIME_HARD_MAX_S = DECAY_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -839,6 +851,70 @@ def validate_coulombs_law(charge1_uc, charge2_uc, separation_m) -> ValidatedCoul
     )
 
 
+@dataclass(frozen=True)
+class ValidatedDecay:
+    """Server-recomputed, deterministic Radioactive Decay values."""
+
+    initial_count: float
+    half_life_s: float
+    time_s: float
+    remaining_count: float
+    decayed_count: float
+    remaining_fraction: float
+    activity_per_s: float
+
+    def as_dict(self) -> dict:
+        return {
+            "initial_count": self.initial_count,
+            "half_life_s": self.half_life_s,
+            "time_s": self.time_s,
+            "remaining_count": self.remaining_count,
+            "decayed_count": self.decayed_count,
+            "remaining_fraction": self.remaining_fraction,
+            "activity_per_s": self.activity_per_s,
+        }
+
+
+def validate_radioactive_decay(initial_count, half_life_s, time_s) -> ValidatedDecay:
+    """Recompute the remaining/decayed count and activity on the server.
+    Reject nonsense; clamp to lab bounds."""
+
+    try:
+        n0_raw = float(initial_count)
+        half_life_raw = float(half_life_s)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Initial count, half-life and time must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (n0_raw, half_life_raw, t_raw)):
+        raise ExperimentValidationError(
+            "Initial count, half-life and time must be finite numbers."
+        )
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if n0_raw <= 0:
+        raise ExperimentValidationError("Initial count must be positive.")
+    if half_life_raw <= 0:
+        raise ExperimentValidationError("Half-life must be positive.")
+    if (
+        n0_raw > DECAY_INITIAL_COUNT_HARD_MAX
+        or half_life_raw > DECAY_HALF_LIFE_HARD_MAX_S
+        or t_raw > DECAY_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = radioactive_decay_state(initial_count=n0_raw, half_life=half_life_raw, time=t_raw)
+    return ValidatedDecay(
+        initial_count=clamp_initial_count(n0_raw),
+        half_life_s=clamp_half_life(half_life_raw),
+        time_s=clamp_decay_time(t_raw),
+        remaining_count=state["remaining_count"],
+        decayed_count=state["decayed_count"],
+        remaining_fraction=state["remaining_fraction"],
+        activity_per_s=state["activity_per_s"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -932,6 +1008,14 @@ def _validate_coulombs_law(values: dict) -> ValidatedCoulomb:
     )
 
 
+def _validate_radioactive_decay(values: dict) -> ValidatedDecay:
+    return validate_radioactive_decay(
+        values.get("initial_count"),
+        values.get("half_life_s"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -943,6 +1027,7 @@ _VALIDATORS = {
     "orbital_motion": _validate_orbital_motion,
     "series_parallel_circuit": _validate_circuit,
     "coulombs_law": _validate_coulombs_law,
+    "radioactive_decay": _validate_radioactive_decay,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -959,6 +1044,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "orbital_motion": ("mu", "radius_m", "time_s"),
     "series_parallel_circuit": ("voltage_v", "resistance1_ohm", "resistance2_ohm", "series"),
     "coulombs_law": ("charge1_uc", "charge2_uc", "separation_m"),
+    "radioactive_decay": ("initial_count", "half_life_s", "time_s"),
 }
 
 
@@ -1032,6 +1118,13 @@ def _apply_fields_coulombs_law(attempt, validated: ValidatedCoulomb) -> None:
     pass
 
 
+def _apply_fields_radioactive_decay(attempt, validated: ValidatedDecay) -> None:
+    # No ExperimentAttempt column fits a sample count or a decay rate --
+    # everything lives in attempt.parameters, like Coulomb's Law's and
+    # Collision's non-fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1043,6 +1136,7 @@ _FIELD_APPLIERS = {
     "orbital_motion": _apply_fields_orbital_motion,
     "series_parallel_circuit": _apply_fields_circuit,
     "coulombs_law": _apply_fields_coulombs_law,
+    "radioactive_decay": _apply_fields_radioactive_decay,
 }
 
 
@@ -1192,6 +1286,20 @@ def _apply_parameters_coulombs_law(attempt, simulation, validated: ValidatedCoul
     }
 
 
+def _apply_parameters_radioactive_decay(attempt, simulation, validated: ValidatedDecay) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "initial_count": validated.initial_count,
+        "half_life_s": validated.half_life_s,
+        "observed_time_s": validated.time_s,
+        "observed_remaining_count": validated.remaining_count,
+        "observed_decayed_count": validated.decayed_count,
+        "observed_remaining_fraction": validated.remaining_fraction,
+        "observed_activity_per_s": validated.activity_per_s,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1203,6 +1311,7 @@ _PARAMETER_APPLIERS = {
     "orbital_motion": _apply_parameters_orbital_motion,
     "series_parallel_circuit": _apply_parameters_circuit,
     "coulombs_law": _apply_parameters_coulombs_law,
+    "radioactive_decay": _apply_parameters_radioactive_decay,
 }
 
 
@@ -1375,6 +1484,19 @@ def _base_context(attempt, simulation) -> dict:
                 context[key] = params[key]
         for key in (
             "observed_force_n", "observed_is_attractive", "observed_potential_energy_j",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "radioactive_decay":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("initial_count", "half_life_s"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        for key in (
+            "observed_remaining_count", "observed_decayed_count",
+            "observed_remaining_fraction", "observed_activity_per_s",
         ):
             if key in params:
                 context[key] = params[key]

@@ -78,10 +78,11 @@ class PhysicsSimulationModelTests(TestCase):
         # steps added a third (Projectile Motion), a fourth (Circular
         # Motion), a fifth (Simple Harmonic Motion), a sixth (Momentum and
         # Collisions), a seventh (Energy on an Incline), an eighth (Orbital
-        # Motion), a ninth (Series and Parallel Circuits) and a tenth
-        # (Coulomb's Law); the seed command still creates every row exactly
-        # once and only updates on every re-run.
-        self.assertIn("0 created, 10 updated", out.getvalue())
+        # Motion), a ninth (Series and Parallel Circuits), a tenth
+        # (Coulomb's Law) and an eleventh (Radioactive Decay); the seed
+        # command still creates every row exactly once and only updates on
+        # every re-run.
+        self.assertIn("0 created, 11 updated", out.getvalue())
         simulation = PhysicsSimulation.objects.get(slug="newtons-second-law")
         self.assertEqual(simulation.concept.name, "Newton's Second Law")
 
