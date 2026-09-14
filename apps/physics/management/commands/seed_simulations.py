@@ -242,6 +242,20 @@ PHYSICS_SIMULATIONS = [
             "perpendicular to the particle's velocity."
         ),
     },
+    {
+        "slug": "time-dilation",
+        "title": "Time Dilation and Length Contraction Lab",
+        "concept_name": "Time dilation",
+        "simulation_type": PhysicsSimulation.SimulationType.TIME_DILATION,
+        "description": (
+            "Set a relative velocity (as a fraction of the speed of "
+            "light), a proper time interval and a proper length, and "
+            "watch both time dilate and length contract by the same "
+            "Lorentz factor, gamma = 1 / sqrt(1 - v^2/c^2). Idealized "
+            "model: pure special relativity, with no acceleration and no "
+            "gravity involved."
+        ),
+    },
 ]
 
 

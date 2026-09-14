@@ -465,6 +465,25 @@ Output contract:
                     f"to velocity so it never changes speed, computed by the app): "
                     f"{experiment.force_n:.2f} N"
                 )
+        elif experiment.simulation_type == "time_dilation":
+            if experiment.velocity_fraction_c is not None:
+                exp_lines.append(
+                    f"- setup: relative velocity = {experiment.velocity_fraction_c:.2f}c, "
+                    f"proper time = {experiment.proper_time_s:.1f} s, proper length = "
+                    f"{experiment.proper_length_m:.1f} m"
+                )
+            if experiment.lorentz_factor is not None:
+                exp_lines.append(
+                    "- Lorentz factor (deterministic, gamma = 1/sqrt(1 - v^2/c^2), "
+                    f"computed by the app): {experiment.lorentz_factor:.3f}"
+                )
+            if experiment.dilated_time_s is not None and experiment.contracted_length_m is not None:
+                exp_lines.append(
+                    f"- as measured by a stationary observer: dilated time = "
+                    f"{experiment.dilated_time_s:.2f} s (longer than the proper time), "
+                    f"contracted length = {experiment.contracted_length_m:.2f} m "
+                    "(shorter than the proper length) -- both by the same factor of gamma"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

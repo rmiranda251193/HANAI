@@ -218,6 +218,9 @@ _FIELD_LABELS = {
     "charge_magnitude_c": "charge magnitude",
     "positive_charge": "charge sign",
     "field_t": "magnetic field",
+    "velocity_fraction_c": "velocity (fraction of c)",
+    "proper_time_s": "proper time",
+    "proper_length_m": "proper length",
 }
 
 
@@ -647,6 +650,20 @@ def _experiment_prefill(attempt):
             )
         if ctx.force_n is not None:
             parts.append(f"magnetic force = {ctx.force_n:.2f} N")
+    elif ctx.simulation_type == "time_dilation":
+        if ctx.velocity_fraction_c is not None:
+            parts.append(f"velocity = {ctx.velocity_fraction_c:.2f}c")
+        if ctx.proper_time_s is not None and ctx.proper_length_m is not None:
+            parts.append(
+                f"proper time = {ctx.proper_time_s:.1f} s, proper length = {ctx.proper_length_m:.1f} m"
+            )
+        if ctx.lorentz_factor is not None:
+            parts.append(f"Lorentz factor (gamma) = {ctx.lorentz_factor:.3f} (computed by the app)")
+        if ctx.dilated_time_s is not None and ctx.contracted_length_m is not None:
+            parts.append(
+                f"dilated time = {ctx.dilated_time_s:.2f} s, contracted length = "
+                f"{ctx.contracted_length_m:.2f} m"
+            )
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -787,6 +804,13 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed orbital radius: "
             f"{validated.radius_m:.2f} m, period: {validated.period_s:.2f} s "
             f"(speed stayed at {validated.current_speed_m_s:.1f} m/s)."
+        )
+    if simulation_type == "time_dilation":
+        return (
+            "Observation saved. Server-computed Lorentz factor: "
+            f"{validated.lorentz_factor:.3f} (dilated time "
+            f"{validated.dilated_time_s:.2f} s, contracted length "
+            f"{validated.contracted_length_m:.2f} m)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

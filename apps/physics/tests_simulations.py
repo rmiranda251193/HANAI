@@ -81,11 +81,12 @@ class PhysicsSimulationModelTests(TestCase):
         # Motion), a ninth (Series and Parallel Circuits), a tenth
         # (Coulomb's Law), an eleventh (Radioactive Decay), a twelfth
         # (Buoyancy), a thirteenth (Refraction), a fourteenth (Calorimetry),
-        # a fifteenth (The Ideal Gas Law), a sixteenth (The Doppler Effect)
-        # and a seventeenth (Magnetic Force on a Moving Charge); the seed
+        # a fifteenth (The Ideal Gas Law), a sixteenth (The Doppler Effect),
+        # a seventeenth (Magnetic Force on a Moving Charge) and an
+        # eighteenth (Time Dilation and Length Contraction); the seed
         # command still creates every row exactly once and only updates on
         # every re-run.
-        self.assertIn("0 created, 17 updated", out.getvalue())
+        self.assertIn("0 created, 18 updated", out.getvalue())
         simulation = PhysicsSimulation.objects.get(slug="newtons-second-law")
         self.assertEqual(simulation.concept.name, "Newton's Second Law")
 

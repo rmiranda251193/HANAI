@@ -111,8 +111,11 @@ class ExperimentContext:
     ``position_x_m``/``position_y_m`` from Circular Motion, and
     ``velocity_m_s`` for the particle's -- always constant -- speed; the
     magnetic force changes direction but never speed, which is the whole
-    point of this lab). A given experiment only ever populates the fields
-    for its own simulation type -- the rest stay ``None``.
+    point of this lab). ``velocity_fraction_c``/``proper_time_s``/
+    ``proper_length_m``/``lorentz_factor``/``dilated_time_s``/
+    ``contracted_length_m`` are Time-Dilation-specific. A given experiment
+    only ever populates the fields for its own simulation type -- the rest
+    stay ``None``.
     """
 
     simulation: str = ""
@@ -203,6 +206,12 @@ class ExperimentContext:
     charge_magnitude_c: float | None = None
     is_positive_charge: bool | None = None
     field_t: float | None = None
+    velocity_fraction_c: float | None = None
+    proper_time_s: float | None = None
+    proper_length_m: float | None = None
+    lorentz_factor: float | None = None
+    dilated_time_s: float | None = None
+    contracted_length_m: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -251,6 +260,7 @@ class ExperimentContext:
                 self.moles is not None,
                 self.source_freq_hz is not None,
                 self.charge_magnitude_c is not None,
+                self.lorentz_factor is not None,
             ]
         )
 
@@ -452,6 +462,16 @@ class ExperimentContext:
                 position_x_m=params.get("observed_position_x_m"),
                 position_y_m=params.get("observed_position_y_m"),
                 velocity_m_s=params.get("speed_m_s"),
+            )
+        elif simulation_type == "time_dilation":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                velocity_fraction_c=params.get("velocity_fraction_c"),
+                proper_time_s=params.get("proper_time_s"),
+                proper_length_m=params.get("proper_length_m"),
+                lorentz_factor=params.get("observed_lorentz_factor"),
+                dilated_time_s=params.get("observed_dilated_time_s"),
+                contracted_length_m=params.get("observed_contracted_length_m"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

@@ -144,6 +144,7 @@ class PhysicsSimulation(models.Model):
         IDEAL_GAS_LAW = "ideal_gas_law", "The Ideal Gas Law"
         DOPPLER_EFFECT = "doppler_effect", "The Doppler Effect"
         MAGNETIC_FORCE = "magnetic_force", "Magnetic Force on a Moving Charge"
+        TIME_DILATION = "time_dilation", "Time Dilation and Length Contraction"
 
     concept = models.ForeignKey(
         PhysicsConcept,

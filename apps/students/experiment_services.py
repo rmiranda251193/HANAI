@@ -150,6 +150,13 @@ from apps.physics.simulations_magnetic_force import clamp_positive_charge
 from apps.physics.simulations_magnetic_force import clamp_speed as clamp_magnetic_speed
 from apps.physics.simulations_magnetic_force import clamp_time as clamp_magnetic_time
 from apps.physics.simulations_magnetic_force import magnetic_force_state
+from apps.physics.simulations_time_dilation import (
+    MAX_PROPER_LENGTH_M as RELATIVITY_MAX_PROPER_LENGTH_M,
+    MAX_PROPER_TIME_S as RELATIVITY_MAX_PROPER_TIME_S,
+)
+from apps.physics.simulations_time_dilation import clamp_proper_length, clamp_proper_time
+from apps.physics.simulations_time_dilation import clamp_velocity_fraction
+from apps.physics.simulations_time_dilation import time_dilation_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -224,6 +231,9 @@ MAGNETIC_MASS_HARD_MAX_KG = MAGNETIC_MAX_MASS_KG * 5
 MAGNETIC_SPEED_HARD_MAX_M_S = MAGNETIC_MAX_SPEED_M_S * 5
 MAGNETIC_FIELD_HARD_MAX_T = MAGNETIC_MAX_FIELD_T * 5
 MAGNETIC_TIME_HARD_MAX_S = MAGNETIC_MAX_TIME_S * 5
+
+RELATIVITY_PROPER_TIME_HARD_MAX_S = RELATIVITY_MAX_PROPER_TIME_S * 5
+RELATIVITY_PROPER_LENGTH_HARD_MAX_M = RELATIVITY_MAX_PROPER_LENGTH_M * 5
 
 TEXT_LIMIT = 2000
 
@@ -1399,6 +1409,74 @@ def validate_magnetic_force(
     )
 
 
+@dataclass(frozen=True)
+class ValidatedTimeDilation:
+    """Server-recomputed, deterministic Time Dilation values."""
+
+    velocity_fraction_c: float
+    proper_time_s: float
+    proper_length_m: float
+    lorentz_factor: float
+    dilated_time_s: float
+    contracted_length_m: float
+
+    def as_dict(self) -> dict:
+        return {
+            "velocity_fraction_c": self.velocity_fraction_c,
+            "proper_time_s": self.proper_time_s,
+            "proper_length_m": self.proper_length_m,
+            "lorentz_factor": self.lorentz_factor,
+            "dilated_time_s": self.dilated_time_s,
+            "contracted_length_m": self.contracted_length_m,
+        }
+
+
+def validate_time_dilation(velocity_fraction_c, proper_time_s, proper_length_m) -> ValidatedTimeDilation:
+    """Recompute the Lorentz factor/dilated time/contracted length on the
+    server. Reject nonsense; clamp to lab bounds. There is no time-axis
+    input here -- see the module docstring in
+    ``simulations_time_dilation.py`` for why."""
+
+    try:
+        beta_raw = float(velocity_fraction_c)
+        t0_raw = float(proper_time_s)
+        l0_raw = float(proper_length_m)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Velocity, proper time and proper length must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (beta_raw, t0_raw, l0_raw)):
+        raise ExperimentValidationError(
+            "Velocity, proper time and proper length must be finite numbers."
+        )
+    if beta_raw < 0:
+        raise ExperimentValidationError("Velocity cannot be negative.")
+    if beta_raw >= 1.0:
+        raise ExperimentValidationError(
+            "Nothing with mass can reach or exceed the speed of light."
+        )
+    if t0_raw <= 0:
+        raise ExperimentValidationError("Proper time must be positive.")
+    if l0_raw <= 0:
+        raise ExperimentValidationError("Proper length must be positive.")
+    if (
+        t0_raw > RELATIVITY_PROPER_TIME_HARD_MAX_S
+        or l0_raw > RELATIVITY_PROPER_LENGTH_HARD_MAX_M
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = time_dilation_state(
+        velocity_fraction_c=beta_raw, proper_time=t0_raw, proper_length=l0_raw
+    )
+    return ValidatedTimeDilation(
+        velocity_fraction_c=clamp_velocity_fraction(beta_raw),
+        proper_time_s=clamp_proper_time(t0_raw),
+        proper_length_m=clamp_proper_length(l0_raw),
+        lorentz_factor=state["lorentz_factor"],
+        dilated_time_s=state["dilated_time_s"],
+        contracted_length_m=state["contracted_length_m"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1554,6 +1632,14 @@ def _validate_magnetic_force(values: dict) -> ValidatedMagneticForce:
     )
 
 
+def _validate_time_dilation(values: dict) -> ValidatedTimeDilation:
+    return validate_time_dilation(
+        values.get("velocity_fraction_c"),
+        values.get("proper_time_s"),
+        values.get("proper_length_m"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1572,6 +1658,7 @@ _VALIDATORS = {
     "ideal_gas_law": _validate_ideal_gas_law,
     "doppler_effect": _validate_doppler_effect,
     "magnetic_force": _validate_magnetic_force,
+    "time_dilation": _validate_time_dilation,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1600,6 +1687,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "magnetic_force": (
         "charge_magnitude_c", "positive_charge", "mass_kg", "speed_m_s", "field_t", "time_s",
     ),
+    "time_dilation": ("velocity_fraction_c", "proper_time_s", "proper_length_m"),
 }
 
 
@@ -1728,6 +1816,13 @@ def _apply_fields_magnetic_force(attempt, validated: ValidatedMagneticForce) -> 
     attempt.force_n = validated.force_n
 
 
+def _apply_fields_time_dilation(attempt, validated: ValidatedTimeDilation) -> None:
+    # No ExperimentAttempt column fits a Lorentz factor -- everything lives
+    # in attempt.parameters, like Coulomb's Law's and Collision's non-
+    # fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1746,6 +1841,7 @@ _FIELD_APPLIERS = {
     "ideal_gas_law": _apply_fields_ideal_gas_law,
     "doppler_effect": _apply_fields_doppler_effect,
     "magnetic_force": _apply_fields_magnetic_force,
+    "time_dilation": _apply_fields_time_dilation,
 }
 
 
@@ -1997,6 +2093,19 @@ def _apply_parameters_magnetic_force(attempt, simulation, validated: ValidatedMa
     }
 
 
+def _apply_parameters_time_dilation(attempt, simulation, validated: ValidatedTimeDilation) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "velocity_fraction_c": validated.velocity_fraction_c,
+        "proper_time_s": validated.proper_time_s,
+        "proper_length_m": validated.proper_length_m,
+        "observed_lorentz_factor": validated.lorentz_factor,
+        "observed_dilated_time_s": validated.dilated_time_s,
+        "observed_contracted_length_m": validated.contracted_length_m,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -2015,6 +2124,7 @@ _PARAMETER_APPLIERS = {
     "ideal_gas_law": _apply_parameters_ideal_gas_law,
     "doppler_effect": _apply_parameters_doppler_effect,
     "magnetic_force": _apply_parameters_magnetic_force,
+    "time_dilation": _apply_parameters_time_dilation,
 }
 
 
@@ -2260,6 +2370,17 @@ def _base_context(attempt, simulation) -> dict:
         for key in (
             "observed_radius_m", "observed_period_s",
             "observed_position_x_m", "observed_position_y_m",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "time_dilation":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("velocity_fraction_c", "proper_time_s", "proper_length_m"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_lorentz_factor", "observed_dilated_time_s",
+            "observed_contracted_length_m",
         ):
             if key in params:
                 context[key] = params[key]

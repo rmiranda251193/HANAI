@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: pure special relativity, with no acceleration and no gravity involved.
+    Values are computed from <code>&gamma; = 1 / &radic;(1 &minus; v&sup2;/c&sup2;)</code>, <code>&Delta;t = &Delta;t<sub>0</sub> &gamma;</code> and <code>L = L<sub>0</sub> / &gamma;</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-velocity-fraction="{{ defaults.velocity_fraction_c }}"
+       data-proper-time="{{ defaults.proper_time_s }}"
+       data-proper-length="{{ defaults.proper_length_m }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the dilated time and contracted length if you push the velocity from 60% of the speed of light to 95%? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. Both effects should get a lot bigger, since gamma grows quickly near the speed of light.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 190" role="img"
+               data-lab-scene aria-label="A bar chart comparing proper length and contracted length.">
+            <desc data-scene-desc>A bar chart comparing an object's proper length at rest to its contracted length as measured by a stationary observer.</desc>
+            <line x1="40" y1="150" x2="340" y2="150" class="lab-axis" />
+            <rect x="90" y="150" width="60" height="0" class="lab-cart-body" data-bar-proper />
+            <text x="100" y="168" class="lab-axis-label">Proper length</text>
+            <text x="95" y="144" class="lab-axis-label" data-bar-proper-label></text>
+            <rect x="220" y="150" width="60" height="0" class="lab-cart-body-alt" data-bar-contracted />
+            <text x="205" y="168" class="lab-axis-label">Contracted length</text>
+            <text x="220" y="144" class="lab-axis-label" data-bar-contracted-label></text>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of the Lorentz factor against velocity.">
+            <desc data-graph-desc>A graph of the Lorentz factor against velocity as a fraction of the speed of light.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">&gamma;</text>
+            <text x="332" y="184" class="lab-axis-label">v/c</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="-10" cy="-10" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">The Lorentz factor versus velocity. It stays close to 1 for everyday speeds and only rises sharply as velocity approaches the speed of light.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Velocity</span>
+                <span class="lab-value-number"><span data-value-beta>{{ defaults.velocity_fraction_c }}</span>c</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Proper time</span>
+                <span class="lab-value-number"><span data-value-proper-time>{{ defaults.proper_time_s }}</span> s</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Proper length</span>
+                <span class="lab-value-number"><span data-value-proper-length>{{ defaults.proper_length_m }}</span> m</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">&gamma; = 1 / &radic;(1 &minus; v&sup2;/c&sup2;)</p>
+              <p class="lab-eq-worked">&gamma; = <span data-eq-gamma>1.000</span></p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Lorentz factor (&gamma;)</dt><dd><span data-value-gamma>1.000</span></dd></div>
+              <div><dt>Dilated time</dt><dd><span data-value-dilated-time>0.00</span> s</dd></div>
+              <div><dt>Contracted length</dt><dd><span data-value-contracted-length>0.00</span> m</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-beta">Velocity, as a fraction of c</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-beta" data-input-beta
+                     min="{{ bounds.velocity_fraction_c.min }}" max="{{ bounds.velocity_fraction_c.max }}" step="0.01"
+                     value="{{ defaults.velocity_fraction_c }}" aria-describedby="lab-beta-out">
+              <output id="lab-beta-out" for="lab-beta" data-out-beta>{{ defaults.velocity_fraction_c }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-proper-time">Proper time (s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-proper-time" data-input-proper-time
+                     min="{{ bounds.proper_time_s.min }}" max="{{ bounds.proper_time_s.max }}" step="0.5"
+                     value="{{ defaults.proper_time_s }}" aria-describedby="lab-proper-time-out">
+              <output id="lab-proper-time-out" for="lab-proper-time" data-out-proper-time>{{ defaults.proper_time_s }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-proper-length">Proper length (m)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-proper-length" data-input-proper-length
+                     min="{{ bounds.proper_length_m.min }}" max="{{ bounds.proper_length_m.max }}" step="1"
+                     value="{{ defaults.proper_length_m }}" aria-describedby="lab-proper-length-out">
+              <output id="lab-proper-length-out" for="lab-proper-length" data-out-proper-length>{{ defaults.proper_length_m }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the Lorentz factor and how much time and length changed.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="velocity_fraction_c" data-field="velocityFractionC" value="{{ defaults.velocity_fraction_c }}">
+        <input type="hidden" name="proper_time_s" data-field="properTimeS" value="{{ defaults.proper_time_s }}">
+        <input type="hidden" name="proper_length_m" data-field="properLengthM" value="{{ defaults.proper_length_m }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. The moving clock's interval looked longer, and the moving object's length looked shorter, to the stationary observer.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_lorentz_factor is not None %}Last saved: server-computed Lorentz factor ({{ experiment_attempt.parameters.observed_lorentz_factor|floatformat:3 }}), dilated time ({{ experiment_attempt.parameters.observed_dilated_time_s|floatformat:2 }} s).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="velocity_fraction_c" data-field="velocityFractionC" value="{{ defaults.velocity_fraction_c }}">
+        <input type="hidden" name="proper_time_s" data-field="properTimeS" value="{{ defaults.proper_time_s }}">
+        <input type="hidden" name="proper_length_m" data-field="properLengthM" value="{{ defaults.proper_length_m }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Both effects come from the same Lorentz factor, which only grows large once velocity gets close to the speed of light.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>&gamma; = 1 / &radic;(1 &minus; v&sup2;/c&sup2;)</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/time-dilation.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}
