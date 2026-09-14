@@ -105,8 +105,14 @@ class ExperimentContext:
     ``volume_m3`` from Buoyancy -- the same plain "volume" meaning in
     both). ``source_freq_hz``/``source_velocity_m_s``/
     ``observer_velocity_m_s``/``observed_freq_hz`` are Doppler-Effect-
-    specific. A given experiment only ever populates the fields for its
-    own simulation type -- the rest stay ``None``.
+    specific. ``charge_magnitude_c``/``is_positive_charge``/``field_t`` are
+    Magnetic-Force-specific (which reuses ``mass_kg`` from Newton's Second
+    Law, ``force_n`` from Buoyancy, ``radius_m``/``period_s``/
+    ``position_x_m``/``position_y_m`` from Circular Motion, and
+    ``velocity_m_s`` for the particle's -- always constant -- speed; the
+    magnetic force changes direction but never speed, which is the whole
+    point of this lab). A given experiment only ever populates the fields
+    for its own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -194,6 +200,9 @@ class ExperimentContext:
     source_velocity_m_s: float | None = None
     observer_velocity_m_s: float | None = None
     observed_freq_hz: float | None = None
+    charge_magnitude_c: float | None = None
+    is_positive_charge: bool | None = None
+    field_t: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -241,6 +250,7 @@ class ExperimentContext:
                 self.equilibrium_temp_c is not None,
                 self.moles is not None,
                 self.source_freq_hz is not None,
+                self.charge_magnitude_c is not None,
             ]
         )
 
@@ -426,6 +436,22 @@ class ExperimentContext:
                 source_velocity_m_s=params.get("source_velocity_m_s"),
                 observer_velocity_m_s=params.get("observer_velocity_m_s"),
                 observed_freq_hz=params.get("observed_freq_hz"),
+            )
+        elif simulation_type == "magnetic_force":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            sign_flag = params.get("positive_charge")
+            kwargs.update(
+                mass_kg=attempt.mass_kg,
+                force_n=attempt.force_n,
+                charge_magnitude_c=params.get("charge_magnitude_c"),
+                is_positive_charge=(sign_flag >= 0.5) if sign_flag is not None else None,
+                field_t=params.get("field_t"),
+                radius_m=params.get("observed_radius_m"),
+                period_s=params.get("observed_period_s"),
+                time_s=params.get("observed_time_s"),
+                position_x_m=params.get("observed_position_x_m"),
+                position_y_m=params.get("observed_position_y_m"),
+                velocity_m_s=params.get("speed_m_s"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

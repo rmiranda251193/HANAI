@@ -215,6 +215,9 @@ _FIELD_LABELS = {
     "source_freq_hz": "source frequency",
     "source_velocity_m_s": "source velocity",
     "observer_velocity_m_s": "observer velocity",
+    "charge_magnitude_c": "charge magnitude",
+    "positive_charge": "charge sign",
+    "field_t": "magnetic field",
 }
 
 
@@ -625,6 +628,25 @@ def _experiment_prefill(attempt):
             parts.append(f"observer velocity (positive = approaching) = {ctx.observer_velocity_m_s:.1f} m/s")
         if ctx.observed_freq_hz is not None:
             parts.append(f"observed frequency = {ctx.observed_freq_hz:.1f} Hz (computed by the app)")
+    elif ctx.simulation_type == "magnetic_force":
+        if ctx.charge_magnitude_c is not None:
+            parts.append(
+                f"charge = {ctx.charge_magnitude_c:.2f} C "
+                + ("(positive)" if ctx.is_positive_charge else "(negative)")
+            )
+        if ctx.mass_kg is not None:
+            parts.append(f"mass = {ctx.mass_kg:.2f} kg")
+        if ctx.velocity_m_s is not None:
+            parts.append(f"speed = {ctx.velocity_m_s:.1f} m/s")
+        if ctx.field_t is not None:
+            parts.append(f"magnetic field = {ctx.field_t:.1f} T")
+        if ctx.radius_m is not None and ctx.period_s is not None:
+            parts.append(
+                f"orbital radius = {ctx.radius_m:.2f} m, period = {ctx.period_s:.2f} s "
+                "(computed by the app, independent of speed)"
+            )
+        if ctx.force_n is not None:
+            parts.append(f"magnetic force = {ctx.force_n:.2f} N")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -759,6 +781,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed observed frequency: "
             f"{validated.observed_freq_hz:.1f} Hz (source frequency was "
             f"{validated.source_freq_hz:.0f} Hz)."
+        )
+    if simulation_type == "magnetic_force":
+        return (
+            "Observation saved. Server-computed orbital radius: "
+            f"{validated.radius_m:.2f} m, period: {validated.period_s:.2f} s "
+            f"(speed stayed at {validated.current_speed_m_s:.1f} m/s)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

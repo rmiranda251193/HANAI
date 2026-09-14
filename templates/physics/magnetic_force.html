@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: the field is uniform and always exactly perpendicular to the particle's velocity, so it moves in a perfect circle.
+    Values are computed from <code>F = |q| v B</code>, <code>r = m v / (|q| B)</code> and <code>T = 2&pi;m / (|q| B)</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-charge-magnitude="{{ defaults.charge_magnitude_c }}"
+       data-positive-charge="{{ defaults.positive_charge }}"
+       data-mass="{{ defaults.mass_kg }}"
+       data-speed="{{ defaults.speed_m_s }}"
+       data-field="{{ defaults.field_t }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the orbital period if you double the particle's speed, keeping everything else the same? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. A faster particle traces a bigger circle, but I think it takes the same time per lap.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 280" role="img"
+               data-lab-scene aria-label="A charged particle moving in a circle in a magnetic field.">
+            <desc data-scene-desc>A charged particle moving at constant speed around a circle, curved by the magnetic force.</desc>
+            <circle cx="200" cy="140" r="108" class="lab-track" data-orbit-circle fill="none" />
+            <line x1="200" y1="140" x2="308" y2="140" class="lab-track" data-radius-line />
+            <g data-cart transform="translate(308,140)">
+              <circle cx="0" cy="0" r="9" class="lab-cart-body" />
+            </g>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of y-position against time.">
+            <desc data-graph-desc>A graph of y-position against time.</desc>
+            <line x1="40" y1="12" x2="40" y2="156" class="lab-axis" />
+            <line x1="40" y1="156" x2="348" y2="156" class="lab-axis" />
+            <text x="10" y="14" class="lab-axis-label">y</text>
+            <text x="332" y="176" class="lab-axis-label">t</text>
+            <polyline points="" class="lab-trace" data-lab-trace />
+          </svg>
+          <p class="lab-graph-caption">y-position vs time. Same sine-wave shape as Circular Motion -- this IS circular motion, with the magnetic force playing the centripetal role instead of a string.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Radius</span>
+                <span class="lab-value-number"><span data-value-radius>0.00</span> m</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Period</span>
+                <span class="lab-value-number"><span data-value-period>0.00</span> s</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Force</span>
+                <span class="lab-value-number"><span data-value-force>0.00</span> N</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">r = mv / (|q|B) &nbsp; T = 2&pi;m / (|q|B)</p>
+              <p class="lab-eq-worked">
+                r = <span data-eq-radius>0.00</span> m &nbsp; T = <span data-eq-period>0.00</span> s
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Time</dt><dd><span data-value-time>0.00</span> s</dd></div>
+              <div><dt>Current speed</dt><dd><span data-value-speed>0.0</span> m/s (always constant)</dd></div>
+            </dl>
+          </div>
+
+          <fieldset class="lab-predict-choice">
+            <legend>Charge sign</legend>
+            <label><input type="radio" name="charge-sign-choice" value="1" data-input-positive-charge checked> Positive</label>
+            <label><input type="radio" name="charge-sign-choice" value="0" data-input-positive-charge> Negative</label>
+          </fieldset>
+          <div class="lab-control">
+            <label for="lab-charge">Charge magnitude (C)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-charge" data-input-charge-magnitude
+                     min="{{ bounds.charge_magnitude_c.min }}" max="{{ bounds.charge_magnitude_c.max }}" step="0.1"
+                     value="{{ defaults.charge_magnitude_c }}" aria-describedby="lab-charge-out">
+              <output id="lab-charge-out" for="lab-charge" data-out-charge-magnitude>{{ defaults.charge_magnitude_c }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-mass">Mass (kg)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-mass" data-input-mass
+                     min="{{ bounds.mass_kg.min }}" max="{{ bounds.mass_kg.max }}" step="0.01"
+                     value="{{ defaults.mass_kg }}" aria-describedby="lab-mass-out">
+              <output id="lab-mass-out" for="lab-mass" data-out-mass>{{ defaults.mass_kg }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-speed">Speed (m/s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-speed" data-input-speed
+                     min="{{ bounds.speed_m_s.min }}" max="{{ bounds.speed_m_s.max }}" step="1"
+                     value="{{ defaults.speed_m_s }}" aria-describedby="lab-speed-out">
+              <output id="lab-speed-out" for="lab-speed" data-out-speed>{{ defaults.speed_m_s }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-field">Magnetic field (T)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-field" data-input-field
+                     min="{{ bounds.field_t.min }}" max="{{ bounds.field_t.max }}" step="0.1"
+                     value="{{ defaults.field_t }}" aria-describedby="lab-field-out">
+              <output id="lab-field-out" for="lab-field" data-out-field>{{ defaults.field_t }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-time">Time (s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-time" data-input-time
+                     min="0" max="{{ bounds.time_s.max }}" step="0.05"
+                     value="0" aria-describedby="lab-time-out">
+              <output id="lab-time-out" for="lab-time" data-out-time>0.0</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-primary" data-action-start>Start</button>
+            <button type="button" class="button button-secondary" data-action-pause>Pause</button>
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+            <button type="button" class="button button-secondary" data-action-step>Step</button>
+          </div>
+          <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating.</p>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the radius and period you saw, and whether the speed changed.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="charge_magnitude_c" data-field="chargeMagnitudeC" value="{{ defaults.charge_magnitude_c }}">
+        <input type="hidden" name="positive_charge" data-field="positiveCharge" value="{{ defaults.positive_charge }}">
+        <input type="hidden" name="mass_kg" data-field="massKg" value="{{ defaults.mass_kg }}">
+        <input type="hidden" name="speed_m_s" data-field="speedMs" value="{{ defaults.speed_m_s }}">
+        <input type="hidden" name="field_t" data-field="fieldT" value="{{ defaults.field_t }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. The particle traced a perfect circle and its speed never changed.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_radius_m is not None %}Last saved: server-computed radius ({{ experiment_attempt.parameters.observed_radius_m|floatformat:2 }} m), period ({{ experiment_attempt.parameters.observed_period_s|floatformat:2 }} s).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="charge_magnitude_c" data-field="chargeMagnitudeC" value="{{ defaults.charge_magnitude_c }}">
+        <input type="hidden" name="positive_charge" data-field="positiveCharge" value="{{ defaults.positive_charge }}">
+        <input type="hidden" name="mass_kg" data-field="massKg" value="{{ defaults.mass_kg }}">
+        <input type="hidden" name="speed_m_s" data-field="speedMs" value="{{ defaults.speed_m_s }}">
+        <input type="hidden" name="field_t" data-field="fieldT" value="{{ defaults.field_t }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. The magnetic force is always perpendicular to the velocity, so it can only change direction, never speed.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationships it shows are <strong>F = |q|vB</strong>, <strong>r = mv / (|q|B)</strong> and <strong>T = 2&pi;m / (|q|B)</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/magnetic-force.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

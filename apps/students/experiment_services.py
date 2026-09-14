@@ -136,6 +136,20 @@ from apps.physics.simulations_doppler_effect import MAX_VELOCITY_M_S as DOPPLER_
 from apps.physics.simulations_doppler_effect import clamp_freq as clamp_doppler_freq
 from apps.physics.simulations_doppler_effect import clamp_velocity as clamp_doppler_velocity
 from apps.physics.simulations_doppler_effect import doppler_effect_state
+from apps.physics.simulations_magnetic_force import (
+    MAX_CHARGE_MAGNITUDE_C as MAGNETIC_MAX_CHARGE_MAGNITUDE_C,
+    MAX_FIELD_T as MAGNETIC_MAX_FIELD_T,
+)
+from apps.physics.simulations_magnetic_force import MAX_MASS_KG as MAGNETIC_MAX_MASS_KG
+from apps.physics.simulations_magnetic_force import MAX_SPEED_M_S as MAGNETIC_MAX_SPEED_M_S
+from apps.physics.simulations_magnetic_force import MAX_TIME_S as MAGNETIC_MAX_TIME_S
+from apps.physics.simulations_magnetic_force import clamp_charge_magnitude
+from apps.physics.simulations_magnetic_force import clamp_field as clamp_magnetic_field
+from apps.physics.simulations_magnetic_force import clamp_mass as clamp_magnetic_mass
+from apps.physics.simulations_magnetic_force import clamp_positive_charge
+from apps.physics.simulations_magnetic_force import clamp_speed as clamp_magnetic_speed
+from apps.physics.simulations_magnetic_force import clamp_time as clamp_magnetic_time
+from apps.physics.simulations_magnetic_force import magnetic_force_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -204,6 +218,12 @@ GAS_VOLUME_HARD_MAX_M3 = GAS_MAX_VOLUME_M3 * 5
 
 DOPPLER_FREQ_HARD_MAX_HZ = DOPPLER_MAX_FREQ_HZ * 5
 DOPPLER_VELOCITY_HARD_MAX_M_S = DOPPLER_MAX_VELOCITY_M_S * 5
+
+MAGNETIC_CHARGE_HARD_MAX_C = MAGNETIC_MAX_CHARGE_MAGNITUDE_C * 5
+MAGNETIC_MASS_HARD_MAX_KG = MAGNETIC_MAX_MASS_KG * 5
+MAGNETIC_SPEED_HARD_MAX_M_S = MAGNETIC_MAX_SPEED_M_S * 5
+MAGNETIC_FIELD_HARD_MAX_T = MAGNETIC_MAX_FIELD_T * 5
+MAGNETIC_TIME_HARD_MAX_S = MAGNETIC_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -1282,6 +1302,103 @@ def validate_doppler_effect(source_freq_hz, source_velocity_m_s, observer_veloci
     )
 
 
+@dataclass(frozen=True)
+class ValidatedMagneticForce:
+    """Server-recomputed, deterministic Magnetic Force values (SI-shaped units)."""
+
+    charge_magnitude_c: float
+    positive_charge: float
+    mass_kg: float
+    speed_m_s: float
+    field_t: float
+    time_s: float
+    radius_m: float
+    period_s: float
+    force_n: float
+    position_x_m: float
+    position_y_m: float
+    current_speed_m_s: float
+
+    def as_dict(self) -> dict:
+        return {
+            "charge_magnitude_c": self.charge_magnitude_c,
+            "positive_charge": self.positive_charge,
+            "mass_kg": self.mass_kg,
+            "speed_m_s": self.speed_m_s,
+            "field_t": self.field_t,
+            "time_s": self.time_s,
+            "radius_m": self.radius_m,
+            "period_s": self.period_s,
+            "force_n": self.force_n,
+            "position_x_m": self.position_x_m,
+            "position_y_m": self.position_y_m,
+            "current_speed_m_s": self.current_speed_m_s,
+        }
+
+
+def validate_magnetic_force(
+    charge_magnitude_c, positive_charge, mass_kg, speed_m_s, field_t, time_s
+) -> ValidatedMagneticForce:
+    """Recompute the orbiting charged particle's position/period/force on
+    the server. Reject nonsense; clamp to lab bounds."""
+
+    try:
+        q_raw = float(charge_magnitude_c)
+        sign_raw = float(positive_charge)
+        m_raw = float(mass_kg)
+        v_raw = float(speed_m_s)
+        b_raw = float(field_t)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError(
+            "Charge, mass, speed, field and time must be numbers."
+        )
+
+    if any(
+        math.isnan(v) or math.isinf(v) for v in (q_raw, sign_raw, m_raw, v_raw, b_raw, t_raw)
+    ):
+        raise ExperimentValidationError(
+            "Charge, mass, speed, field and time must be finite numbers."
+        )
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if q_raw <= 0:
+        raise ExperimentValidationError("Charge magnitude must be positive.")
+    if m_raw <= 0:
+        raise ExperimentValidationError("Mass must be positive.")
+    if v_raw <= 0:
+        raise ExperimentValidationError("Speed must be positive.")
+    if b_raw <= 0:
+        raise ExperimentValidationError("Magnetic field must be positive.")
+    if (
+        q_raw > MAGNETIC_CHARGE_HARD_MAX_C
+        or m_raw > MAGNETIC_MASS_HARD_MAX_KG
+        or v_raw > MAGNETIC_SPEED_HARD_MAX_M_S
+        or b_raw > MAGNETIC_FIELD_HARD_MAX_T
+        or t_raw > MAGNETIC_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = magnetic_force_state(
+        charge_magnitude=q_raw, positive_charge=sign_raw, mass=m_raw,
+        speed=v_raw, field=b_raw, time=t_raw,
+    )
+    return ValidatedMagneticForce(
+        charge_magnitude_c=clamp_charge_magnitude(q_raw),
+        positive_charge=clamp_positive_charge(sign_raw),
+        mass_kg=clamp_magnetic_mass(m_raw),
+        speed_m_s=clamp_magnetic_speed(v_raw),
+        field_t=clamp_magnetic_field(b_raw),
+        time_s=clamp_magnetic_time(t_raw),
+        radius_m=state["radius_m"],
+        period_s=state["period_s"],
+        force_n=state["force_n"],
+        position_x_m=state["position_x_m"],
+        position_y_m=state["position_y_m"],
+        current_speed_m_s=state["current_speed_m_s"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1426,6 +1543,17 @@ def _validate_doppler_effect(values: dict) -> ValidatedDoppler:
     )
 
 
+def _validate_magnetic_force(values: dict) -> ValidatedMagneticForce:
+    return validate_magnetic_force(
+        values.get("charge_magnitude_c"),
+        values.get("positive_charge"),
+        values.get("mass_kg"),
+        values.get("speed_m_s"),
+        values.get("field_t"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1443,6 +1571,7 @@ _VALIDATORS = {
     "calorimetry": _validate_calorimetry,
     "ideal_gas_law": _validate_ideal_gas_law,
     "doppler_effect": _validate_doppler_effect,
+    "magnetic_force": _validate_magnetic_force,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1468,6 +1597,9 @@ _EXPLAIN_REQUIRED_FIELDS = {
     ),
     "ideal_gas_law": ("moles", "temperature_k", "volume_m3"),
     "doppler_effect": ("source_freq_hz", "source_velocity_m_s", "observer_velocity_m_s"),
+    "magnetic_force": (
+        "charge_magnitude_c", "positive_charge", "mass_kg", "speed_m_s", "field_t", "time_s",
+    ),
 }
 
 
@@ -1586,6 +1718,16 @@ def _apply_fields_doppler_effect(attempt, validated: ValidatedDoppler) -> None:
     pass
 
 
+def _apply_fields_magnetic_force(attempt, validated: ValidatedMagneticForce) -> None:
+    # mass_kg is the particle's own mass (same plain meaning as Newton's
+    # Second Law's); force_n IS a genuinely computed single-object net
+    # force (the magnetic force's magnitude on this particle, the same
+    # meaning force_n has for Newton's Second Law and Buoyancy) -- both
+    # fit the shared columns.
+    attempt.mass_kg = validated.mass_kg
+    attempt.force_n = validated.force_n
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1603,6 +1745,7 @@ _FIELD_APPLIERS = {
     "calorimetry": _apply_fields_calorimetry,
     "ideal_gas_law": _apply_fields_ideal_gas_law,
     "doppler_effect": _apply_fields_doppler_effect,
+    "magnetic_force": _apply_fields_magnetic_force,
 }
 
 
@@ -1836,6 +1979,24 @@ def _apply_parameters_doppler_effect(attempt, simulation, validated: ValidatedDo
     }
 
 
+def _apply_parameters_magnetic_force(attempt, simulation, validated: ValidatedMagneticForce) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "charge_magnitude_c": validated.charge_magnitude_c,
+        "positive_charge": validated.positive_charge,
+        "mass_kg": validated.mass_kg,
+        "speed_m_s": validated.speed_m_s,
+        "field_t": validated.field_t,
+        "observed_time_s": validated.time_s,
+        "observed_radius_m": validated.radius_m,
+        "observed_period_s": validated.period_s,
+        "observed_position_x_m": validated.position_x_m,
+        "observed_position_y_m": validated.position_y_m,
+        "observed_current_speed_m_s": validated.current_speed_m_s,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1853,6 +2014,7 @@ _PARAMETER_APPLIERS = {
     "calorimetry": _apply_parameters_calorimetry,
     "ideal_gas_law": _apply_parameters_ideal_gas_law,
     "doppler_effect": _apply_parameters_doppler_effect,
+    "magnetic_force": _apply_parameters_magnetic_force,
 }
 
 
@@ -2088,6 +2250,19 @@ def _base_context(attempt, simulation) -> dict:
                 context[key] = params[key]
         if "observed_freq_hz" in params:
             context["observed_freq_hz"] = params["observed_freq_hz"]
+    elif simulation.simulation_type == "magnetic_force":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("charge_magnitude_c", "positive_charge", "mass_kg", "speed_m_s", "field_t"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        for key in (
+            "observed_radius_m", "observed_period_s",
+            "observed_position_x_m", "observed_position_y_m",
+        ):
+            if key in params:
+                context[key] = params[key]
     return context
 
 

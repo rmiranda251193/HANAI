@@ -143,6 +143,7 @@ class PhysicsSimulation(models.Model):
         CALORIMETRY = "calorimetry", "Calorimetry"
         IDEAL_GAS_LAW = "ideal_gas_law", "The Ideal Gas Law"
         DOPPLER_EFFECT = "doppler_effect", "The Doppler Effect"
+        MAGNETIC_FORCE = "magnetic_force", "Magnetic Force on a Moving Charge"
 
     concept = models.ForeignKey(
         PhysicsConcept,

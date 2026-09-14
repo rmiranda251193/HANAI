@@ -227,6 +227,21 @@ PHYSICS_SIMULATIONS = [
             "observer move along a single straight line."
         ),
     },
+    {
+        "slug": "magnetic-force",
+        "title": "Magnetic Force on a Moving Charge Lab",
+        "concept_name": "Magnetic force on a moving charge",
+        "simulation_type": PhysicsSimulation.SimulationType.MAGNETIC_FORCE,
+        "description": (
+            "Set a charged particle's charge, mass and speed, and the "
+            "strength of a uniform magnetic field, and watch it move in a "
+            "perfect circle through F = |q|vB -- the magnetic force "
+            "changes its direction but never its speed. Watch the orbital "
+            "period follow T = 2*pi*m / (|q|B), independent of speed. "
+            "Idealized model: the field is uniform and always exactly "
+            "perpendicular to the particle's velocity."
+        ),
+    },
 ]
 
 

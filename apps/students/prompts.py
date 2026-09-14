@@ -443,6 +443,28 @@ Output contract:
                     "(v_sound + v_observer) / (v_sound - v_source), computed by the app): "
                     f"{experiment.observed_freq_hz:.1f} Hz"
                 )
+        elif experiment.simulation_type == "magnetic_force":
+            if experiment.charge_magnitude_c is not None:
+                exp_lines.append(
+                    f"- setup: charge = {experiment.charge_magnitude_c:.2f} C "
+                    + ("(positive)" if experiment.is_positive_charge else "(negative)")
+                    + f", mass = {experiment.mass_kg:.2f} kg, speed = "
+                    f"{experiment.velocity_m_s:.1f} m/s, magnetic field = "
+                    f"{experiment.field_t:.1f} T"
+                )
+            if experiment.radius_m is not None and experiment.period_s is not None:
+                exp_lines.append(
+                    "- orbital radius and period (deterministic, r = mv/(|q|B), "
+                    "T = 2*pi*m/(|q|B) -- notice T does not depend on speed at all, "
+                    f"computed by the app): radius = {experiment.radius_m:.2f} m, "
+                    f"period = {experiment.period_s:.2f} s"
+                )
+            if experiment.force_n is not None:
+                exp_lines.append(
+                    "- magnetic force (deterministic, F = |q|vB, always perpendicular "
+                    f"to velocity so it never changes speed, computed by the app): "
+                    f"{experiment.force_n:.2f} N"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(
