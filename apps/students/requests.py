@@ -100,9 +100,11 @@ class ExperimentContext:
     ``specific_heat2``/``temp1_c``/``temp2_c``/``equilibrium_temp_c``/
     ``heat_transferred_j`` are Calorimetry-specific (which reuses
     ``mass1_kg``/``mass2_kg`` from Momentum/Collision -- the same plain
-    "mass of object 1/2" meaning in both). A given experiment only ever
-    populates the fields for its own simulation type -- the rest stay
-    ``None``.
+    "mass of object 1/2" meaning in both). ``moles``/``temperature_k``/
+    ``pressure_pa`` are Ideal-Gas-Law-specific (which reuses
+    ``volume_m3`` from Buoyancy -- the same plain "volume" meaning in
+    both). A given experiment only ever populates the fields for its own
+    simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -183,6 +185,9 @@ class ExperimentContext:
     temp2_c: float | None = None
     equilibrium_temp_c: float | None = None
     heat_transferred_j: float | None = None
+    moles: float | None = None
+    temperature_k: float | None = None
+    pressure_pa: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -228,6 +233,7 @@ class ExperimentContext:
                 self.object_density_kg_m3 is not None,
                 self.n1 is not None,
                 self.equilibrium_temp_c is not None,
+                self.moles is not None,
             ]
         )
 
@@ -397,6 +403,14 @@ class ExperimentContext:
                 temp2_c=params.get("temp2_c"),
                 equilibrium_temp_c=params.get("observed_equilibrium_temp_c"),
                 heat_transferred_j=params.get("observed_heat_transferred_j"),
+            )
+        elif simulation_type == "ideal_gas_law":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                moles=params.get("moles"),
+                temperature_k=params.get("temperature_k"),
+                volume_m3=params.get("volume_m3"),
+                pressure_pa=params.get("observed_pressure_pa"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

@@ -210,6 +210,8 @@ _FIELD_LABELS = {
     "specific_heat2": "specific heat 2",
     "temp1_c": "temperature 1",
     "temp2_c": "temperature 2",
+    "moles": "amount of gas",
+    "temperature_k": "temperature",
 }
 
 
@@ -602,6 +604,15 @@ def _experiment_prefill(attempt):
             parts.append(f"equilibrium temperature = {ctx.equilibrium_temp_c:.1f} C (computed by the app)")
         if ctx.heat_transferred_j is not None:
             parts.append(f"heat transferred = {ctx.heat_transferred_j:.1f} J")
+    elif ctx.simulation_type == "ideal_gas_law":
+        if ctx.moles is not None:
+            parts.append(f"amount of gas = {ctx.moles:.2f} mol")
+        if ctx.temperature_k is not None:
+            parts.append(f"temperature = {ctx.temperature_k:.1f} K")
+        if ctx.volume_m3 is not None:
+            parts.append(f"volume = {ctx.volume_m3:.4f} m^3")
+        if ctx.pressure_pa is not None:
+            parts.append(f"pressure = {ctx.pressure_pa:.1f} Pa (computed by the app)")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -725,6 +736,11 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed equilibrium temperature: "
             f"{validated.equilibrium_temp_c:.1f} °C (heat transferred "
             f"{validated.heat_transferred_j:.1f} J)."
+        )
+    if simulation_type == "ideal_gas_law":
+        return (
+            "Observation saved. Server-computed pressure: "
+            f"{validated.pressure_pa:.1f} Pa."
         )
     return (
         "Observation saved. Server-computed acceleration: "

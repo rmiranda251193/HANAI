@@ -125,6 +125,12 @@ from apps.physics.simulations_calorimetry import (
 from apps.physics.simulations_calorimetry import calorimetry_state
 from apps.physics.simulations_calorimetry import clamp_mass as clamp_calorimetry_mass
 from apps.physics.simulations_calorimetry import clamp_specific_heat, clamp_temp
+from apps.physics.simulations_ideal_gas_law import MAX_MOLES as GAS_MAX_MOLES
+from apps.physics.simulations_ideal_gas_law import MAX_TEMPERATURE_K as GAS_MAX_TEMPERATURE_K
+from apps.physics.simulations_ideal_gas_law import MAX_VOLUME_M3 as GAS_MAX_VOLUME_M3
+from apps.physics.simulations_ideal_gas_law import clamp_moles, clamp_temperature
+from apps.physics.simulations_ideal_gas_law import clamp_volume as clamp_gas_volume
+from apps.physics.simulations_ideal_gas_law import ideal_gas_law_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -186,6 +192,10 @@ REFRACTION_ANGLE_HARD_MAX_DEG = 90.0  # angles clamp at 89 deg; 90+ is meaningle
 CALORIMETRY_MASS_HARD_MAX_KG = CALORIMETRY_MAX_MASS_KG * 5
 CALORIMETRY_SPECIFIC_HEAT_HARD_MAX = CALORIMETRY_MAX_SPECIFIC_HEAT * 5
 CALORIMETRY_TEMP_HARD_MAX_C = 1000.0  # generous vs the -20..300 UI range
+
+GAS_MOLES_HARD_MAX = GAS_MAX_MOLES * 5
+GAS_TEMPERATURE_HARD_MAX_K = GAS_MAX_TEMPERATURE_K * 5
+GAS_VOLUME_HARD_MAX_M3 = GAS_MAX_VOLUME_M3 * 5
 
 TEXT_LIMIT = 2000
 
@@ -1152,6 +1162,60 @@ def validate_calorimetry(
     )
 
 
+@dataclass(frozen=True)
+class ValidatedIdealGasLaw:
+    """Server-recomputed, deterministic Ideal Gas Law values (SI units)."""
+
+    moles: float
+    temperature_k: float
+    volume_m3: float
+    pressure_pa: float
+
+    def as_dict(self) -> dict:
+        return {
+            "moles": self.moles,
+            "temperature_k": self.temperature_k,
+            "volume_m3": self.volume_m3,
+            "pressure_pa": self.pressure_pa,
+        }
+
+
+def validate_ideal_gas_law(moles, temperature_k, volume_m3) -> ValidatedIdealGasLaw:
+    """Recompute the gas pressure on the server. Reject nonsense; clamp to
+    lab bounds. There is no time input here -- see the module docstring in
+    ``simulations_ideal_gas_law.py`` for why."""
+
+    try:
+        n_raw = float(moles)
+        t_raw = float(temperature_k)
+        v_raw = float(volume_m3)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Amount, temperature and volume must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (n_raw, t_raw, v_raw)):
+        raise ExperimentValidationError("Amount, temperature and volume must be finite numbers.")
+    if n_raw <= 0:
+        raise ExperimentValidationError("Amount of gas must be positive.")
+    if t_raw <= 0:
+        raise ExperimentValidationError("Temperature must be positive (it's measured in kelvin).")
+    if v_raw <= 0:
+        raise ExperimentValidationError("Volume must be positive.")
+    if (
+        n_raw > GAS_MOLES_HARD_MAX
+        or t_raw > GAS_TEMPERATURE_HARD_MAX_K
+        or v_raw > GAS_VOLUME_HARD_MAX_M3
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = ideal_gas_law_state(moles=n_raw, temperature=t_raw, volume=v_raw)
+    return ValidatedIdealGasLaw(
+        moles=clamp_moles(n_raw),
+        temperature_k=clamp_temperature(t_raw),
+        volume_m3=clamp_gas_volume(v_raw),
+        pressure_pa=state["pressure_pa"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1280,6 +1344,14 @@ def _validate_calorimetry(values: dict) -> ValidatedCalorimetry:
     )
 
 
+def _validate_ideal_gas_law(values: dict) -> ValidatedIdealGasLaw:
+    return validate_ideal_gas_law(
+        values.get("moles"),
+        values.get("temperature_k"),
+        values.get("volume_m3"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1295,6 +1367,7 @@ _VALIDATORS = {
     "buoyancy": _validate_buoyancy,
     "refraction": _validate_refraction,
     "calorimetry": _validate_calorimetry,
+    "ideal_gas_law": _validate_ideal_gas_law,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1318,6 +1391,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
         "mass1_kg", "specific_heat1", "temp1_c",
         "mass2_kg", "specific_heat2", "temp2_c",
     ),
+    "ideal_gas_law": ("moles", "temperature_k", "volume_m3"),
 }
 
 
@@ -1422,6 +1496,13 @@ def _apply_fields_calorimetry(attempt, validated: ValidatedCalorimetry) -> None:
     pass
 
 
+def _apply_fields_ideal_gas_law(attempt, validated: ValidatedIdealGasLaw) -> None:
+    # No ExperimentAttempt column fits a gas pressure -- everything lives
+    # in attempt.parameters, like Coulomb's Law's and Collision's non-
+    # fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1437,6 +1518,7 @@ _FIELD_APPLIERS = {
     "buoyancy": _apply_fields_buoyancy,
     "refraction": _apply_fields_refraction,
     "calorimetry": _apply_fields_calorimetry,
+    "ideal_gas_law": _apply_fields_ideal_gas_law,
 }
 
 
@@ -1646,6 +1728,17 @@ def _apply_parameters_calorimetry(attempt, simulation, validated: ValidatedCalor
     }
 
 
+def _apply_parameters_ideal_gas_law(attempt, simulation, validated: ValidatedIdealGasLaw) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "moles": validated.moles,
+        "temperature_k": validated.temperature_k,
+        "volume_m3": validated.volume_m3,
+        "observed_pressure_pa": validated.pressure_pa,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1661,6 +1754,7 @@ _PARAMETER_APPLIERS = {
     "buoyancy": _apply_parameters_buoyancy,
     "refraction": _apply_parameters_refraction,
     "calorimetry": _apply_parameters_calorimetry,
+    "ideal_gas_law": _apply_parameters_ideal_gas_law,
 }
 
 
@@ -1882,6 +1976,13 @@ def _base_context(attempt, simulation) -> dict:
         for key in ("observed_equilibrium_temp_c", "observed_heat_transferred_j"):
             if key in params:
                 context[key] = params[key]
+    elif simulation.simulation_type == "ideal_gas_law":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("moles", "temperature_k", "volume_m3"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_pressure_pa" in params:
+            context["pressure_pa"] = params["observed_pressure_pa"]
     return context
 
 

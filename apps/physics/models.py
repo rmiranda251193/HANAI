@@ -141,6 +141,7 @@ class PhysicsSimulation(models.Model):
         BUOYANCY = "buoyancy", "Buoyancy"
         REFRACTION = "refraction", "Refraction"
         CALORIMETRY = "calorimetry", "Calorimetry"
+        IDEAL_GAS_LAW = "ideal_gas_law", "The Ideal Gas Law"
 
     concept = models.ForeignKey(
         PhysicsConcept,

@@ -198,6 +198,20 @@ PHYSICS_SIMULATIONS = [
             "no phase changes (melting or boiling)."
         ),
     },
+    {
+        "slug": "ideal-gas-law",
+        "title": "The Ideal Gas Law Lab",
+        "concept_name": "The ideal gas law",
+        "simulation_type": PhysicsSimulation.SimulationType.IDEAL_GAS_LAW,
+        "description": (
+            "Set the amount, temperature and volume of an ideal gas and "
+            "watch its pressure follow P V = n R T -- squeeze the volume "
+            "down and pressure rises, heat it up and pressure rises, add "
+            "more gas and pressure rises. Idealized model: particles with "
+            "negligible volume and no intermolecular forces, changing "
+            "instantly to a new equilibrium state."
+        ),
+    },
 ]
 
 

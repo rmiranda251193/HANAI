@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: particles with negligible volume and no intermolecular forces, changing instantly to a new equilibrium state.
+    Values are computed from <code>P V = n R T</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-moles="{{ defaults.moles }}"
+       data-temperature="{{ defaults.temperature_k }}"
+       data-volume="{{ defaults.volume_m3 }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the pressure if you push the piston down to half the volume, keeping the amount of gas and temperature the same? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. Halving the volume should double the pressure.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 220" role="img"
+               data-lab-scene aria-label="A gas in a piston-cylinder container.">
+            <desc data-scene-desc>A gas confined in a cylinder by a movable piston.</desc>
+            <rect x="150" y="40" width="100" height="150" fill="none" class="lab-track" />
+            <rect data-gas-fill x="150" y="190" width="100" height="0" class="lab-cart-body-alt" opacity="0.45" />
+            <line data-piston x1="150" y1="190" x2="250" y2="190" class="lab-track" stroke-width="4" />
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of pressure against volume.">
+            <desc data-graph-desc>A graph of pressure against volume, at the current amount of gas and temperature.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">P</text>
+            <text x="332" y="184" class="lab-axis-label">V</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="-10" cy="-10" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">Pressure versus volume, at this amount of gas and temperature &mdash; Boyle's law, an inverse relationship, drawn on a log scale so the full range is visible.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Amount</span>
+                <span class="lab-value-number"><span data-value-moles>{{ defaults.moles }}</span> mol</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Temperature</span>
+                <span class="lab-value-number"><span data-value-temperature>{{ defaults.temperature_k }}</span> K</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Volume</span>
+                <span class="lab-value-number"><span data-value-volume>{{ defaults.volume_m3 }}</span> m&sup3;</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">P = n R T / V</p>
+              <p class="lab-eq-worked">P = <span data-eq-pressure>0.0</span> Pa</p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Pressure</dt><dd><span data-value-pressure>0.0</span> Pa</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-moles">Amount of gas (mol)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-moles" data-input-moles
+                     min="{{ bounds.moles.min }}" max="{{ bounds.moles.max }}" step="0.1"
+                     value="{{ defaults.moles }}" aria-describedby="lab-moles-out">
+              <output id="lab-moles-out" for="lab-moles" data-out-moles>{{ defaults.moles }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-temperature">Temperature (K)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-temperature" data-input-temperature
+                     min="{{ bounds.temperature_k.min }}" max="{{ bounds.temperature_k.max }}" step="1"
+                     value="{{ defaults.temperature_k }}" aria-describedby="lab-temperature-out">
+              <output id="lab-temperature-out" for="lab-temperature" data-out-temperature>{{ defaults.temperature_k }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-volume">Volume (m&sup3;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-volume" data-input-volume
+                     min="{{ bounds.volume_m3.min }}" max="{{ bounds.volume_m3.max }}" step="0.001"
+                     value="{{ defaults.volume_m3 }}" aria-describedby="lab-volume-out">
+              <output id="lab-volume-out" for="lab-volume" data-out-volume>{{ defaults.volume_m3 }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the pressure you saw.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="moles" data-field="moles" value="{{ defaults.moles }}">
+        <input type="hidden" name="temperature_k" data-field="temperatureK" value="{{ defaults.temperature_k }}">
+        <input type="hidden" name="volume_m3" data-field="volumeM3" value="{{ defaults.volume_m3 }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. Halving the volume doubled the pressure, just like Boyle's law predicts.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_pressure_pa is not None %}Last saved: server-computed pressure ({{ experiment_attempt.parameters.observed_pressure_pa|floatformat:1 }} Pa).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="moles" data-field="moles" value="{{ defaults.moles }}">
+        <input type="hidden" name="temperature_k" data-field="temperatureK" value="{{ defaults.temperature_k }}">
+        <input type="hidden" name="volume_m3" data-field="volumeM3" value="{{ defaults.volume_m3 }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Squeezing the same number of molecules into a smaller space means more collisions with the walls, so pressure goes up.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>P V = n R T</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/ideal-gas-law.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

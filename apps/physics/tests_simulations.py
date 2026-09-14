@@ -80,10 +80,10 @@ class PhysicsSimulationModelTests(TestCase):
         # Collisions), a seventh (Energy on an Incline), an eighth (Orbital
         # Motion), a ninth (Series and Parallel Circuits), a tenth
         # (Coulomb's Law), an eleventh (Radioactive Decay), a twelfth
-        # (Buoyancy), a thirteenth (Refraction) and a fourteenth
-        # (Calorimetry); the seed command still creates every row exactly
-        # once and only updates on every re-run.
-        self.assertIn("0 created, 14 updated", out.getvalue())
+        # (Buoyancy), a thirteenth (Refraction), a fourteenth (Calorimetry)
+        # and a fifteenth (The Ideal Gas Law); the seed command still
+        # creates every row exactly once and only updates on every re-run.
+        self.assertIn("0 created, 15 updated", out.getvalue())
         simulation = PhysicsSimulation.objects.get(slug="newtons-second-law")
         self.assertEqual(simulation.concept.name, "Newton's Second Law")
 

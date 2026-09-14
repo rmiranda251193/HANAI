@@ -417,6 +417,18 @@ Output contract:
                 )
             if experiment.heat_transferred_j is not None:
                 exp_lines.append(f"- heat transferred: {experiment.heat_transferred_j:.1f} J")
+        elif experiment.simulation_type == "ideal_gas_law":
+            if experiment.moles is not None and experiment.temperature_k is not None:
+                exp_lines.append(
+                    f"- setup: amount of gas = {experiment.moles:.2f} mol, "
+                    f"temperature = {experiment.temperature_k:.1f} K, "
+                    f"volume = {experiment.volume_m3:.4f} m^3"
+                )
+            if experiment.pressure_pa is not None:
+                exp_lines.append(
+                    "- pressure (deterministic, P = nRT/V, computed by the app): "
+                    f"{experiment.pressure_pa:.1f} Pa"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(
