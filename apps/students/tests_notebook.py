@@ -117,14 +117,28 @@ class NotebookServiceTests(NotebookDataMixin, TestCase):
         self.assertEqual(entries, [])
 
     def test_newest_first(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from .experiment_services import complete_experiment
+
         self.observe_kinematics()
         second, _ = self.explain_kinematics()
         # explain reuses the same active attempt while unstarted, so start a
         # genuinely second attempt by completing the first, then observing again.
-        from .experiment_services import complete_experiment
-
         complete_experiment(second)
         third, _ = self.observe_kinematics(text="Second run.")
+
+        # started_at is auto_now_add (fixed at creation, not wall-clock
+        # comparable in a fast-running test on a coarse system timer) --
+        # force an unambiguous order directly rather than relying on real
+        # elapsed time between the two ExperimentAttempt.objects.create()
+        # calls above.
+        older = timezone.now() - timedelta(hours=1)
+        second.started_at = older
+        second.save(update_fields=["started_at"])
+
         entries = build_student_notebook(student=self.student)
         self.assertEqual(entries[0].attempt_id, third.pk)
 

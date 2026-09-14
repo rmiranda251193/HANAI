@@ -65,6 +65,15 @@ from apps.physics.simulations_shm import clamp_amplitude
 from apps.physics.simulations_shm import clamp_period as clamp_shm_period
 from apps.physics.simulations_shm import clamp_time as clamp_shm_time
 from apps.physics.simulations_shm import shm_state
+from apps.physics.simulations_collision import (
+    MAX_INITIAL_VELOCITY_MS as COLLISION_MAX_VELOCITY_MS,
+    MAX_MASS_KG as COLLISION_MAX_MASS_KG,
+)
+from apps.physics.simulations_collision import MAX_TIME_S as COLLISION_MAX_TIME_S
+from apps.physics.simulations_collision import clamp_elastic, clamp_mass as clamp_collision_mass
+from apps.physics.simulations_collision import clamp_initial_velocity as clamp_collision_velocity
+from apps.physics.simulations_collision import clamp_time as clamp_collision_time
+from apps.physics.simulations_collision import collision_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -93,6 +102,10 @@ CIRCULAR_TIME_HARD_MAX_S = CIRCULAR_MAX_TIME_S * 5
 AMPLITUDE_HARD_MAX_M = MAX_AMPLITUDE_M * 5
 SHM_PERIOD_HARD_MAX_S = SHM_MAX_PERIOD_S * 5
 SHM_TIME_HARD_MAX_S = SHM_MAX_TIME_S * 5
+
+COLLISION_MASS_HARD_MAX_KG = COLLISION_MAX_MASS_KG * 5
+COLLISION_VELOCITY_HARD_MAX_MS = COLLISION_MAX_VELOCITY_MS * 5
+COLLISION_TIME_HARD_MAX_S = COLLISION_MAX_TIME_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -403,6 +416,95 @@ def validate_shm(amplitude_m, period_s, time_s) -> ValidatedSHM:
     )
 
 
+@dataclass(frozen=True)
+class ValidatedCollision:
+    """Server-recomputed, deterministic Momentum/Collision values (SI units)."""
+
+    mass1_kg: float
+    mass2_kg: float
+    initial_velocity_m_s: float
+    elastic: float
+    time_s: float
+    position_1_m: float
+    position_2_m: float
+    velocity_1_m_s: float
+    velocity_2_m_s: float
+    has_collided: bool
+    collision_time_s: float
+    momentum_total_kg_m_s: float
+    kinetic_energy_total_j: float
+
+    def as_dict(self) -> dict:
+        return {
+            "mass1_kg": self.mass1_kg,
+            "mass2_kg": self.mass2_kg,
+            "initial_velocity_m_s": self.initial_velocity_m_s,
+            "elastic": self.elastic,
+            "time_s": self.time_s,
+            "position_1_m": self.position_1_m,
+            "position_2_m": self.position_2_m,
+            "velocity_1_m_s": self.velocity_1_m_s,
+            "velocity_2_m_s": self.velocity_2_m_s,
+            "has_collided": self.has_collided,
+            "collision_time_s": self.collision_time_s,
+            "momentum_total_kg_m_s": self.momentum_total_kg_m_s,
+            "kinetic_energy_total_j": self.kinetic_energy_total_j,
+        }
+
+
+def validate_collision(mass1_kg, mass2_kg, initial_velocity_m_s, elastic, time_s) -> ValidatedCollision:
+    """Recompute both carts' positions/velocities on the server. Reject
+    nonsense; clamp to lab bounds."""
+
+    try:
+        m1_raw = float(mass1_kg)
+        m2_raw = float(mass2_kg)
+        v1_raw = float(initial_velocity_m_s)
+        elastic_raw = float(elastic)
+        t_raw = float(time_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError(
+            "Mass 1, mass 2, initial velocity, collision type and time must be numbers."
+        )
+
+    if any(math.isnan(v) or math.isinf(v) for v in (m1_raw, m2_raw, v1_raw, elastic_raw, t_raw)):
+        raise ExperimentValidationError(
+            "Mass 1, mass 2, initial velocity, collision type and time must be finite numbers."
+        )
+    if t_raw < 0:
+        raise ExperimentValidationError("Time cannot be negative.")
+    if v1_raw <= 0:
+        raise ExperimentValidationError("Initial velocity must be positive.")
+    if (
+        m1_raw <= 0
+        or m1_raw > COLLISION_MASS_HARD_MAX_KG
+        or m2_raw <= 0
+        or m2_raw > COLLISION_MASS_HARD_MAX_KG
+        or v1_raw > COLLISION_VELOCITY_HARD_MAX_MS
+        or t_raw > COLLISION_TIME_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = collision_state(
+        mass1=m1_raw, mass2=m2_raw, initial_velocity=v1_raw, elastic=elastic_raw, time=t_raw
+    )
+    return ValidatedCollision(
+        mass1_kg=clamp_collision_mass(m1_raw),
+        mass2_kg=clamp_collision_mass(m2_raw),
+        initial_velocity_m_s=clamp_collision_velocity(v1_raw),
+        elastic=clamp_elastic(elastic_raw),
+        time_s=clamp_collision_time(t_raw),
+        position_1_m=state["position_1_m"],
+        position_2_m=state["position_2_m"],
+        velocity_1_m_s=state["velocity_1_m_s"],
+        velocity_2_m_s=state["velocity_2_m_s"],
+        has_collided=state["has_collided"],
+        collision_time_s=state["collision_time_s"],
+        momentum_total_kg_m_s=state["momentum_total_kg_m_s"],
+        kinetic_energy_total_j=state["kinetic_energy_total_j"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -452,12 +554,23 @@ def _validate_shm(values: dict) -> ValidatedSHM:
     )
 
 
+def _validate_collision(values: dict) -> ValidatedCollision:
+    return validate_collision(
+        values.get("mass1_kg"),
+        values.get("mass2_kg"),
+        values.get("initial_velocity_m_s"),
+        values.get("elastic"),
+        values.get("time_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
     "projectile_motion": _validate_projectile_motion,
     "circular_motion": _validate_circular_motion,
     "simple_harmonic_motion": _validate_shm,
+    "momentum_collision": _validate_collision,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -469,6 +582,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "projectile_motion": ("initial_speed_m_s", "launch_angle_deg", "initial_height_m", "time_s"),
     "circular_motion": ("radius_m", "period_s", "time_s"),
     "simple_harmonic_motion": ("amplitude_m", "period_s", "time_s"),
+    "momentum_collision": ("mass1_kg", "mass2_kg", "initial_velocity_m_s", "elastic", "time_s"),
 }
 
 
@@ -500,12 +614,20 @@ def _apply_fields_shm(attempt, validated: ValidatedSHM) -> None:
     attempt.acceleration_m_s2 = validated.acceleration_m_s2
 
 
+def _apply_fields_collision(attempt, validated: ValidatedCollision) -> None:
+    # Two masses and two velocities don't fit the single shared mass_kg/
+    # force_n/acceleration_m_s2 columns -- everything lives in
+    # attempt.parameters, exactly like Projectile Motion's non-fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
     "projectile_motion": _apply_fields_projectile_motion,
     "circular_motion": _apply_fields_circular_motion,
     "simple_harmonic_motion": _apply_fields_shm,
+    "momentum_collision": _apply_fields_collision,
 }
 
 
@@ -570,12 +692,32 @@ def _apply_parameters_shm(attempt, simulation, validated: ValidatedSHM) -> None:
     }
 
 
+def _apply_parameters_collision(attempt, simulation, validated: ValidatedCollision) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "mass1_kg": validated.mass1_kg,
+        "mass2_kg": validated.mass2_kg,
+        "initial_velocity_m_s": validated.initial_velocity_m_s,
+        "elastic": validated.elastic,
+        "observed_time_s": validated.time_s,
+        "observed_position_1_m": validated.position_1_m,
+        "observed_position_2_m": validated.position_2_m,
+        "observed_velocity_1_m_s": validated.velocity_1_m_s,
+        "observed_velocity_2_m_s": validated.velocity_2_m_s,
+        "observed_has_collided": validated.has_collided,
+        "observed_momentum_total_kg_m_s": validated.momentum_total_kg_m_s,
+        "observed_kinetic_energy_total_j": validated.kinetic_energy_total_j,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
     "projectile_motion": _apply_parameters_projectile_motion,
     "circular_motion": _apply_parameters_circular_motion,
     "simple_harmonic_motion": _apply_parameters_shm,
+    "momentum_collision": _apply_parameters_collision,
 }
 
 
@@ -684,6 +826,21 @@ def _base_context(attempt, simulation) -> dict:
             context["position_m"] = params["observed_position_m"]
         if "observed_velocity_m_s" in params:
             context["velocity_m_s"] = params["observed_velocity_m_s"]
+    elif simulation.simulation_type == "momentum_collision":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("mass1_kg", "mass2_kg", "initial_velocity_m_s", "elastic"):
+            if key in params:
+                context[key] = params[key]
+        if "observed_time_s" in params:
+            context["time_s"] = params["observed_time_s"]
+        for key in (
+            "observed_position_1_m", "observed_position_2_m",
+            "observed_velocity_1_m_s", "observed_velocity_2_m_s",
+            "observed_has_collided", "observed_momentum_total_kg_m_s",
+            "observed_kinetic_energy_total_j",
+        ):
+            if key in params:
+                context[key] = params[key]
     return context
 
 

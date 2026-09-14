@@ -527,6 +527,7 @@ a { color: inherit; }
 .lab-scene { width: 100%; height: auto; border: 1px solid var(--line); border-radius: .55rem; background: rgba(9, 18, 29, .5); }
 .lab-track { stroke: var(--line); stroke-width: 2; }
 .lab-cart-body { fill: #1b3348; stroke: var(--cyan); stroke-width: 1.5; }
+.lab-cart-body-alt { fill: #1b3348; stroke: var(--amber); stroke-width: 1.5; }
 .lab-cart-wheel { fill: var(--field-bg); stroke: var(--muted); stroke-width: 1.5; }
 .lab-arrow line { stroke-width: 4; stroke-linecap: round; }
 .lab-arrow text { font-size: 13px; font-weight: 700; }

@@ -56,8 +56,15 @@ class ExperimentContext:
     ``position_y_m`` are Projectile Motion-specific; ``radius_m``/
     ``period_s`` are Circular Motion-specific (which also reuses
     ``position_x_m``/``position_y_m``/``velocity_m_s`` for its own position
-    and speed). ``time_s`` and ``acceleration_m_s2`` are shared where they
-    apply (``acceleration_m_s2`` is Circular Motion's centripetal
+    and speed); ``amplitude_m`` is Simple Harmonic Motion-specific (which
+    reuses ``period_s``/``position_m``/``velocity_m_s``/
+    ``acceleration_m_s2``); ``mass1_kg``/``mass2_kg``/``elastic``/
+    ``position_1_m``/``position_2_m``/``velocity_1_m_s``/``velocity_2_m_s``/
+    ``has_collided``/``momentum_total_kg_m_s``/``kinetic_energy_total_j``
+    are Momentum/Collision-specific (which reuses ``initial_velocity_m_s``
+    for cart 1's starting speed). ``time_s`` and ``acceleration_m_s2`` are
+    shared where they apply (``acceleration_m_s2`` is Circular Motion's
+    centripetal acceleration or Simple Harmonic Motion's restoring
     acceleration). A given experiment only ever populates the fields for
     its own simulation type -- the rest stay ``None``.
     """
@@ -80,6 +87,16 @@ class ExperimentContext:
     radius_m: float | None = None
     period_s: float | None = None
     amplitude_m: float | None = None
+    mass1_kg: float | None = None
+    mass2_kg: float | None = None
+    elastic: float | None = None
+    position_1_m: float | None = None
+    position_2_m: float | None = None
+    velocity_1_m_s: float | None = None
+    velocity_2_m_s: float | None = None
+    has_collided: bool | None = None
+    momentum_total_kg_m_s: float | None = None
+    kinetic_energy_total_j: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -111,6 +128,10 @@ class ExperimentContext:
                 self.radius_m is not None,
                 self.period_s is not None,
                 self.amplitude_m is not None,
+                self.mass1_kg is not None,
+                self.mass2_kg is not None,
+                self.position_1_m is not None,
+                self.position_2_m is not None,
             ]
         )
 
@@ -168,6 +189,22 @@ class ExperimentContext:
                 time_s=params.get("observed_time_s"),
                 position_m=params.get("observed_position_m"),
                 velocity_m_s=params.get("observed_velocity_m_s"),
+            )
+        elif simulation_type == "momentum_collision":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                mass1_kg=params.get("mass1_kg"),
+                mass2_kg=params.get("mass2_kg"),
+                initial_velocity_m_s=params.get("initial_velocity_m_s"),
+                elastic=params.get("elastic"),
+                time_s=params.get("observed_time_s"),
+                position_1_m=params.get("observed_position_1_m"),
+                position_2_m=params.get("observed_position_2_m"),
+                velocity_1_m_s=params.get("observed_velocity_1_m_s"),
+                velocity_2_m_s=params.get("observed_velocity_2_m_s"),
+                has_collided=params.get("observed_has_collided"),
+                momentum_total_kg_m_s=params.get("observed_momentum_total_kg_m_s"),
+                kinetic_energy_total_j=params.get("observed_kinetic_energy_total_j"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

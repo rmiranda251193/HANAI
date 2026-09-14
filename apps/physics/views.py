@@ -185,6 +185,9 @@ _FIELD_LABELS = {
     "radius_m": "radius",
     "period_s": "period",
     "amplitude_m": "amplitude",
+    "mass1_kg": "mass 1",
+    "mass2_kg": "mass 2",
+    "elastic": "collision type",
 }
 
 
@@ -451,6 +454,24 @@ def _experiment_prefill(attempt):
                 f"acceleration = {ctx.acceleration_m_s2:.2f} m/s^2 "
                 "(a = -omega^2 x, computed by the app)"
             )
+    elif ctx.simulation_type == "momentum_collision":
+        if ctx.mass1_kg is not None and ctx.mass2_kg is not None:
+            parts.append(f"mass 1 = {ctx.mass1_kg:.1f} kg, mass 2 = {ctx.mass2_kg:.1f} kg")
+        if ctx.initial_velocity_m_s is not None:
+            parts.append(f"cart 1's initial speed = {ctx.initial_velocity_m_s:.1f} m/s (cart 2 starts at rest)")
+        if ctx.elastic is not None:
+            parts.append("collision type = " + ("elastic" if ctx.elastic >= 0.5 else "perfectly inelastic"))
+        if ctx.time_s is not None:
+            parts.append(f"observed time = {ctx.time_s:.1f} s")
+        if ctx.velocity_1_m_s is not None and ctx.velocity_2_m_s is not None:
+            parts.append(
+                f"velocity 1 = {ctx.velocity_1_m_s:.2f} m/s, velocity 2 = {ctx.velocity_2_m_s:.2f} m/s "
+                "(computed by the app, momentum always conserved)"
+            )
+        if ctx.momentum_total_kg_m_s is not None:
+            parts.append(f"total momentum = {ctx.momentum_total_kg_m_s:.2f} kg m/s")
+        if ctx.kinetic_energy_total_j is not None:
+            parts.append(f"total kinetic energy = {ctx.kinetic_energy_total_j:.2f} J")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -501,6 +522,12 @@ def _observation_message(simulation_type, validated):
         return (
             "Observation saved. Server-computed position: "
             f"{validated.position_m:.2f} m, velocity: {validated.velocity_m_s:.2f} m/s."
+        )
+    if simulation_type == "momentum_collision":
+        return (
+            "Observation saved. Server-computed velocities: "
+            f"{validated.velocity_1_m_s:.2f} m/s and {validated.velocity_2_m_s:.2f} m/s "
+            f"(total momentum {validated.momentum_total_kg_m_s:.2f} kg m/s)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

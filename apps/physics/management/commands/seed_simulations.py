@@ -67,6 +67,20 @@ PHYSICS_SIMULATIONS = [
             "oscillation never loses amplitude."
         ),
     },
+    {
+        "slug": "momentum-collision",
+        "title": "Momentum and Collisions Lab",
+        "concept_name": "Elastic and inelastic collisions",
+        "simulation_type": PhysicsSimulation.SimulationType.MOMENTUM_COLLISION,
+        "description": (
+            "A moving cart collides with a stationary one. Choose the "
+            "masses, the moving cart's initial speed, and whether the "
+            "collision is elastic or perfectly inelastic, and watch "
+            "momentum m1*v1 + m2*v2 stay conserved either way -- while "
+            "kinetic energy is only conserved in the elastic case. "
+            "Idealized model: no friction or air resistance."
+        ),
+    },
 ]
 
 

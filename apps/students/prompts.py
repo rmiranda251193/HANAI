@@ -198,6 +198,33 @@ Output contract:
                     "- acceleration (deterministic a = -omega^2 * x, "
                     f"computed by the app): {experiment.acceleration_m_s2:.2f} m/s^2"
                 )
+        elif experiment.simulation_type == "momentum_collision":
+            if experiment.mass1_kg is not None and experiment.mass2_kg is not None:
+                exp_lines.append(
+                    f"- setup: mass 1 = {experiment.mass1_kg:.2f} kg, "
+                    f"mass 2 = {experiment.mass2_kg:.2f} kg, cart 1's initial speed = "
+                    f"{experiment.initial_velocity_m_s:.2f} m/s (cart 2 starts at rest), "
+                    "collision type = "
+                    + ("elastic" if (experiment.elastic or 0) >= 0.5 else "perfectly inelastic")
+                )
+            if (
+                experiment.velocity_1_m_s is not None
+                and experiment.velocity_2_m_s is not None
+            ):
+                exp_lines.append(
+                    "- after the collision (deterministic, momentum always "
+                    f"conserved, computed by the app): velocity 1 = "
+                    f"{experiment.velocity_1_m_s:.2f} m/s, velocity 2 = "
+                    f"{experiment.velocity_2_m_s:.2f} m/s"
+                )
+            if experiment.momentum_total_kg_m_s is not None:
+                exp_lines.append(
+                    f"- total momentum: {experiment.momentum_total_kg_m_s:.2f} kg m/s"
+                )
+            if experiment.kinetic_energy_total_j is not None:
+                exp_lines.append(
+                    f"- total kinetic energy: {experiment.kinetic_energy_total_j:.2f} J"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

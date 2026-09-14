@@ -167,6 +167,32 @@ HANDS_ON_EXPERIMENTS: dict[str, HandsOnExperiment] = {
         "lab's amplitude never decays -- that difference is itself worth "
         "noticing and explaining.",
     ),
+    "momentum_collision": HandsOnExperiment(
+        title="Roll two coins or marbles into each other",
+        materials=(
+            "Two coins or marbles of different sizes (or two of the same size)",
+            "A smooth, flat, level surface (a table or hard floor)",
+            "A ruler",
+        ),
+        steps=(
+            "Place the second coin or marble at rest on the flat surface.",
+            "Flick or roll the first one in a straight line so it hits the "
+            "stationary one head-on.",
+            "Watch what happens to each one right after the hit: does the "
+            "first one stop, bounce back, or keep going slower?",
+            "Try it with two objects of very different sizes, then with two "
+            "of the same size, and compare the difference.",
+            "Enter similar masses and an estimated speed into the virtual "
+            "lab and compare its predicted outcome to what you saw.",
+        ),
+        safety_note="Use small, light objects on a surface clear of edges "
+        "so nothing rolls off or hits anyone.",
+        compare_note="Real coins and marbles almost never collide perfectly "
+        "elastically or perfectly inelastically -- real collisions lose "
+        "some energy to sound and deformation without the objects sticking "
+        "together. Your result will likely sit somewhere between the "
+        "virtual lab's two idealized cases.",
+    ),
 }
 
 

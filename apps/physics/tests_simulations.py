@@ -76,10 +76,10 @@ class PhysicsSimulationModelTests(TestCase):
         )
         # Step 24 added a second built-in simulation (Kinematics), and later
         # steps added a third (Projectile Motion), a fourth (Circular
-        # Motion) and a fifth (Simple Harmonic Motion); the seed command
-        # still creates every row exactly once and only updates on every
-        # re-run.
-        self.assertIn("0 created, 5 updated", out.getvalue())
+        # Motion), a fifth (Simple Harmonic Motion) and a sixth (Momentum
+        # and Collisions); the seed command still creates every row exactly
+        # once and only updates on every re-run.
+        self.assertIn("0 created, 6 updated", out.getvalue())
         simulation = PhysicsSimulation.objects.get(slug="newtons-second-law")
         self.assertEqual(simulation.concept.name, "Newton's Second Law")
 

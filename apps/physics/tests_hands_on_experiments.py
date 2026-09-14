@@ -26,7 +26,7 @@ class HandsOnExperimentCatalogTests(TestCase):
             set(HANDS_ON_EXPERIMENTS.keys()),
             {
                 "kinematics", "newtons_second_law", "projectile_motion",
-                "circular_motion", "simple_harmonic_motion",
+                "circular_motion", "simple_harmonic_motion", "momentum_collision",
             },
         )
 

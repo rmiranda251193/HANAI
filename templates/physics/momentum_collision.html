@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: cart 1 always starts moving toward stationary cart 2, and the collision is either perfectly elastic or perfectly inelastic -- no friction or air resistance.
+    Momentum <code>p = m<sub>1</sub>v<sub>1</sub> + m<sub>2</sub>v<sub>2</sub></code> is always conserved; kinetic energy is only conserved in an elastic collision
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-mass1="{{ defaults.mass1_kg }}"
+       data-mass2="{{ defaults.mass2_kg }}"
+       data-v0="{{ defaults.initial_velocity_m_s }}"
+       data-elastic="{{ defaults.elastic }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to cart 2 after the collision if the two carts have equal mass, compared to if cart 2 is much heavier? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. If the masses are equal, cart 1 stops and cart 2 takes off at the same speed.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 200" role="img"
+               data-lab-scene aria-label="Cart 1 approaching stationary cart 2 on a track.">
+            <desc data-scene-desc>Cart 1 approaches stationary cart 2 along a straight track.</desc>
+            <line x1="10" y1="140" x2="390" y2="140" class="lab-track" data-ground-line />
+            <g data-cart1 transform="translate(20,140)">
+              <circle cx="0" cy="0" r="10" class="lab-cart-body" />
+            </g>
+            <g data-cart2 transform="translate(260,140)">
+              <circle cx="0" cy="0" r="10" class="lab-cart-body-alt" />
+            </g>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Mass 1</span>
+                <span class="lab-value-number"><span data-value-mass1>{{ defaults.mass1_kg }}</span> kg</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Mass 2</span>
+                <span class="lab-value-number"><span data-value-mass2>{{ defaults.mass2_kg }}</span> kg</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Cart 1 initial speed</span>
+                <span class="lab-value-number"><span data-value-v0>{{ defaults.initial_velocity_m_s }}</span> m/s</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">p = m<sub>1</sub>v<sub>1</sub> + m<sub>2</sub>v<sub>2</sub> (always conserved)</p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Time</dt><dd><span data-value-time>0.00</span> s</dd></div>
+              <div><dt>Velocity 1</dt><dd><span data-value-v1>0.00</span> m/s</dd></div>
+              <div><dt>Velocity 2</dt><dd><span data-value-v2>0.00</span> m/s</dd></div>
+              <div><dt>Total momentum</dt><dd><span data-value-momentum>0.00</span> kg m/s</dd></div>
+              <div><dt>Total kinetic energy</dt><dd><span data-value-ke>0.00</span> J</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-mass1">Mass 1 (kg)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-mass1" data-input-mass1
+                     min="{{ bounds.mass1_kg.min }}" max="{{ bounds.mass1_kg.max }}" step="0.5"
+                     value="{{ defaults.mass1_kg }}" aria-describedby="lab-mass1-out">
+              <output id="lab-mass1-out" for="lab-mass1" data-out-mass1>{{ defaults.mass1_kg }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-mass2">Mass 2 (kg)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-mass2" data-input-mass2
+                     min="{{ bounds.mass2_kg.min }}" max="{{ bounds.mass2_kg.max }}" step="0.5"
+                     value="{{ defaults.mass2_kg }}" aria-describedby="lab-mass2-out">
+              <output id="lab-mass2-out" for="lab-mass2" data-out-mass2>{{ defaults.mass2_kg }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-v0">Cart 1 initial speed (m/s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-v0" data-input-v0
+                     min="{{ bounds.initial_velocity_m_s.min }}" max="{{ bounds.initial_velocity_m_s.max }}" step="0.5"
+                     value="{{ defaults.initial_velocity_m_s }}" aria-describedby="lab-v0-out">
+              <output id="lab-v0-out" for="lab-v0" data-out-v0>{{ defaults.initial_velocity_m_s }}</output>
+            </div>
+          </div>
+          <fieldset class="lab-predict-choice">
+            <legend>Collision type</legend>
+            <label><input type="radio" name="elastic-choice" value="1" data-input-elastic checked> Elastic (kinetic energy conserved)</label>
+            <label><input type="radio" name="elastic-choice" value="0" data-input-elastic> Perfectly inelastic (carts stick together)</label>
+          </fieldset>
+          <div class="lab-control">
+            <label for="lab-time">Time (s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-time" data-input-time
+                     min="0" max="{{ bounds.time_s.max }}" step="0.1"
+                     value="0" aria-describedby="lab-time-out">
+              <output id="lab-time-out" for="lab-time" data-out-time>0.0</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-primary" data-action-start>Start</button>
+            <button type="button" class="button button-secondary" data-action-pause>Pause</button>
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+            <button type="button" class="button button-secondary" data-action-step>Step</button>
+          </div>
+          <p class="lab-motion-note" data-motion-note hidden>Reduced motion is on: the experiment steps forward instead of animating.</p>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include each cart's velocity after the collision, and the total momentum and kinetic energy.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="mass1_kg" data-field="mass1Kg" value="{{ defaults.mass1_kg }}">
+        <input type="hidden" name="mass2_kg" data-field="mass2Kg" value="{{ defaults.mass2_kg }}">
+        <input type="hidden" name="initial_velocity_m_s" data-field="initialVelocityMs" value="{{ defaults.initial_velocity_m_s }}">
+        <input type="hidden" name="elastic" data-field="elastic" value="{{ defaults.elastic }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. After the collision, cart 1 stopped and cart 2 moved off at the same speed cart 1 had.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_velocity_1_m_s is not None %}Last saved: server-computed velocities ({{ experiment_attempt.parameters.observed_velocity_1_m_s|floatformat:2 }} m/s, {{ experiment_attempt.parameters.observed_velocity_2_m_s|floatformat:2 }} m/s), total momentum ({{ experiment_attempt.parameters.observed_momentum_total_kg_m_s|floatformat:2 }} kg m/s).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="mass1_kg" data-field="mass1Kg" value="{{ defaults.mass1_kg }}">
+        <input type="hidden" name="mass2_kg" data-field="mass2Kg" value="{{ defaults.mass2_kg }}">
+        <input type="hidden" name="initial_velocity_m_s" data-field="initialVelocityMs" value="{{ defaults.initial_velocity_m_s }}">
+        <input type="hidden" name="elastic" data-field="elastic" value="{{ defaults.elastic }}">
+        <input type="hidden" name="time_s" data-field="timeS" value="0">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. Momentum was conserved even though the two carts ended up with different velocities than they started with.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>p = m<sub>1</sub>v<sub>1</sub> + m<sub>2</sub>v<sub>2</sub></strong>, always conserved.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/collision.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

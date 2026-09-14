@@ -132,6 +132,7 @@ class PhysicsSimulation(models.Model):
         PROJECTILE_MOTION = "projectile_motion", "Projectile Motion"
         CIRCULAR_MOTION = "circular_motion", "Circular Motion"
         SIMPLE_HARMONIC_MOTION = "simple_harmonic_motion", "Simple Harmonic Motion"
+        MOMENTUM_COLLISION = "momentum_collision", "Momentum and Collisions"
 
     concept = models.ForeignKey(
         PhysicsConcept,
