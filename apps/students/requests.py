@@ -86,7 +86,13 @@ class ExperimentContext:
     ``decayed_count``/``remaining_fraction``/``activity_per_s`` are
     Radioactive-Decay-specific (reusing shared ``time_s``) -- the first
     simulation whose quantity never returns to an earlier value, unlike
-    every periodic/orbiting/oscillating one above. A given experiment only
+    every periodic/orbiting/oscillating one above. ``object_density_kg_m3``/
+    ``fluid_density_kg_m3``/``volume_m3``/``buoyant_force_n``/
+    ``submerged_fraction``/``floats`` are Buoyancy-specific (which reuses
+    ``force_n`` for its net force -- 0 while floating in equilibrium,
+    positive/downward while sinking -- since that IS a genuine single-object
+    net force, the same meaning ``force_n`` has for Newton's Second Law,
+    unlike Coulomb's Law's mutual two-charge force). A given experiment only
     ever populates the fields for its own simulation type -- the rest stay
     ``None``.
     """
@@ -150,6 +156,12 @@ class ExperimentContext:
     decayed_count: float | None = None
     remaining_fraction: float | None = None
     activity_per_s: float | None = None
+    object_density_kg_m3: float | None = None
+    fluid_density_kg_m3: float | None = None
+    volume_m3: float | None = None
+    buoyant_force_n: float | None = None
+    submerged_fraction: float | None = None
+    floats: bool | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -192,6 +204,7 @@ class ExperimentContext:
                 self.total_current_a is not None,
                 self.charge1_uc is not None,
                 self.initial_count is not None,
+                self.object_density_kg_m3 is not None,
             ]
         )
 
@@ -327,6 +340,17 @@ class ExperimentContext:
                 decayed_count=params.get("observed_decayed_count"),
                 remaining_fraction=params.get("observed_remaining_fraction"),
                 activity_per_s=params.get("observed_activity_per_s"),
+            )
+        elif simulation_type == "buoyancy":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                force_n=attempt.force_n,
+                object_density_kg_m3=params.get("object_density_kg_m3"),
+                fluid_density_kg_m3=params.get("fluid_density_kg_m3"),
+                volume_m3=params.get("volume_m3"),
+                buoyant_force_n=params.get("observed_buoyant_force_n"),
+                submerged_fraction=params.get("observed_submerged_fraction"),
+                floats=params.get("observed_floats"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

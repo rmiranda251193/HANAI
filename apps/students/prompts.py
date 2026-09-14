@@ -347,6 +347,26 @@ Output contract:
                     "- activity (deterministic, decays per second, computed by the app): "
                     f"{experiment.activity_per_s:.2f} decays/s"
                 )
+        elif experiment.simulation_type == "buoyancy":
+            if experiment.object_density_kg_m3 is not None and experiment.fluid_density_kg_m3 is not None:
+                exp_lines.append(
+                    f"- setup: object density = {experiment.object_density_kg_m3:.0f} kg/m^3, "
+                    f"fluid density = {experiment.fluid_density_kg_m3:.0f} kg/m^3, "
+                    f"volume = {experiment.volume_m3:.4f} m^3"
+                )
+            if experiment.floats is not None:
+                exp_lines.append(
+                    "- outcome (deterministic, floats when object density <= fluid density, "
+                    "regardless of weight or size, computed by the app): the object "
+                    + ("floats" if experiment.floats else "sinks")
+                )
+            if experiment.buoyant_force_n is not None:
+                exp_lines.append(f"- buoyant force: {experiment.buoyant_force_n:.2f} N")
+            if experiment.force_n is not None:
+                exp_lines.append(
+                    f"- net force: {experiment.force_n:.2f} N "
+                    "(0 means floating in equilibrium; positive means still sinking)"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

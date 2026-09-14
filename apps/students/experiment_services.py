@@ -110,6 +110,10 @@ from apps.physics.simulations_radioactive_decay import MAX_TIME_S as DECAY_MAX_T
 from apps.physics.simulations_radioactive_decay import clamp_half_life, clamp_initial_count
 from apps.physics.simulations_radioactive_decay import clamp_time as clamp_decay_time
 from apps.physics.simulations_radioactive_decay import radioactive_decay_state
+from apps.physics.simulations_buoyancy import MAX_DENSITY_KG_M3 as BUOYANCY_MAX_DENSITY_KG_M3
+from apps.physics.simulations_buoyancy import MAX_VOLUME_M3 as BUOYANCY_MAX_VOLUME_M3
+from apps.physics.simulations_buoyancy import buoyancy_state
+from apps.physics.simulations_buoyancy import clamp_density, clamp_volume
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -161,6 +165,9 @@ COULOMB_SEPARATION_HARD_MAX_M = COULOMB_MAX_SEPARATION_M * 5
 DECAY_INITIAL_COUNT_HARD_MAX = DECAY_MAX_INITIAL_COUNT * 5
 DECAY_HALF_LIFE_HARD_MAX_S = DECAY_MAX_HALF_LIFE_S * 5
 DECAY_TIME_HARD_MAX_S = DECAY_MAX_TIME_S * 5
+
+BUOYANCY_DENSITY_HARD_MAX_KG_M3 = BUOYANCY_MAX_DENSITY_KG_M3 * 5
+BUOYANCY_VOLUME_HARD_MAX_M3 = BUOYANCY_MAX_VOLUME_M3 * 5
 
 TEXT_LIMIT = 2000
 
@@ -915,6 +922,70 @@ def validate_radioactive_decay(initial_count, half_life_s, time_s) -> ValidatedD
     )
 
 
+@dataclass(frozen=True)
+class ValidatedBuoyancy:
+    """Server-recomputed, deterministic Buoyancy values (SI units)."""
+
+    object_density_kg_m3: float
+    fluid_density_kg_m3: float
+    volume_m3: float
+    weight_n: float
+    buoyant_force_n: float
+    submerged_fraction: float
+    floats: bool
+    net_force_n: float
+
+    def as_dict(self) -> dict:
+        return {
+            "object_density_kg_m3": self.object_density_kg_m3,
+            "fluid_density_kg_m3": self.fluid_density_kg_m3,
+            "volume_m3": self.volume_m3,
+            "weight_n": self.weight_n,
+            "buoyant_force_n": self.buoyant_force_n,
+            "submerged_fraction": self.submerged_fraction,
+            "floats": self.floats,
+            "net_force_n": self.net_force_n,
+        }
+
+
+def validate_buoyancy(object_density_kg_m3, fluid_density_kg_m3, volume_m3) -> ValidatedBuoyancy:
+    """Recompute the weight/buoyant force/submerged fraction on the server.
+    Reject nonsense; clamp to lab bounds. There is no time input here --
+    see the module docstring in ``simulations_buoyancy.py`` for why."""
+
+    try:
+        rho_object_raw = float(object_density_kg_m3)
+        rho_fluid_raw = float(fluid_density_kg_m3)
+        v_raw = float(volume_m3)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Density and volume must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (rho_object_raw, rho_fluid_raw, v_raw)):
+        raise ExperimentValidationError("Density and volume must be finite numbers.")
+    if rho_object_raw <= 0 or rho_fluid_raw <= 0:
+        raise ExperimentValidationError("Density must be positive.")
+    if v_raw <= 0:
+        raise ExperimentValidationError("Volume must be positive.")
+    if (
+        rho_object_raw > BUOYANCY_DENSITY_HARD_MAX_KG_M3
+        or rho_fluid_raw > BUOYANCY_DENSITY_HARD_MAX_KG_M3
+        or v_raw > BUOYANCY_VOLUME_HARD_MAX_M3
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = buoyancy_state(object_density=rho_object_raw, fluid_density=rho_fluid_raw, volume=v_raw)
+    return ValidatedBuoyancy(
+        object_density_kg_m3=clamp_density(rho_object_raw),
+        fluid_density_kg_m3=clamp_density(rho_fluid_raw),
+        volume_m3=clamp_volume(v_raw),
+        weight_n=state["weight_n"],
+        buoyant_force_n=state["buoyant_force_n"],
+        submerged_fraction=state["submerged_fraction"],
+        floats=state["floats"],
+        net_force_n=state["net_force_n"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1016,6 +1087,14 @@ def _validate_radioactive_decay(values: dict) -> ValidatedDecay:
     )
 
 
+def _validate_buoyancy(values: dict) -> ValidatedBuoyancy:
+    return validate_buoyancy(
+        values.get("object_density_kg_m3"),
+        values.get("fluid_density_kg_m3"),
+        values.get("volume_m3"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1028,6 +1107,7 @@ _VALIDATORS = {
     "series_parallel_circuit": _validate_circuit,
     "coulombs_law": _validate_coulombs_law,
     "radioactive_decay": _validate_radioactive_decay,
+    "buoyancy": _validate_buoyancy,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1045,6 +1125,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "series_parallel_circuit": ("voltage_v", "resistance1_ohm", "resistance2_ohm", "series"),
     "coulombs_law": ("charge1_uc", "charge2_uc", "separation_m"),
     "radioactive_decay": ("initial_count", "half_life_s", "time_s"),
+    "buoyancy": ("object_density_kg_m3", "fluid_density_kg_m3", "volume_m3"),
 }
 
 
@@ -1125,6 +1206,16 @@ def _apply_fields_radioactive_decay(attempt, validated: ValidatedDecay) -> None:
     pass
 
 
+def _apply_fields_buoyancy(attempt, validated: ValidatedBuoyancy) -> None:
+    # net_force_n IS a genuinely computed single-object net force (0 when
+    # floating in equilibrium, positive -- downward -- when sinking), the
+    # same "net force on this one object" meaning force_n has for Newton's
+    # Second Law, so it fits the shared column -- unlike Coulomb's Law's
+    # force, which is a MUTUAL force between two separate charges with no
+    # single "object" to attach it to.
+    attempt.force_n = validated.net_force_n
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1137,6 +1228,7 @@ _FIELD_APPLIERS = {
     "series_parallel_circuit": _apply_fields_circuit,
     "coulombs_law": _apply_fields_coulombs_law,
     "radioactive_decay": _apply_fields_radioactive_decay,
+    "buoyancy": _apply_fields_buoyancy,
 }
 
 
@@ -1300,6 +1392,21 @@ def _apply_parameters_radioactive_decay(attempt, simulation, validated: Validate
     }
 
 
+def _apply_parameters_buoyancy(attempt, simulation, validated: ValidatedBuoyancy) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "object_density_kg_m3": validated.object_density_kg_m3,
+        "fluid_density_kg_m3": validated.fluid_density_kg_m3,
+        "volume_m3": validated.volume_m3,
+        "observed_weight_n": validated.weight_n,
+        "observed_buoyant_force_n": validated.buoyant_force_n,
+        "observed_submerged_fraction": validated.submerged_fraction,
+        "observed_floats": validated.floats,
+        "observed_net_force_n": validated.net_force_n,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1312,6 +1419,7 @@ _PARAMETER_APPLIERS = {
     "series_parallel_circuit": _apply_parameters_circuit,
     "coulombs_law": _apply_parameters_coulombs_law,
     "radioactive_decay": _apply_parameters_radioactive_decay,
+    "buoyancy": _apply_parameters_buoyancy,
 }
 
 
@@ -1497,6 +1605,17 @@ def _base_context(attempt, simulation) -> dict:
         for key in (
             "observed_remaining_count", "observed_decayed_count",
             "observed_remaining_fraction", "observed_activity_per_s",
+        ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "buoyancy":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("object_density_kg_m3", "fluid_density_kg_m3", "volume_m3"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_weight_n", "observed_buoyant_force_n",
+            "observed_submerged_fraction", "observed_floats",
         ):
             if key in params:
                 context[key] = params[key]

@@ -153,6 +153,20 @@ PHYSICS_SIMULATIONS = [
             "unstable nucleus."
         ),
     },
+    {
+        "slug": "buoyancy",
+        "title": "Buoyancy Lab",
+        "concept_name": "Archimedes' principle and buoyancy",
+        "simulation_type": PhysicsSimulation.SimulationType.BUOYANCY,
+        "description": (
+            "Set an object's density, a fluid's density and the object's "
+            "volume and see whether it floats or sinks -- it depends only "
+            "on density, not on weight or size, through the buoyant force "
+            "F_b = rho_fluid * V * g. Idealized model: the object reaches "
+            "its floating equilibrium (or keeps sinking) essentially "
+            "instantly, with no drag or surface-tension effects."
+        ),
+    },
 ]
 
 

@@ -138,6 +138,7 @@ class PhysicsSimulation(models.Model):
         SERIES_PARALLEL_CIRCUIT = "series_parallel_circuit", "Series and Parallel Circuits"
         COULOMBS_LAW = "coulombs_law", "Coulomb's Law"
         RADIOACTIVE_DECAY = "radioactive_decay", "Radioactive Decay"
+        BUOYANCY = "buoyancy", "Buoyancy"
 
     concept = models.ForeignKey(
         PhysicsConcept,

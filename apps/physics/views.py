@@ -200,6 +200,9 @@ _FIELD_LABELS = {
     "separation_m": "separation",
     "initial_count": "initial count",
     "half_life_s": "half-life",
+    "object_density_kg_m3": "object density",
+    "fluid_density_kg_m3": "fluid density",
+    "volume_m3": "volume",
 }
 
 
@@ -554,6 +557,20 @@ def _experiment_prefill(attempt):
             parts.append(f"remaining count = {ctx.remaining_count:.1f} (computed by the app)")
         if ctx.activity_per_s is not None:
             parts.append(f"activity = {ctx.activity_per_s:.2f} decays/s")
+    elif ctx.simulation_type == "buoyancy":
+        if ctx.object_density_kg_m3 is not None and ctx.fluid_density_kg_m3 is not None:
+            parts.append(
+                f"object density = {ctx.object_density_kg_m3:.0f} kg/m^3, "
+                f"fluid density = {ctx.fluid_density_kg_m3:.0f} kg/m^3"
+            )
+        if ctx.volume_m3 is not None:
+            parts.append(f"volume = {ctx.volume_m3:.4f} m^3")
+        if ctx.floats is not None:
+            parts.append("the object " + ("floats" if ctx.floats else "sinks") + " (computed by the app)")
+        if ctx.buoyant_force_n is not None:
+            parts.append(f"buoyant force = {ctx.buoyant_force_n:.2f} N")
+        if ctx.force_n is not None:
+            parts.append(f"net force = {ctx.force_n:.2f} N")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -652,6 +669,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed remaining count: "
             f"{validated.remaining_count:.1f} of {validated.initial_count:.0f} "
             f"(activity {validated.activity_per_s:.2f} decays/s)."
+        )
+    if simulation_type == "buoyancy":
+        verdict = "floats" if validated.floats else "sinks"
+        return (
+            f"Observation saved. The object {verdict} (buoyant force "
+            f"{validated.buoyant_force_n:.2f} N, net force {validated.net_force_n:.2f} N)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

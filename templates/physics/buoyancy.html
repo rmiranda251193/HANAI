@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: the object reaches its floating equilibrium (or keeps sinking) essentially instantly, with no drag or surface-tension effects.
+    Values are computed from <code>F<sub>b</sub> = &rho;<sub>fluid</sub> V g</code> (the buoyant force if fully submerged)
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-object-density="{{ defaults.object_density_kg_m3 }}"
+       data-fluid-density="{{ defaults.fluid_density_kg_m3 }}"
+       data-volume="{{ defaults.volume_m3 }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen if you make the object bigger (more volume) without changing its density or the fluid's density? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. It will still float the same way, since only density decides that, not size.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 220" role="img"
+               data-lab-scene aria-label="An object floating or sinking in a fluid.">
+            <desc data-scene-desc>An object in a container of fluid, floating at the surface or sunk to the bottom.</desc>
+            <rect x="100" y="40" width="200" height="150" fill="none" class="lab-track" />
+            <rect x="100" y="90" width="200" height="100" class="lab-cart-body-alt" opacity="0.35" />
+            <line x1="100" y1="90" x2="300" y2="90" class="lab-track" />
+            <text x="305" y="94" class="lab-axis-label">waterline</text>
+            <rect data-object x="175" y="40" width="50" height="50" class="lab-cart-body" />
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A bar chart comparing weight and maximum buoyant force.">
+            <desc data-graph-desc>A bar chart comparing the object's weight against the maximum possible buoyant force if fully submerged.</desc>
+            <line x1="40" y1="150" x2="340" y2="150" class="lab-axis" />
+            <rect x="90" y="150" width="60" height="0" class="lab-cart-body" data-bar-weight />
+            <text x="95" y="168" class="lab-axis-label">Weight</text>
+            <text x="95" y="144" class="lab-axis-label" data-bar-weight-label></text>
+            <rect x="220" y="150" width="60" height="0" class="lab-cart-body-alt" data-bar-buoyant />
+            <text x="205" y="168" class="lab-axis-label">Max buoyant force</text>
+            <text x="220" y="144" class="lab-axis-label" data-bar-buoyant-label></text>
+          </svg>
+          <p class="lab-graph-caption">Weight versus the maximum possible buoyant force (if fully submerged). The object floats only if the buoyant force bar can reach at least as high as the weight bar.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Object density</span>
+                <span class="lab-value-number"><span data-value-object-density>{{ defaults.object_density_kg_m3 }}</span> kg/m&sup3;</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Fluid density</span>
+                <span class="lab-value-number"><span data-value-fluid-density>{{ defaults.fluid_density_kg_m3 }}</span> kg/m&sup3;</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Volume</span>
+                <span class="lab-value-number"><span data-value-volume>{{ defaults.volume_m3 }}</span> m&sup3;</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">weight = &rho;<sub>object</sub> V g &nbsp; F<sub>b</sub> = &rho;<sub>fluid</sub> V g</p>
+              <p class="lab-eq-worked">
+                weight = <span data-eq-weight>0.00</span> N &nbsp; buoyant force = <span data-eq-buoyant>0.00</span> N
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Outcome</dt><dd><span data-value-verdict>&ndash;</span></dd></div>
+              <div><dt>Weight</dt><dd><span data-value-weight>0.00</span> N</dd></div>
+              <div><dt>Buoyant force</dt><dd><span data-value-buoyant>0.00</span> N</dd></div>
+              <div><dt>Net force</dt><dd><span data-value-net>0.00</span> N</dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-object-density">Object density (kg/m&sup3;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-object-density" data-input-object-density
+                     min="{{ bounds.object_density_kg_m3.min }}" max="{{ bounds.object_density_kg_m3.max }}" step="50"
+                     value="{{ defaults.object_density_kg_m3 }}" aria-describedby="lab-object-density-out">
+              <output id="lab-object-density-out" for="lab-object-density" data-out-object-density>{{ defaults.object_density_kg_m3 }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-fluid-density">Fluid density (kg/m&sup3;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-fluid-density" data-input-fluid-density
+                     min="{{ bounds.fluid_density_kg_m3.min }}" max="{{ bounds.fluid_density_kg_m3.max }}" step="50"
+                     value="{{ defaults.fluid_density_kg_m3 }}" aria-describedby="lab-fluid-density-out">
+              <output id="lab-fluid-density-out" for="lab-fluid-density" data-out-fluid-density>{{ defaults.fluid_density_kg_m3 }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-volume">Volume (m&sup3;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-volume" data-input-volume
+                     min="{{ bounds.volume_m3.min }}" max="{{ bounds.volume_m3.max }}" step="0.01"
+                     value="{{ defaults.volume_m3 }}" aria-describedby="lab-volume-out">
+              <output id="lab-volume-out" for="lab-volume" data-out-volume>{{ defaults.volume_m3 }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include whether the object floated or sank and the forces you saw.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="object_density_kg_m3" data-field="objectDensityKgM3" value="{{ defaults.object_density_kg_m3 }}">
+        <input type="hidden" name="fluid_density_kg_m3" data-field="fluidDensityKgM3" value="{{ defaults.fluid_density_kg_m3 }}">
+        <input type="hidden" name="volume_m3" data-field="volumeM3" value="{{ defaults.volume_m3 }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. The object floated with most of it above the waterline.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_weight_n is not None %}Last saved: server-computed weight ({{ experiment_attempt.parameters.observed_weight_n|floatformat:2 }} N), buoyant force ({{ experiment_attempt.parameters.observed_buoyant_force_n|floatformat:2 }} N) &mdash; {% if experiment_attempt.parameters.observed_floats %}floats{% else %}sinks{% endif %}.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="object_density_kg_m3" data-field="objectDensityKgM3" value="{{ defaults.object_density_kg_m3 }}">
+        <input type="hidden" name="fluid_density_kg_m3" data-field="fluidDensityKgM3" value="{{ defaults.fluid_density_kg_m3 }}">
+        <input type="hidden" name="volume_m3" data-field="volumeM3" value="{{ defaults.volume_m3 }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. It floated because its density was lower than the fluid's -- weight alone doesn't decide it.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>F<sub>b</sub> = &rho;<sub>fluid</sub> V g</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/buoyancy.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}
