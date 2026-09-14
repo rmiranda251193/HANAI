@@ -191,6 +191,10 @@ _FIELD_LABELS = {
     "height_m": "height",
     "angle_deg": "incline angle",
     "mu": "gravitational parameter (mu)",
+    "voltage_v": "source voltage",
+    "resistance1_ohm": "resistance 1",
+    "resistance2_ohm": "resistance 2",
+    "series": "circuit type",
 }
 
 
@@ -507,6 +511,22 @@ def _experiment_prefill(attempt):
                 f"gravitational acceleration = {ctx.acceleration_m_s2:.2f} m/s^2 "
                 "(a_g = mu / r^2, computed by the app)"
             )
+    elif ctx.simulation_type == "series_parallel_circuit":
+        if ctx.voltage_v is not None:
+            parts.append(f"source voltage = {ctx.voltage_v:.1f} V")
+        if ctx.resistance1_ohm is not None and ctx.resistance2_ohm is not None:
+            parts.append(
+                f"R1 = {ctx.resistance1_ohm:.1f} ohm, R2 = {ctx.resistance2_ohm:.1f} ohm, "
+                "wired in " + ("series" if ctx.is_series else "parallel")
+            )
+        if ctx.total_current_a is not None:
+            parts.append(f"total current = {ctx.total_current_a:.2f} A (computed by the app)")
+        if ctx.current_1_a is not None and ctx.current_2_a is not None:
+            parts.append(f"current 1 = {ctx.current_1_a:.2f} A, current 2 = {ctx.current_2_a:.2f} A")
+        if ctx.voltage_1_v is not None and ctx.voltage_2_v is not None:
+            parts.append(f"voltage 1 = {ctx.voltage_1_v:.2f} V, voltage 2 = {ctx.voltage_2_v:.2f} V")
+        if ctx.total_power_w is not None:
+            parts.append(f"total power = {ctx.total_power_w:.2f} W")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -575,6 +595,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed speed: "
             f"{validated.speed_m_s:.2f} m/s, orbital period: "
             f"{validated.period_s:.2f} s (Kepler's third law)."
+        )
+    if simulation_type == "series_parallel_circuit":
+        return (
+            "Observation saved. Server-computed total current: "
+            f"{validated.total_current_a:.2f} A (total power "
+            f"{validated.total_power_w:.2f} W)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

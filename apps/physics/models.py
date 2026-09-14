@@ -135,6 +135,7 @@ class PhysicsSimulation(models.Model):
         MOMENTUM_COLLISION = "momentum_collision", "Momentum and Collisions"
         ENERGY_INCLINE = "energy_incline", "Energy on an Incline"
         ORBITAL_MOTION = "orbital_motion", "Orbital Motion"
+        SERIES_PARALLEL_CIRCUIT = "series_parallel_circuit", "Series and Parallel Circuits"
 
     concept = models.ForeignKey(
         PhysicsConcept,

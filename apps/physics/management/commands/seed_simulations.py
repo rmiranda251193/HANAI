@@ -110,6 +110,21 @@ PHYSICS_SIMULATIONS = [
             "more massive that its own motion is ignored."
         ),
     },
+    {
+        "slug": "series-parallel-circuit",
+        "title": "Series and Parallel Circuits Lab",
+        "concept_name": "Series and parallel circuits",
+        "simulation_type": PhysicsSimulation.SimulationType.SERIES_PARALLEL_CIRCUIT,
+        "description": (
+            "Wire a voltage source to two resistors in series or in "
+            "parallel and see how the current and voltage split. In "
+            "series, R = R1 + R2 and the same current flows through both; "
+            "in parallel, 1/R = 1/R1 + 1/R2 and both resistors share the "
+            "same voltage. Idealized model: an ideal voltage source with no "
+            "internal resistance, ideal (zero-resistance) wires, and no "
+            "transients -- the circuit reaches its steady state instantly."
+        ),
+    },
 ]
 
 

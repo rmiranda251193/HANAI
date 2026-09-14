@@ -273,6 +273,34 @@ Output contract:
                     "- gravitational acceleration (deterministic a_g = mu / r^2, "
                     f"computed by the app): {experiment.acceleration_m_s2:.2f} m/s^2"
                 )
+        elif experiment.simulation_type == "series_parallel_circuit":
+            if experiment.voltage_v is not None:
+                exp_lines.append(
+                    f"- setup: source voltage = {experiment.voltage_v:.2f} V, "
+                    f"R1 = {experiment.resistance1_ohm:.2f} ohm, R2 = "
+                    f"{experiment.resistance2_ohm:.2f} ohm, wired in "
+                    + ("series" if experiment.is_series else "parallel")
+                )
+            if experiment.total_current_a is not None:
+                exp_lines.append(
+                    "- total current drawn from the source (deterministic, "
+                    f"computed by the app): {experiment.total_current_a:.2f} A"
+                )
+            if experiment.current_1_a is not None and experiment.current_2_a is not None:
+                exp_lines.append(
+                    f"- current through each resistor: {experiment.current_1_a:.2f} A "
+                    f"and {experiment.current_2_a:.2f} A"
+                )
+            if experiment.voltage_1_v is not None and experiment.voltage_2_v is not None:
+                exp_lines.append(
+                    f"- voltage across each resistor: {experiment.voltage_1_v:.2f} V "
+                    f"and {experiment.voltage_2_v:.2f} V"
+                )
+            if experiment.total_power_w is not None:
+                exp_lines.append(
+                    f"- total power delivered by the source: {experiment.total_power_w:.2f} W "
+                    "(always equal to the sum of the power dissipated in each resistor)"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

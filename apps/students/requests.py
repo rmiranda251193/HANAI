@@ -72,8 +72,13 @@ class ExperimentContext:
     ``acceleration_m_s2`` are shared where they apply (``acceleration_m_s2``
     is Circular Motion's centripetal acceleration, Simple Harmonic Motion's
     restoring acceleration, or Orbital Motion's gravitational/centripetal
-    acceleration). A given experiment only ever populates the fields for its
-    own simulation type -- the rest stay ``None``.
+    acceleration). ``voltage_v``/``resistance1_ohm``/``resistance2_ohm``/
+    ``is_series``/``total_resistance_ohm``/``total_current_a``/
+    ``current_1_a``/``current_2_a``/``voltage_1_v``/``voltage_2_v``/
+    ``total_power_w`` are Series/Parallel-Circuit-specific -- there is no
+    motion here at all, so this simulation shares no fields with any other.
+    A given experiment only ever populates the fields for its own
+    simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -112,6 +117,17 @@ class ExperimentContext:
     potential_energy_j: float | None = None
     total_energy_j: float | None = None
     mu: float | None = None
+    voltage_v: float | None = None
+    resistance1_ohm: float | None = None
+    resistance2_ohm: float | None = None
+    is_series: bool | None = None
+    total_resistance_ohm: float | None = None
+    total_current_a: float | None = None
+    current_1_a: float | None = None
+    current_2_a: float | None = None
+    voltage_1_v: float | None = None
+    voltage_2_v: float | None = None
+    total_power_w: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -150,6 +166,8 @@ class ExperimentContext:
                 self.height_m is not None,
                 self.distance_m is not None,
                 self.mu is not None,
+                self.voltage_v is not None,
+                self.total_current_a is not None,
             ]
         )
 
@@ -248,6 +266,22 @@ class ExperimentContext:
                 position_x_m=params.get("observed_position_x_m"),
                 position_y_m=params.get("observed_position_y_m"),
                 velocity_m_s=params.get("observed_speed_m_s"),
+            )
+        elif simulation_type == "series_parallel_circuit":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            series_flag = params.get("series")
+            kwargs.update(
+                voltage_v=params.get("voltage_v"),
+                resistance1_ohm=params.get("resistance1_ohm"),
+                resistance2_ohm=params.get("resistance2_ohm"),
+                is_series=(series_flag >= 0.5) if series_flag is not None else None,
+                total_resistance_ohm=params.get("observed_total_resistance_ohm"),
+                total_current_a=params.get("observed_total_current_a"),
+                current_1_a=params.get("observed_current_1_a"),
+                current_2_a=params.get("observed_current_2_a"),
+                voltage_1_v=params.get("observed_voltage_1_v"),
+                voltage_2_v=params.get("observed_voltage_2_v"),
+                total_power_w=params.get("observed_total_power_w"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

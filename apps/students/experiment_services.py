@@ -93,6 +93,12 @@ from apps.physics.simulations_orbital_motion import MAX_TIME_S as ORBITAL_MAX_TI
 from apps.physics.simulations_orbital_motion import clamp_mu, clamp_radius as clamp_orbital_radius
 from apps.physics.simulations_orbital_motion import clamp_time as clamp_orbital_time
 from apps.physics.simulations_orbital_motion import orbital_motion_state
+from apps.physics.simulations_circuits import (
+    MAX_RESISTANCE_OHM as CIRCUIT_MAX_RESISTANCE_OHM,
+    MAX_VOLTAGE_V as CIRCUIT_MAX_VOLTAGE_V,
+)
+from apps.physics.simulations_circuits import circuit_state
+from apps.physics.simulations_circuits import clamp_resistance, clamp_series, clamp_voltage
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -134,6 +140,9 @@ ENERGY_TIME_HARD_MAX_S = ENERGY_MAX_TIME_S * 5
 ORBITAL_MU_HARD_MAX = ORBITAL_MAX_MU * 5
 ORBITAL_RADIUS_HARD_MAX_M = ORBITAL_MAX_RADIUS_M * 5
 ORBITAL_TIME_HARD_MAX_S = ORBITAL_MAX_TIME_S * 5
+
+CIRCUIT_VOLTAGE_HARD_MAX_V = CIRCUIT_MAX_VOLTAGE_V * 5
+CIRCUIT_RESISTANCE_HARD_MAX_OHM = CIRCUIT_MAX_RESISTANCE_OHM * 5
 
 TEXT_LIMIT = 2000
 
@@ -672,6 +681,94 @@ def validate_orbital_motion(mu, radius_m, time_s) -> ValidatedOrbitalMotion:
     )
 
 
+@dataclass(frozen=True)
+class ValidatedCircuit:
+    """Server-recomputed, deterministic Series/Parallel Circuit values (SI units)."""
+
+    voltage_v: float
+    resistance1_ohm: float
+    resistance2_ohm: float
+    series: float
+    total_resistance_ohm: float
+    total_current_a: float
+    current_1_a: float
+    current_2_a: float
+    voltage_1_v: float
+    voltage_2_v: float
+    power_1_w: float
+    power_2_w: float
+    total_power_w: float
+    series_total_resistance_ohm: float
+    parallel_total_resistance_ohm: float
+
+    def as_dict(self) -> dict:
+        return {
+            "voltage_v": self.voltage_v,
+            "resistance1_ohm": self.resistance1_ohm,
+            "resistance2_ohm": self.resistance2_ohm,
+            "series": self.series,
+            "total_resistance_ohm": self.total_resistance_ohm,
+            "total_current_a": self.total_current_a,
+            "current_1_a": self.current_1_a,
+            "current_2_a": self.current_2_a,
+            "voltage_1_v": self.voltage_1_v,
+            "voltage_2_v": self.voltage_2_v,
+            "power_1_w": self.power_1_w,
+            "power_2_w": self.power_2_w,
+            "total_power_w": self.total_power_w,
+            "series_total_resistance_ohm": self.series_total_resistance_ohm,
+            "parallel_total_resistance_ohm": self.parallel_total_resistance_ohm,
+        }
+
+
+def validate_circuit(voltage_v, resistance1_ohm, resistance2_ohm, series) -> ValidatedCircuit:
+    """Recompute the circuit's currents/voltages/power on the server. Reject
+    nonsense; clamp to lab bounds. There is no time input here -- see the
+    module docstring in ``simulations_circuits.py`` for why."""
+
+    try:
+        v_raw = float(voltage_v)
+        r1_raw = float(resistance1_ohm)
+        r2_raw = float(resistance2_ohm)
+        series_raw = float(series)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Voltage, resistance and circuit type must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (v_raw, r1_raw, r2_raw, series_raw)):
+        raise ExperimentValidationError(
+            "Voltage, resistance and circuit type must be finite numbers."
+        )
+    if v_raw <= 0:
+        raise ExperimentValidationError("Voltage must be positive.")
+    if r1_raw <= 0 or r2_raw <= 0:
+        raise ExperimentValidationError("Resistance must be positive.")
+    if (
+        v_raw > CIRCUIT_VOLTAGE_HARD_MAX_V
+        or r1_raw > CIRCUIT_RESISTANCE_HARD_MAX_OHM
+        or r2_raw > CIRCUIT_RESISTANCE_HARD_MAX_OHM
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = circuit_state(voltage=v_raw, resistance1=r1_raw, resistance2=r2_raw, series=series_raw)
+    return ValidatedCircuit(
+        voltage_v=clamp_voltage(v_raw),
+        resistance1_ohm=clamp_resistance(r1_raw),
+        resistance2_ohm=clamp_resistance(r2_raw),
+        series=clamp_series(series_raw),
+        total_resistance_ohm=state["total_resistance_ohm"],
+        total_current_a=state["total_current_a"],
+        current_1_a=state["current_1_a"],
+        current_2_a=state["current_2_a"],
+        voltage_1_v=state["voltage_1_v"],
+        voltage_2_v=state["voltage_2_v"],
+        power_1_w=state["power_1_w"],
+        power_2_w=state["power_2_w"],
+        total_power_w=state["total_power_w"],
+        series_total_resistance_ohm=state["series_total_resistance_ohm"],
+        parallel_total_resistance_ohm=state["parallel_total_resistance_ohm"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -748,6 +845,15 @@ def _validate_orbital_motion(values: dict) -> ValidatedOrbitalMotion:
     )
 
 
+def _validate_circuit(values: dict) -> ValidatedCircuit:
+    return validate_circuit(
+        values.get("voltage_v"),
+        values.get("resistance1_ohm"),
+        values.get("resistance2_ohm"),
+        values.get("series"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -757,6 +863,7 @@ _VALIDATORS = {
     "momentum_collision": _validate_collision,
     "energy_incline": _validate_energy_incline,
     "orbital_motion": _validate_orbital_motion,
+    "series_parallel_circuit": _validate_circuit,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -771,6 +878,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "momentum_collision": ("mass1_kg", "mass2_kg", "initial_velocity_m_s", "elastic", "time_s"),
     "energy_incline": ("height_m", "angle_deg", "mass_kg", "time_s"),
     "orbital_motion": ("mu", "radius_m", "time_s"),
+    "series_parallel_circuit": ("voltage_v", "resistance1_ohm", "resistance2_ohm", "series"),
 }
 
 
@@ -826,6 +934,14 @@ def _apply_fields_orbital_motion(attempt, validated: ValidatedOrbitalMotion) -> 
     attempt.acceleration_m_s2 = validated.gravitational_acceleration_m_s2
 
 
+def _apply_fields_circuit(attempt, validated: ValidatedCircuit) -> None:
+    # No ExperimentAttempt column fits a circuit's voltage/resistance/
+    # current -- there is no mass, force or acceleration here at all.
+    # Everything lives in attempt.parameters, like Collision's non-fitting
+    # per-cart values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -835,6 +951,7 @@ _FIELD_APPLIERS = {
     "momentum_collision": _apply_fields_collision,
     "energy_incline": _apply_fields_energy_incline,
     "orbital_motion": _apply_fields_orbital_motion,
+    "series_parallel_circuit": _apply_fields_circuit,
 }
 
 
@@ -949,6 +1066,26 @@ def _apply_parameters_orbital_motion(attempt, simulation, validated: ValidatedOr
     }
 
 
+def _apply_parameters_circuit(attempt, simulation, validated: ValidatedCircuit) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "voltage_v": validated.voltage_v,
+        "resistance1_ohm": validated.resistance1_ohm,
+        "resistance2_ohm": validated.resistance2_ohm,
+        "series": validated.series,
+        "observed_total_resistance_ohm": validated.total_resistance_ohm,
+        "observed_total_current_a": validated.total_current_a,
+        "observed_current_1_a": validated.current_1_a,
+        "observed_current_2_a": validated.current_2_a,
+        "observed_voltage_1_v": validated.voltage_1_v,
+        "observed_voltage_2_v": validated.voltage_2_v,
+        "observed_power_1_w": validated.power_1_w,
+        "observed_power_2_w": validated.power_2_w,
+        "observed_total_power_w": validated.total_power_w,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -958,6 +1095,7 @@ _PARAMETER_APPLIERS = {
     "momentum_collision": _apply_parameters_collision,
     "energy_incline": _apply_parameters_energy_incline,
     "orbital_motion": _apply_parameters_orbital_motion,
+    "series_parallel_circuit": _apply_parameters_circuit,
 }
 
 
@@ -1110,6 +1248,19 @@ def _base_context(attempt, simulation) -> dict:
             context["position_y_m"] = params["observed_position_y_m"]
         if "observed_speed_m_s" in params:
             context["speed_m_s"] = params["observed_speed_m_s"]
+    elif simulation.simulation_type == "series_parallel_circuit":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("voltage_v", "resistance1_ohm", "resistance2_ohm", "series"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_total_resistance_ohm", "observed_total_current_a",
+            "observed_current_1_a", "observed_current_2_a",
+            "observed_voltage_1_v", "observed_voltage_2_v",
+            "observed_total_power_w",
+        ):
+            if key in params:
+                context[key] = params[key]
     return context
 
 

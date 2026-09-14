@@ -17,6 +17,7 @@ class PhysicsConfig(AppConfig):
         from . import simulations_collision  # noqa: F401
         from . import simulations_energy_incline  # noqa: F401
         from . import simulations_orbital_motion  # noqa: F401
+        from . import simulations_circuits  # noqa: F401
 
         # Populate the visualization registry (2D/3D renderer definitions), the
         # code-defined Physics Lab scenario challenges, and the Physics domain /

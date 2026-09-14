@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: an ideal voltage source with no internal resistance, ideal (zero-resistance) wires, and no transients -- the circuit reaches its steady state the instant the switch closes, so there is no time axis here.
+    Values are computed from <code>V = I R</code>, series <code>R = R1 + R2</code>, and parallel <code>1/R = 1/R1 + 1/R2</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-voltage="{{ defaults.voltage_v }}"
+       data-r1="{{ defaults.resistance1_ohm }}"
+       data-r2="{{ defaults.resistance2_ohm }}"
+       data-series="{{ defaults.series }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the current through each resistor if you switch from series to parallel, keeping the voltage and both resistances the same? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. In parallel, both resistors will get the full voltage, so more total current will flow than in series.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 280" role="img"
+               data-lab-scene aria-label="A voltage source wired to two resistors.">
+            <desc data-scene-desc>A voltage source wired to two resistors, in series or in parallel.</desc>
+
+            <rect x="30" y="120" width="40" height="60" fill="none" class="lab-track" />
+            <text x="35" y="155" class="lab-axis-label">V</text>
+            <line x1="50" y1="120" x2="50" y2="80" class="lab-track" />
+            <line x1="50" y1="180" x2="50" y2="220" class="lab-track" />
+
+            <g data-series-diagram>
+              <line x1="50" y1="80" x2="110" y2="80" class="lab-track" />
+              <rect x="110" y="65" width="80" height="30" class="lab-cart-body" />
+              <text x="128" y="60" class="lab-axis-label">R1</text>
+              <line x1="190" y1="80" x2="250" y2="80" class="lab-track" />
+              <rect x="250" y="65" width="80" height="30" class="lab-cart-body-alt" />
+              <text x="268" y="60" class="lab-axis-label">R2</text>
+              <line x1="330" y1="80" x2="370" y2="80" class="lab-track" />
+              <line x1="370" y1="80" x2="370" y2="220" class="lab-track" />
+              <line x1="370" y1="220" x2="50" y2="220" class="lab-track" />
+            </g>
+
+            <g data-parallel-diagram hidden>
+              <line x1="50" y1="80" x2="370" y2="80" class="lab-track" />
+              <line x1="50" y1="220" x2="370" y2="220" class="lab-track" />
+              <line x1="150" y1="80" x2="150" y2="110" class="lab-track" />
+              <rect x="135" y="110" width="30" height="80" class="lab-cart-body" />
+              <text x="105" y="150" class="lab-axis-label">R1</text>
+              <line x1="150" y1="190" x2="150" y2="220" class="lab-track" />
+              <line x1="290" y1="80" x2="290" y2="110" class="lab-track" />
+              <rect x="275" y="110" width="30" height="80" class="lab-cart-body-alt" />
+              <text x="310" y="150" class="lab-axis-label">R2</text>
+              <line x1="290" y1="190" x2="290" y2="220" class="lab-track" />
+            </g>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A bar chart comparing series and parallel total resistance.">
+            <desc>A bar chart comparing the total resistance in series versus in parallel, for the current R1 and R2.</desc>
+            <line x1="40" y1="150" x2="340" y2="150" class="lab-axis" />
+            <rect x="90" y="150" width="60" height="0" class="lab-cart-body" data-bar-series />
+            <text x="95" y="168" class="lab-axis-label">Series</text>
+            <text x="95" y="144" class="lab-axis-label" data-bar-series-label></text>
+            <rect x="220" y="150" width="60" height="0" class="lab-cart-body-alt" data-bar-parallel />
+            <text x="220" y="168" class="lab-axis-label">Parallel</text>
+            <text x="220" y="144" class="lab-axis-label" data-bar-parallel-label></text>
+          </svg>
+          <p class="lab-graph-caption">Total resistance: series versus parallel, for the same R1 and R2. Parallel is always smaller than either resistor alone.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Voltage</span>
+                <span class="lab-value-number"><span data-value-voltage>{{ defaults.voltage_v }}</span> V</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">R1</span>
+                <span class="lab-value-number"><span data-value-r1>{{ defaults.resistance1_ohm }}</span> &Omega;</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">R2</span>
+                <span class="lab-value-number"><span data-value-r2>{{ defaults.resistance2_ohm }}</span> &Omega;</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">I = V / R &nbsp; P = V &times; I</p>
+              <p class="lab-eq-worked">
+                I<sub>total</sub> = <span data-eq-total-i>0.00</span> A &nbsp; P<sub>total</sub> = <span data-eq-total-p>0.00</span> W
+              </p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Total resistance</dt><dd><span data-value-total-r>0.00</span> &Omega;</dd></div>
+              <div><dt>Total current</dt><dd><span data-value-total-i>0.00</span> A</dd></div>
+              <div><dt>Current through R1</dt><dd><span data-value-i1>0.00</span> A</dd></div>
+              <div><dt>Current through R2</dt><dd><span data-value-i2>0.00</span> A</dd></div>
+              <div><dt>Voltage across R1</dt><dd><span data-value-v1>0.00</span> V</dd></div>
+              <div><dt>Voltage across R2</dt><dd><span data-value-v2>0.00</span> V</dd></div>
+              <div><dt>Total power</dt><dd><span data-value-total-p>0.00</span> W</dd></div>
+            </dl>
+          </div>
+
+          <fieldset class="lab-predict-choice">
+            <legend>Circuit type</legend>
+            <label><input type="radio" name="series-choice" value="1" data-input-series checked> Series</label>
+            <label><input type="radio" name="series-choice" value="0" data-input-series> Parallel</label>
+          </fieldset>
+          <div class="lab-control">
+            <label for="lab-voltage">Voltage (V)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-voltage" data-input-voltage
+                     min="{{ bounds.voltage_v.min }}" max="{{ bounds.voltage_v.max }}" step="0.5"
+                     value="{{ defaults.voltage_v }}" aria-describedby="lab-voltage-out">
+              <output id="lab-voltage-out" for="lab-voltage" data-out-voltage>{{ defaults.voltage_v }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-r1">Resistance R1 (&Omega;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-r1" data-input-r1
+                     min="{{ bounds.resistance1_ohm.min }}" max="{{ bounds.resistance1_ohm.max }}" step="1"
+                     value="{{ defaults.resistance1_ohm }}" aria-describedby="lab-r1-out">
+              <output id="lab-r1-out" for="lab-r1" data-out-r1>{{ defaults.resistance1_ohm }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-r2">Resistance R2 (&Omega;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-r2" data-input-r2
+                     min="{{ bounds.resistance2_ohm.min }}" max="{{ bounds.resistance2_ohm.max }}" step="1"
+                     value="{{ defaults.resistance2_ohm }}" aria-describedby="lab-r2-out">
+              <output id="lab-r2-out" for="lab-r2" data-out-r2>{{ defaults.resistance2_ohm }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the total current and how it split (or didn&rsquo;t) between the two resistors.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="voltage_v" data-field="voltageV" value="{{ defaults.voltage_v }}">
+        <input type="hidden" name="resistance1_ohm" data-field="resistance1Ohm" value="{{ defaults.resistance1_ohm }}">
+        <input type="hidden" name="resistance2_ohm" data-field="resistance2Ohm" value="{{ defaults.resistance2_ohm }}">
+        <input type="hidden" name="series" data-field="series" value="{{ defaults.series }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. In parallel, both resistors had the full voltage across them, but different currents.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_total_current_a is not None %}Last saved: server-computed total current ({{ experiment_attempt.parameters.observed_total_current_a|floatformat:2 }} A), total power ({{ experiment_attempt.parameters.observed_total_power_w|floatformat:2 }} W).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="voltage_v" data-field="voltageV" value="{{ defaults.voltage_v }}">
+        <input type="hidden" name="resistance1_ohm" data-field="resistance1Ohm" value="{{ defaults.resistance1_ohm }}">
+        <input type="hidden" name="resistance2_ohm" data-field="resistance2Ohm" value="{{ defaults.resistance2_ohm }}">
+        <input type="hidden" name="series" data-field="series" value="{{ defaults.series }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. In series the same current has to pass through both resistors, so the bigger resistor limits the whole circuit.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationships it shows are <strong>I = V / R</strong>, series <strong>R = R1 + R2</strong>, and parallel <strong>1/R = 1/R1 + 1/R2</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/circuits.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}
