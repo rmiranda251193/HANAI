@@ -96,7 +96,11 @@ class ExperimentContext:
     ``angle1_deg``/``angle2_deg``/``has_critical_angle``/
     ``critical_angle_deg``/``total_internal_reflection`` are Refraction-
     specific (deliberately NOT reusing Energy-on-an-Incline's ``angle_deg``,
-    a different physical angle entirely). A given experiment only ever
+    a different physical angle entirely). ``specific_heat1``/
+    ``specific_heat2``/``temp1_c``/``temp2_c``/``equilibrium_temp_c``/
+    ``heat_transferred_j`` are Calorimetry-specific (which reuses
+    ``mass1_kg``/``mass2_kg`` from Momentum/Collision -- the same plain
+    "mass of object 1/2" meaning in both). A given experiment only ever
     populates the fields for its own simulation type -- the rest stay
     ``None``.
     """
@@ -173,6 +177,12 @@ class ExperimentContext:
     has_critical_angle: bool | None = None
     critical_angle_deg: float | None = None
     total_internal_reflection: bool | None = None
+    specific_heat1: float | None = None
+    specific_heat2: float | None = None
+    temp1_c: float | None = None
+    temp2_c: float | None = None
+    equilibrium_temp_c: float | None = None
+    heat_transferred_j: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -217,6 +227,7 @@ class ExperimentContext:
                 self.initial_count is not None,
                 self.object_density_kg_m3 is not None,
                 self.n1 is not None,
+                self.equilibrium_temp_c is not None,
             ]
         )
 
@@ -374,6 +385,18 @@ class ExperimentContext:
                 critical_angle_deg=params.get("observed_critical_angle_deg"),
                 total_internal_reflection=params.get("observed_total_internal_reflection"),
                 angle2_deg=params.get("observed_angle2_deg"),
+            )
+        elif simulation_type == "calorimetry":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                mass1_kg=params.get("mass1_kg"),
+                specific_heat1=params.get("specific_heat1"),
+                temp1_c=params.get("temp1_c"),
+                mass2_kg=params.get("mass2_kg"),
+                specific_heat2=params.get("specific_heat2"),
+                temp2_c=params.get("temp2_c"),
+                equilibrium_temp_c=params.get("observed_equilibrium_temp_c"),
+                heat_transferred_j=params.get("observed_heat_transferred_j"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

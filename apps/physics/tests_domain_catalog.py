@@ -242,8 +242,8 @@ class RegistryReadinessTests(TestCase):
         # kinematics + newtons_second_law + projectile_motion +
         # circular_motion + simple_harmonic_motion + momentum_collision +
         # energy_incline + orbital_motion + series_parallel_circuit +
-        # coulombs_law + radioactive_decay + buoyancy + refraction are the
-        # registered simulations today
+        # coulombs_law + radioactive_decay + buoyancy + refraction +
+        # calorimetry are the registered simulations today
         from apps.physics.simulation_registry import registered_simulation_types
 
         self.assertEqual(
@@ -253,5 +253,6 @@ class RegistryReadinessTests(TestCase):
                 "circular_motion", "simple_harmonic_motion", "momentum_collision",
                 "energy_incline", "orbital_motion", "series_parallel_circuit",
                 "coulombs_law", "radioactive_decay", "buoyancy", "refraction",
+                "calorimetry",
             },
         )

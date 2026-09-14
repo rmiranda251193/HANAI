@@ -390,6 +390,33 @@ Output contract:
                     f"- critical angle for this pair of media: {experiment.critical_angle_deg:.1f} "
                     "degrees (past this, total internal reflection always happens)"
                 )
+        elif experiment.simulation_type == "calorimetry":
+            if (
+                experiment.mass1_kg is not None and experiment.specific_heat1 is not None
+                and experiment.temp1_c is not None
+            ):
+                exp_lines.append(
+                    f"- substance 1: mass = {experiment.mass1_kg:.2f} kg, specific heat = "
+                    f"{experiment.specific_heat1:.0f} J/(kg K), starting temperature = "
+                    f"{experiment.temp1_c:.1f} C"
+                )
+            if (
+                experiment.mass2_kg is not None and experiment.specific_heat2 is not None
+                and experiment.temp2_c is not None
+            ):
+                exp_lines.append(
+                    f"- substance 2: mass = {experiment.mass2_kg:.2f} kg, specific heat = "
+                    f"{experiment.specific_heat2:.0f} J/(kg K), starting temperature = "
+                    f"{experiment.temp2_c:.1f} C"
+                )
+            if experiment.equilibrium_temp_c is not None:
+                exp_lines.append(
+                    "- equilibrium temperature (deterministic, conservation of energy: heat "
+                    "lost by the warmer substance equals heat gained by the cooler one, "
+                    f"computed by the app): {experiment.equilibrium_temp_c:.1f} C"
+                )
+            if experiment.heat_transferred_j is not None:
+                exp_lines.append(f"- heat transferred: {experiment.heat_transferred_j:.1f} J")
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

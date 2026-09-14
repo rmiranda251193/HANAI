@@ -118,6 +118,13 @@ from apps.physics.simulations_refraction import MAX_ANGLE_DEG as REFRACTION_MAX_
 from apps.physics.simulations_refraction import MAX_INDEX as REFRACTION_MAX_INDEX
 from apps.physics.simulations_refraction import clamp_angle as clamp_refraction_angle
 from apps.physics.simulations_refraction import clamp_index, refraction_state
+from apps.physics.simulations_calorimetry import (
+    MAX_MASS_KG as CALORIMETRY_MAX_MASS_KG,
+    MAX_SPECIFIC_HEAT as CALORIMETRY_MAX_SPECIFIC_HEAT,
+)
+from apps.physics.simulations_calorimetry import calorimetry_state
+from apps.physics.simulations_calorimetry import clamp_mass as clamp_calorimetry_mass
+from apps.physics.simulations_calorimetry import clamp_specific_heat, clamp_temp
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -175,6 +182,10 @@ BUOYANCY_VOLUME_HARD_MAX_M3 = BUOYANCY_MAX_VOLUME_M3 * 5
 
 REFRACTION_INDEX_HARD_MAX = REFRACTION_MAX_INDEX * 5
 REFRACTION_ANGLE_HARD_MAX_DEG = 90.0  # angles clamp at 89 deg; 90+ is meaningless here
+
+CALORIMETRY_MASS_HARD_MAX_KG = CALORIMETRY_MAX_MASS_KG * 5
+CALORIMETRY_SPECIFIC_HEAT_HARD_MAX = CALORIMETRY_MAX_SPECIFIC_HEAT * 5
+CALORIMETRY_TEMP_HARD_MAX_C = 1000.0  # generous vs the -20..300 UI range
 
 TEXT_LIMIT = 2000
 
@@ -1054,6 +1065,93 @@ def validate_refraction(n1, n2, angle1_deg) -> ValidatedRefraction:
     )
 
 
+@dataclass(frozen=True)
+class ValidatedCalorimetry:
+    """Server-recomputed, deterministic Calorimetry values (SI-shaped units)."""
+
+    mass1_kg: float
+    specific_heat1: float
+    temp1_c: float
+    mass2_kg: float
+    specific_heat2: float
+    temp2_c: float
+    heat_capacity1_j_per_k: float
+    heat_capacity2_j_per_k: float
+    equilibrium_temp_c: float
+    heat_transferred_j: float
+
+    def as_dict(self) -> dict:
+        return {
+            "mass1_kg": self.mass1_kg,
+            "specific_heat1": self.specific_heat1,
+            "temp1_c": self.temp1_c,
+            "mass2_kg": self.mass2_kg,
+            "specific_heat2": self.specific_heat2,
+            "temp2_c": self.temp2_c,
+            "heat_capacity1_j_per_k": self.heat_capacity1_j_per_k,
+            "heat_capacity2_j_per_k": self.heat_capacity2_j_per_k,
+            "equilibrium_temp_c": self.equilibrium_temp_c,
+            "heat_transferred_j": self.heat_transferred_j,
+        }
+
+
+def validate_calorimetry(
+    mass1_kg, specific_heat1, temp1_c, mass2_kg, specific_heat2, temp2_c
+) -> ValidatedCalorimetry:
+    """Recompute the equilibrium temperature/heat transferred on the
+    server. Reject nonsense; clamp to lab bounds. There is no time input
+    here -- see the module docstring in ``simulations_calorimetry.py`` for
+    why."""
+
+    try:
+        m1_raw = float(mass1_kg)
+        c1_raw = float(specific_heat1)
+        t1_raw = float(temp1_c)
+        m2_raw = float(mass2_kg)
+        c2_raw = float(specific_heat2)
+        t2_raw = float(temp2_c)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Mass, specific heat and temperature must be numbers.")
+
+    if any(
+        math.isnan(v) or math.isinf(v)
+        for v in (m1_raw, c1_raw, t1_raw, m2_raw, c2_raw, t2_raw)
+    ):
+        raise ExperimentValidationError(
+            "Mass, specific heat and temperature must be finite numbers."
+        )
+    if m1_raw <= 0 or m2_raw <= 0:
+        raise ExperimentValidationError("Mass must be positive.")
+    if c1_raw <= 0 or c2_raw <= 0:
+        raise ExperimentValidationError("Specific heat must be positive.")
+    if (
+        m1_raw > CALORIMETRY_MASS_HARD_MAX_KG
+        or m2_raw > CALORIMETRY_MASS_HARD_MAX_KG
+        or c1_raw > CALORIMETRY_SPECIFIC_HEAT_HARD_MAX
+        or c2_raw > CALORIMETRY_SPECIFIC_HEAT_HARD_MAX
+        or abs(t1_raw) > CALORIMETRY_TEMP_HARD_MAX_C
+        or abs(t2_raw) > CALORIMETRY_TEMP_HARD_MAX_C
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = calorimetry_state(
+        mass1=m1_raw, specific_heat1=c1_raw, temp1=t1_raw,
+        mass2=m2_raw, specific_heat2=c2_raw, temp2=t2_raw,
+    )
+    return ValidatedCalorimetry(
+        mass1_kg=clamp_calorimetry_mass(m1_raw),
+        specific_heat1=clamp_specific_heat(c1_raw),
+        temp1_c=clamp_temp(t1_raw),
+        mass2_kg=clamp_calorimetry_mass(m2_raw),
+        specific_heat2=clamp_specific_heat(c2_raw),
+        temp2_c=clamp_temp(t2_raw),
+        heat_capacity1_j_per_k=state["heat_capacity1_j_per_k"],
+        heat_capacity2_j_per_k=state["heat_capacity2_j_per_k"],
+        equilibrium_temp_c=state["equilibrium_temp_c"],
+        heat_transferred_j=state["heat_transferred_j"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1171,6 +1269,17 @@ def _validate_refraction(values: dict) -> ValidatedRefraction:
     )
 
 
+def _validate_calorimetry(values: dict) -> ValidatedCalorimetry:
+    return validate_calorimetry(
+        values.get("mass1_kg"),
+        values.get("specific_heat1"),
+        values.get("temp1_c"),
+        values.get("mass2_kg"),
+        values.get("specific_heat2"),
+        values.get("temp2_c"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1185,6 +1294,7 @@ _VALIDATORS = {
     "radioactive_decay": _validate_radioactive_decay,
     "buoyancy": _validate_buoyancy,
     "refraction": _validate_refraction,
+    "calorimetry": _validate_calorimetry,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1204,6 +1314,10 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "radioactive_decay": ("initial_count", "half_life_s", "time_s"),
     "buoyancy": ("object_density_kg_m3", "fluid_density_kg_m3", "volume_m3"),
     "refraction": ("n1", "n2", "angle1_deg"),
+    "calorimetry": (
+        "mass1_kg", "specific_heat1", "temp1_c",
+        "mass2_kg", "specific_heat2", "temp2_c",
+    ),
 }
 
 
@@ -1301,6 +1415,13 @@ def _apply_fields_refraction(attempt, validated: ValidatedRefraction) -> None:
     pass
 
 
+def _apply_fields_calorimetry(attempt, validated: ValidatedCalorimetry) -> None:
+    # No ExperimentAttempt column fits two substances' masses/heat
+    # capacities -- everything lives in attempt.parameters, like
+    # Collision's non-fitting two-object values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1315,6 +1436,7 @@ _FIELD_APPLIERS = {
     "radioactive_decay": _apply_fields_radioactive_decay,
     "buoyancy": _apply_fields_buoyancy,
     "refraction": _apply_fields_refraction,
+    "calorimetry": _apply_fields_calorimetry,
 }
 
 
@@ -1507,6 +1629,23 @@ def _apply_parameters_refraction(attempt, simulation, validated: ValidatedRefrac
     }
 
 
+def _apply_parameters_calorimetry(attempt, simulation, validated: ValidatedCalorimetry) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "mass1_kg": validated.mass1_kg,
+        "specific_heat1": validated.specific_heat1,
+        "temp1_c": validated.temp1_c,
+        "mass2_kg": validated.mass2_kg,
+        "specific_heat2": validated.specific_heat2,
+        "temp2_c": validated.temp2_c,
+        "observed_heat_capacity1_j_per_k": validated.heat_capacity1_j_per_k,
+        "observed_heat_capacity2_j_per_k": validated.heat_capacity2_j_per_k,
+        "observed_equilibrium_temp_c": validated.equilibrium_temp_c,
+        "observed_heat_transferred_j": validated.heat_transferred_j,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -1521,6 +1660,7 @@ _PARAMETER_APPLIERS = {
     "radioactive_decay": _apply_parameters_radioactive_decay,
     "buoyancy": _apply_parameters_buoyancy,
     "refraction": _apply_parameters_refraction,
+    "calorimetry": _apply_parameters_calorimetry,
 }
 
 
@@ -1729,6 +1869,17 @@ def _base_context(attempt, simulation) -> dict:
             "observed_has_critical_angle", "observed_critical_angle_deg",
             "observed_total_internal_reflection", "observed_angle2_deg",
         ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "calorimetry":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in (
+            "mass1_kg", "specific_heat1", "temp1_c",
+            "mass2_kg", "specific_heat2", "temp2_c",
+        ):
+            if key in params:
+                context[key] = params[key]
+        for key in ("observed_equilibrium_temp_c", "observed_heat_transferred_j"):
             if key in params:
                 context[key] = params[key]
     return context

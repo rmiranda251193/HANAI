@@ -140,6 +140,7 @@ class PhysicsSimulation(models.Model):
         RADIOACTIVE_DECAY = "radioactive_decay", "Radioactive Decay"
         BUOYANCY = "buoyancy", "Buoyancy"
         REFRACTION = "refraction", "Refraction"
+        CALORIMETRY = "calorimetry", "Calorimetry"
 
     concept = models.ForeignKey(
         PhysicsConcept,

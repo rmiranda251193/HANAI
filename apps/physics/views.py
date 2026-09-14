@@ -206,6 +206,10 @@ _FIELD_LABELS = {
     "n1": "refractive index n1",
     "n2": "refractive index n2",
     "angle1_deg": "angle of incidence",
+    "specific_heat1": "specific heat 1",
+    "specific_heat2": "specific heat 2",
+    "temp1_c": "temperature 1",
+    "temp2_c": "temperature 2",
 }
 
 
@@ -583,6 +587,21 @@ def _experiment_prefill(attempt):
             parts.append(_refraction_outcome_label(ctx.angle2_deg, ctx.total_internal_reflection))
         if ctx.has_critical_angle and ctx.critical_angle_deg is not None:
             parts.append(f"critical angle = {ctx.critical_angle_deg:.1f} degrees")
+    elif ctx.simulation_type == "calorimetry":
+        if ctx.mass1_kg is not None and ctx.specific_heat1 is not None and ctx.temp1_c is not None:
+            parts.append(
+                f"substance 1 = {ctx.mass1_kg:.2f} kg, specific heat {ctx.specific_heat1:.0f} J/(kg K), "
+                f"starting at {ctx.temp1_c:.1f} C"
+            )
+        if ctx.mass2_kg is not None and ctx.specific_heat2 is not None and ctx.temp2_c is not None:
+            parts.append(
+                f"substance 2 = {ctx.mass2_kg:.2f} kg, specific heat {ctx.specific_heat2:.0f} J/(kg K), "
+                f"starting at {ctx.temp2_c:.1f} C"
+            )
+        if ctx.equilibrium_temp_c is not None:
+            parts.append(f"equilibrium temperature = {ctx.equilibrium_temp_c:.1f} C (computed by the app)")
+        if ctx.heat_transferred_j is not None:
+            parts.append(f"heat transferred = {ctx.heat_transferred_j:.1f} J")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -701,6 +720,12 @@ def _observation_message(simulation_type, validated):
     if simulation_type == "refraction":
         outcome = _refraction_outcome_label(validated.angle2_deg, validated.total_internal_reflection)
         return f"Observation saved. Server-computed outcome: {outcome}."
+    if simulation_type == "calorimetry":
+        return (
+            "Observation saved. Server-computed equilibrium temperature: "
+            f"{validated.equilibrium_temp_c:.1f} °C (heat transferred "
+            f"{validated.heat_transferred_j:.1f} J)."
+        )
     return (
         "Observation saved. Server-computed acceleration: "
         f"{validated.acceleration_m_s2:.2f} m/s² (a = F / m)."

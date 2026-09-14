@@ -183,6 +183,21 @@ PHYSICS_SIMULATIONS = [
             "or dispersion."
         ),
     },
+    {
+        "slug": "calorimetry",
+        "title": "Calorimetry Lab",
+        "concept_name": "Specific heat capacity and calorimetry",
+        "simulation_type": PhysicsSimulation.SimulationType.CALORIMETRY,
+        "description": (
+            "Set the mass, specific heat and starting temperature of two "
+            "substances and mix them, watching them settle to one common "
+            "equilibrium temperature through conservation of energy -- "
+            "the heat lost by the warmer substance always equals the heat "
+            "gained by the cooler one. Idealized model: a perfectly "
+            "insulated system with no heat lost to the surroundings, and "
+            "no phase changes (melting or boiling)."
+        ),
+    },
 ]
 
 
