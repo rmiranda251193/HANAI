@@ -524,6 +524,25 @@ Output contract:
                     f"the app): {experiment.induced_emf_v:.2f} V, with the flux {direction} "
                     "(by Lenz's law, the induced current opposes that change)"
                 )
+        elif experiment.simulation_type == "bohr_model":
+            if experiment.initial_level is not None:
+                exp_lines.append(
+                    f"- setup: electron transition from level n={experiment.initial_level} "
+                    f"to level n={experiment.final_level} (E_n = -13.6 eV / n^2)"
+                )
+            if experiment.bohr_photon_energy_ev is not None:
+                if not experiment.has_transition:
+                    exp_lines.append(
+                        "- outcome (deterministic, computed by the app): no transition -- "
+                        "the initial and final levels are the same, so no photon is involved"
+                    )
+                else:
+                    verb = "absorbs" if experiment.is_bohr_absorption else "emits"
+                    exp_lines.append(
+                        f"- outcome (deterministic, computed by the app): the electron {verb} "
+                        f"a photon of energy {experiment.bohr_photon_energy_ev:.2f} eV "
+                        f"(wavelength {experiment.bohr_wavelength_nm:.1f} nm)"
+                    )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

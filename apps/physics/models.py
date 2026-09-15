@@ -147,6 +147,7 @@ class PhysicsSimulation(models.Model):
         TIME_DILATION = "time_dilation", "Time Dilation and Length Contraction"
         PHOTOELECTRIC_EFFECT = "photoelectric_effect", "The Photoelectric Effect"
         ELECTROMAGNETIC_INDUCTION = "electromagnetic_induction", "Electromagnetic Induction"
+        BOHR_MODEL = "bohr_model", "The Bohr Model"
 
     concept = models.ForeignKey(
         PhysicsConcept,

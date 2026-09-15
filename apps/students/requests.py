@@ -122,8 +122,14 @@ class ExperimentContext:
     ``flux_increasing`` are Electromagnetic-Induction-specific --
     ``time_interval_s`` is a DURATION over which the field changes, not an
     instant like every other sim's ``time_s``, so it gets its own field
-    rather than reusing that one. A given experiment only ever populates
-    the fields for its own simulation type -- the rest stay ``None``.
+    rather than reusing that one. ``initial_level``/``final_level``/
+    ``energy_initial_ev``/``energy_final_ev``/``bohr_photon_energy_ev``/
+    ``has_transition``/``is_bohr_absorption``/``bohr_wavelength_nm`` are
+    Bohr-Model-specific -- deliberately NOT reusing Photoelectric Effect's
+    ``photon_energy_ev``/``wavelength_nm``, since those are a different
+    photon in a different physical situation. A given experiment only ever
+    populates the fields for its own simulation type -- the rest stay
+    ``None``.
     """
 
     simulation: str = ""
@@ -235,6 +241,14 @@ class ExperimentContext:
     delta_flux_wb: float | None = None
     induced_emf_v: float | None = None
     flux_increasing: bool | None = None
+    initial_level: int | None = None
+    final_level: int | None = None
+    energy_initial_ev: float | None = None
+    energy_final_ev: float | None = None
+    bohr_photon_energy_ev: float | None = None
+    has_transition: bool | None = None
+    is_bohr_absorption: bool | None = None
+    bohr_wavelength_nm: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -286,6 +300,7 @@ class ExperimentContext:
                 self.lorentz_factor is not None,
                 self.wavelength_nm is not None,
                 self.coil_turns is not None,
+                self.initial_level is not None,
             ]
         )
 
@@ -520,6 +535,18 @@ class ExperimentContext:
                 delta_flux_wb=params.get("observed_delta_flux_wb"),
                 induced_emf_v=params.get("observed_emf_v"),
                 flux_increasing=params.get("observed_flux_increasing"),
+            )
+        elif simulation_type == "bohr_model":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                initial_level=params.get("initial_level"),
+                final_level=params.get("final_level"),
+                energy_initial_ev=params.get("observed_energy_initial_ev"),
+                energy_final_ev=params.get("observed_energy_final_ev"),
+                bohr_photon_energy_ev=params.get("observed_photon_energy_ev"),
+                has_transition=params.get("observed_has_transition"),
+                is_bohr_absorption=params.get("observed_is_absorption"),
+                bohr_wavelength_nm=params.get("observed_wavelength_nm"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

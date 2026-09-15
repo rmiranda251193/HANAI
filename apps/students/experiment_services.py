@@ -175,6 +175,8 @@ from apps.physics.simulations_electromagnetic_induction import MAX_TURNS as EMF_
 from apps.physics.simulations_electromagnetic_induction import clamp_area, clamp_field
 from apps.physics.simulations_electromagnetic_induction import clamp_time_interval, clamp_turns
 from apps.physics.simulations_electromagnetic_induction import electromagnetic_induction_state
+from apps.physics.simulations_bohr_model import MAX_LEVEL as BOHR_MAX_LEVEL
+from apps.physics.simulations_bohr_model import bohr_model_state, clamp_level as clamp_bohr_level
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -261,6 +263,8 @@ EMF_TURNS_HARD_MAX = EMF_MAX_TURNS * 5
 EMF_AREA_HARD_MAX_M2 = EMF_MAX_AREA_M2 * 5
 EMF_FIELD_HARD_MAX_T = EMF_MAX_FIELD_T * 5
 EMF_TIME_INTERVAL_HARD_MAX_S = EMF_MAX_TIME_INTERVAL_S * 5
+
+BOHR_LEVEL_HARD_MAX = BOHR_MAX_LEVEL * 5
 
 TEXT_LIMIT = 2000
 
@@ -1660,6 +1664,63 @@ def validate_electromagnetic_induction(
     )
 
 
+@dataclass(frozen=True)
+class ValidatedBohrModel:
+    """Server-recomputed, deterministic Bohr Model values."""
+
+    initial_level: int
+    final_level: int
+    energy_initial_ev: float
+    energy_final_ev: float
+    photon_energy_ev: float
+    has_transition: bool
+    is_absorption: bool
+    wavelength_nm: float
+
+    def as_dict(self) -> dict:
+        return {
+            "initial_level": self.initial_level,
+            "final_level": self.final_level,
+            "energy_initial_ev": self.energy_initial_ev,
+            "energy_final_ev": self.energy_final_ev,
+            "photon_energy_ev": self.photon_energy_ev,
+            "has_transition": self.has_transition,
+            "is_absorption": self.is_absorption,
+            "wavelength_nm": self.wavelength_nm,
+        }
+
+
+def validate_bohr_model(initial_level, final_level) -> ValidatedBohrModel:
+    """Recompute the transition's photon energy/wavelength on the server.
+    Reject nonsense; clamp to lab bounds. There is no time input here --
+    see the module docstring in ``simulations_bohr_model.py`` for why."""
+
+    try:
+        n1_raw = float(initial_level)
+        n2_raw = float(final_level)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Energy levels must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (n1_raw, n2_raw)):
+        raise ExperimentValidationError("Energy levels must be finite numbers.")
+    if n1_raw <= 0 or n2_raw <= 0:
+        raise ExperimentValidationError("Energy level must be a positive integer.")
+    if n1_raw > BOHR_LEVEL_HARD_MAX or n2_raw > BOHR_LEVEL_HARD_MAX:
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = bohr_model_state(initial_level=n1_raw, final_level=n2_raw)
+    return ValidatedBohrModel(
+        initial_level=clamp_bohr_level(n1_raw),
+        final_level=clamp_bohr_level(n2_raw),
+        energy_initial_ev=state["energy_initial_ev"],
+        energy_final_ev=state["energy_final_ev"],
+        photon_energy_ev=state["photon_energy_ev"],
+        has_transition=state["has_transition"],
+        is_absorption=state["is_absorption"],
+        wavelength_nm=state["wavelength_nm"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1841,6 +1902,13 @@ def _validate_electromagnetic_induction(values: dict) -> ValidatedElectromagneti
     )
 
 
+def _validate_bohr_model(values: dict) -> ValidatedBohrModel:
+    return validate_bohr_model(
+        values.get("initial_level"),
+        values.get("final_level"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1862,6 +1930,7 @@ _VALIDATORS = {
     "time_dilation": _validate_time_dilation,
     "photoelectric_effect": _validate_photoelectric_effect,
     "electromagnetic_induction": _validate_electromagnetic_induction,
+    "bohr_model": _validate_bohr_model,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1895,6 +1964,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     "electromagnetic_induction": (
         "turns", "area_m2", "field_initial_t", "field_final_t", "time_interval_s",
     ),
+    "bohr_model": ("initial_level", "final_level"),
 }
 
 
@@ -2046,6 +2116,13 @@ def _apply_fields_electromagnetic_induction(
     pass
 
 
+def _apply_fields_bohr_model(attempt, validated: ValidatedBohrModel) -> None:
+    # No ExperimentAttempt column fits a photon energy or a quantum level
+    # -- everything lives in attempt.parameters, like Coulomb's Law's and
+    # Collision's non-fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -2067,6 +2144,7 @@ _FIELD_APPLIERS = {
     "time_dilation": _apply_fields_time_dilation,
     "photoelectric_effect": _apply_fields_photoelectric_effect,
     "electromagnetic_induction": _apply_fields_electromagnetic_induction,
+    "bohr_model": _apply_fields_bohr_model,
 }
 
 
@@ -2366,6 +2444,21 @@ def _apply_parameters_electromagnetic_induction(
     }
 
 
+def _apply_parameters_bohr_model(attempt, simulation, validated: ValidatedBohrModel) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "initial_level": validated.initial_level,
+        "final_level": validated.final_level,
+        "observed_energy_initial_ev": validated.energy_initial_ev,
+        "observed_energy_final_ev": validated.energy_final_ev,
+        "observed_photon_energy_ev": validated.photon_energy_ev,
+        "observed_has_transition": validated.has_transition,
+        "observed_is_absorption": validated.is_absorption,
+        "observed_wavelength_nm": validated.wavelength_nm,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -2387,6 +2480,7 @@ _PARAMETER_APPLIERS = {
     "time_dilation": _apply_parameters_time_dilation,
     "photoelectric_effect": _apply_parameters_photoelectric_effect,
     "electromagnetic_induction": _apply_parameters_electromagnetic_induction,
+    "bohr_model": _apply_parameters_bohr_model,
 }
 
 
@@ -2663,6 +2757,18 @@ def _base_context(attempt, simulation) -> dict:
             if key in params:
                 context[key] = params[key]
         for key in ("observed_delta_flux_wb", "observed_emf_v", "observed_flux_increasing"):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "bohr_model":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("initial_level", "final_level"):
+            if key in params:
+                context[key] = params[key]
+        for key in (
+            "observed_energy_initial_ev", "observed_energy_final_ev",
+            "observed_photon_energy_ev", "observed_has_transition",
+            "observed_is_absorption", "observed_wavelength_nm",
+        ):
             if key in params:
                 context[key] = params[key]
     return context

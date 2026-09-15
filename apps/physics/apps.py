@@ -29,6 +29,7 @@ class PhysicsConfig(AppConfig):
         from . import simulations_time_dilation  # noqa: F401
         from . import simulations_photoelectric_effect  # noqa: F401
         from . import simulations_electromagnetic_induction  # noqa: F401
+        from . import simulations_bohr_model  # noqa: F401
 
         # Populate the visualization registry (2D/3D renderer definitions), the
         # code-defined Physics Lab scenario challenges, and the Physics domain /

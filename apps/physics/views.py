@@ -229,6 +229,8 @@ _FIELD_LABELS = {
     "field_initial_t": "starting field",
     "field_final_t": "ending field",
     "time_interval_s": "time interval",
+    "initial_level": "initial energy level",
+    "final_level": "final energy level",
 }
 
 
@@ -695,6 +697,15 @@ def _experiment_prefill(attempt):
             parts.append(f"over {ctx.time_interval_s:.2f} s")
         if ctx.induced_emf_v is not None:
             parts.append(f"induced EMF = {ctx.induced_emf_v:.2f} V (computed by the app)")
+    elif ctx.simulation_type == "bohr_model":
+        if ctx.initial_level is not None and ctx.final_level is not None:
+            parts.append(f"transition from n = {ctx.initial_level} to n = {ctx.final_level}")
+        if ctx.energy_initial_ev is not None and ctx.energy_final_ev is not None:
+            parts.append(
+                f"E_initial = {ctx.energy_initial_ev:.2f} eV, E_final = {ctx.energy_final_ev:.2f} eV"
+            )
+        if ctx.has_transition is not None:
+            parts.append(_bohr_outcome_label(ctx.has_transition, ctx.is_bohr_absorption, ctx.bohr_photon_energy_ev, ctx.bohr_wavelength_nm))
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -754,6 +765,21 @@ def _photoelectric_outcome_label(ejects_electrons, ke_max_ev) -> str:
     if not ejects_electrons:
         return "no electrons ejected -- the photon energy is below the work function"
     return f"electrons ejected with maximum kinetic energy {ke_max_ev:.2f} eV (computed by the app)"
+
+
+def _bohr_outcome_label(has_transition, is_absorption, photon_energy_ev, wavelength_nm) -> str:
+    """The 0.0 sentinel ``wavelength_nm``/``photon_energy_ev`` carry no
+    meaning on their own when the two levels are the same -- always check
+    the flag first, exactly like ``_coulomb_interaction_label`` and
+    ``_refraction_outcome_label``."""
+
+    if not has_transition:
+        return "no transition -- the initial and final levels are the same, so no photon is involved"
+    verb = "absorbs" if is_absorption else "emits"
+    return (
+        f"the electron {verb} a photon of energy {photon_energy_ev:.2f} eV "
+        f"(wavelength {wavelength_nm:.1f} nm, computed by the app)"
+    )
 
 
 def _observation_message(simulation_type, validated):
@@ -862,6 +888,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed induced EMF: "
             f"{validated.emf_v:.2f} V (flux was {direction})."
         )
+    if simulation_type == "bohr_model":
+        outcome = _bohr_outcome_label(
+            validated.has_transition, validated.is_absorption,
+            validated.photon_energy_ev, validated.wavelength_nm,
+        )
+        return f"Observation saved. Server-computed outcome: {outcome}."
     return (
         "Observation saved. Server-computed acceleration: "
         f"{validated.acceleration_m_s2:.2f} m/s² (a = F / m)."

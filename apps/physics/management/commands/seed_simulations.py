@@ -285,6 +285,20 @@ PHYSICS_SIMULATIONS = [
             "the whole time."
         ),
     },
+    {
+        "slug": "bohr-model",
+        "title": "The Bohr Model Lab",
+        "concept_name": "The Bohr model of the atom",
+        "simulation_type": PhysicsSimulation.SimulationType.BOHR_MODEL,
+        "description": (
+            "Set an electron's initial and final energy level in a "
+            "hydrogen atom and watch a photon get absorbed or emitted so "
+            "its energy exactly matches the gap between levels, through "
+            "E_n = -13.6 eV / n^2 and E_photon = |E_final - E_initial|. "
+            "Idealized model: the simple Bohr model of hydrogen, not the "
+            "full quantum-mechanical picture used for heavier elements."
+        ),
+    },
 ]
 
 
