@@ -116,9 +116,14 @@ class ExperimentContext:
     ``contracted_length_m`` are Time-Dilation-specific.
     ``wavelength_nm``/``work_function_ev``/``light_intensity``/
     ``photon_energy_ev``/``ejects_electrons``/``ke_max_ev``/
-    ``photoelectron_rate`` are Photoelectric-Effect-specific. A given
-    experiment only ever populates the fields for its own simulation type
-    -- the rest stay ``None``.
+    ``photoelectron_rate`` are Photoelectric-Effect-specific.
+    ``coil_turns``/``coil_area_m2``/``field_initial_t``/``field_final_t``/
+    ``time_interval_s``/``delta_flux_wb``/``induced_emf_v``/
+    ``flux_increasing`` are Electromagnetic-Induction-specific --
+    ``time_interval_s`` is a DURATION over which the field changes, not an
+    instant like every other sim's ``time_s``, so it gets its own field
+    rather than reusing that one. A given experiment only ever populates
+    the fields for its own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -222,6 +227,14 @@ class ExperimentContext:
     ejects_electrons: bool | None = None
     ke_max_ev: float | None = None
     photoelectron_rate: float | None = None
+    coil_turns: float | None = None
+    coil_area_m2: float | None = None
+    field_initial_t: float | None = None
+    field_final_t: float | None = None
+    time_interval_s: float | None = None
+    delta_flux_wb: float | None = None
+    induced_emf_v: float | None = None
+    flux_increasing: bool | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -272,6 +285,7 @@ class ExperimentContext:
                 self.charge_magnitude_c is not None,
                 self.lorentz_factor is not None,
                 self.wavelength_nm is not None,
+                self.coil_turns is not None,
             ]
         )
 
@@ -494,6 +508,18 @@ class ExperimentContext:
                 ejects_electrons=params.get("observed_ejects_electrons"),
                 ke_max_ev=params.get("observed_ke_max_ev"),
                 photoelectron_rate=params.get("observed_photoelectron_rate"),
+            )
+        elif simulation_type == "electromagnetic_induction":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                coil_turns=params.get("turns"),
+                coil_area_m2=params.get("area_m2"),
+                field_initial_t=params.get("field_initial_t"),
+                field_final_t=params.get("field_final_t"),
+                time_interval_s=params.get("time_interval_s"),
+                delta_flux_wb=params.get("observed_delta_flux_wb"),
+                induced_emf_v=params.get("observed_emf_v"),
+                flux_increasing=params.get("observed_flux_increasing"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ simulation.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Physics Lab &middot; {{ concept.name }}</p>
+      <h1>{{ simulation.title }}</h1>
+      <p>A five-step investigation: predict, experiment, observe, explain, then talk it through with your tutor.</p>
+    </div>
+    <a class="text-link" href="{% url 'physics_lab:index' %}">All simulations</a>
+  </section>
+
+  <p class="lab-model-note" role="note">
+    Idealized model: the field changes uniformly over the interval and the coil sits flat, perpendicular to the field, the whole time.
+    Values are computed from <code>&Phi; = B A</code> and <code>EMF = N |&Delta;&Phi;| / &Delta;t</code>
+    &mdash; in the browser as you experiment, and again on the server when you submit. Never by AI.
+  </p>
+
+  {% if hands_on %}
+    <details class="hands-on-experiment">
+      <summary>Try this with real materials: {{ hands_on.title }}</summary>
+      <div class="hands-on-body">
+        <h3>What you&rsquo;ll need</h3>
+        <ul>{% for item in hands_on.materials %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3>Steps</h3>
+        <ol>{% for step in hands_on.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+        <p class="hands-on-safety"><strong>Safety:</strong> {{ hands_on.safety_note }}</p>
+        <p class="hands-on-compare"><strong>Comparing with the virtual lab:</strong> {{ hands_on.compare_note }}</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {# Thin fixed progress bar tracking scroll through the step flow below --
+     presentation only; see static/js/physics/lab-progress.js. #}
+  <div class="lab-progress" aria-hidden="true"><div class="lab-progress-fill" id="labProgressFill"></div></div>
+
+  <div class="lab lab-flow"
+       data-simulation-type="{{ simulation.simulation_type }}"
+       data-turns="{{ defaults.turns }}"
+       data-area="{{ defaults.area_m2 }}"
+       data-field-initial="{{ defaults.field_initial_t }}"
+       data-field-final="{{ defaults.field_final_t }}"
+       data-time-interval="{{ defaults.time_interval_s }}"
+       {% if tutor_lesson %}data-tutor-base="{% url 'students:tutor' tutor_lesson.slug %}"{% endif %}
+       data-predict-url="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+       data-observe-url="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+       data-explain-url="{% url 'physics_lab:experiment_explain' simulation.slug %}">
+
+    {# ---------- STEP 1: PREDICT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-predict">
+      <p class="lab-step-num">Step 1</p>
+      <h2 id="lab-step-predict">Predict</h2>
+      <p class="lab-step-lead">
+        What do you predict will happen to the induced EMF if the field changes over half the time, keeping everything else the same? Write it in your own words &mdash; you will not be marked right or wrong.
+      </p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_predict' simulation.slug %}"
+            data-experiment-form="predict">
+        {% csrf_token %}
+        <label for="exp-prediction">Your prediction</label>
+        <textarea id="exp-prediction" name="prediction" rows="3"
+                  placeholder="e.g. A faster change should induce twice the EMF.">{{ experiment_attempt.prediction }}</textarea>
+        <button type="submit" class="button button-primary">Submit Prediction</button>
+      </form>
+      <p class="lab-step-result" data-step-result="predict" aria-live="polite">
+        {% if experiment_attempt.prediction %}Prediction saved. You can update it and submit again.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 2: EXPERIMENT ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-experiment">
+      <p class="lab-step-num">Step 2</p>
+      <h2 id="lab-step-experiment">Experiment</h2>
+
+      <div class="lab-experiment-grid">
+        <div class="lab-stage-col">
+          <svg class="lab-scene" viewBox="0 0 400 190" role="img"
+               data-lab-scene aria-label="A coil in a changing magnetic field, with an induced current.">
+            <desc data-scene-desc>A coil in a changing magnetic field, with the induced current's direction shown by an arrow.</desc>
+            <ellipse cx="200" cy="95" rx="90" ry="55" fill="none" class="lab-track" />
+            <ellipse cx="200" cy="95" rx="60" ry="35" fill="none" class="lab-track" />
+            <path data-current-cw d="M 260 70 A 70 70 0 0 1 200 155" fill="none" class="lab-cart-body" stroke-width="3" marker-end="url(#arrowCw)" />
+            <path data-current-ccw d="M 140 70 A 70 70 0 0 0 200 155" fill="none" class="lab-cart-body-alt" stroke-width="3" marker-end="url(#arrowCcw)" />
+            <defs>
+              <marker id="arrowCw" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 z" class="lab-cart-body" />
+              </marker>
+              <marker id="arrowCcw" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 z" class="lab-cart-body-alt" />
+              </marker>
+            </defs>
+          </svg>
+          <p class="lab-scene-status" data-scene-status aria-live="polite"></p>
+
+          <svg class="lab-graph-svg" viewBox="0 0 360 190" role="img"
+               data-lab-graph aria-label="A graph of induced EMF against the time interval.">
+            <desc data-graph-desc>A graph of the induced EMF against the time interval over which the field changes, for this coil and field range.</desc>
+            <line x1="44" y1="12" x2="44" y2="166" class="lab-axis" />
+            <line x1="44" y1="166" x2="348" y2="166" class="lab-axis" />
+            <text x="10" y="16" class="lab-axis-label">EMF</text>
+            <text x="332" y="184" class="lab-axis-label">&Delta;t</text>
+            <polyline points="" class="lab-trace" data-lab-curve />
+            <circle data-lab-marker cx="-10" cy="-10" r="4" class="lab-cart-body-alt" />
+          </svg>
+          <p class="lab-graph-caption">Induced EMF versus the time interval. A faster change (smaller &Delta;t) always induces a larger EMF.</p>
+        </div>
+
+        <div class="lab-side-col">
+          <div class="lab-values" aria-live="polite">
+            <div class="lab-value-grid">
+              <div class="lab-value">
+                <span class="lab-value-label">Turns</span>
+                <span class="lab-value-number"><span data-value-turns>{{ defaults.turns }}</span></span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Area</span>
+                <span class="lab-value-number"><span data-value-area>{{ defaults.area_m2 }}</span> m&sup2;</span>
+              </div>
+              <div class="lab-value">
+                <span class="lab-value-label">Time interval</span>
+                <span class="lab-value-number"><span data-value-interval>{{ defaults.time_interval_s }}</span> s</span>
+              </div>
+            </div>
+            <div class="lab-equation">
+              <p class="lab-eq-general">EMF = N |&Delta;&Phi;| / &Delta;t</p>
+              <p class="lab-eq-worked">EMF = <span data-eq-emf>0.00</span> V</p>
+            </div>
+            <dl class="lab-motion">
+              <div><dt>Field: start &rarr; end</dt><dd><span data-value-field-initial>0.00</span> T &rarr; <span data-value-field-final>0.00</span> T</dd></div>
+              <div><dt>Induced EMF</dt><dd><span data-value-emf>0.00</span> V</dd></div>
+              <div><dt>Direction</dt><dd><span data-value-direction>&ndash;</span></dd></div>
+            </dl>
+          </div>
+
+          <div class="lab-control">
+            <label for="lab-turns">Number of turns</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-turns" data-input-turns
+                     min="{{ bounds.turns.min }}" max="{{ bounds.turns.max }}" step="5"
+                     value="{{ defaults.turns }}" aria-describedby="lab-turns-out">
+              <output id="lab-turns-out" for="lab-turns" data-out-turns>{{ defaults.turns }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-area">Loop area (m&sup2;)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-area" data-input-area
+                     min="{{ bounds.area_m2.min }}" max="{{ bounds.area_m2.max }}" step="0.01"
+                     value="{{ defaults.area_m2 }}" aria-describedby="lab-area-out">
+              <output id="lab-area-out" for="lab-area" data-out-area>{{ defaults.area_m2 }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-field-initial">Starting field (T)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-field-initial" data-input-field-initial
+                     min="{{ bounds.field_initial_t.min }}" max="{{ bounds.field_initial_t.max }}" step="0.05"
+                     value="{{ defaults.field_initial_t }}" aria-describedby="lab-field-initial-out">
+              <output id="lab-field-initial-out" for="lab-field-initial" data-out-field-initial>{{ defaults.field_initial_t }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-field-final">Ending field (T)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-field-final" data-input-field-final
+                     min="{{ bounds.field_final_t.min }}" max="{{ bounds.field_final_t.max }}" step="0.05"
+                     value="{{ defaults.field_final_t }}" aria-describedby="lab-field-final-out">
+              <output id="lab-field-final-out" for="lab-field-final" data-out-field-final>{{ defaults.field_final_t }}</output>
+            </div>
+          </div>
+          <div class="lab-control">
+            <label for="lab-interval">Time interval (s)</label>
+            <div class="lab-control-row">
+              <input type="range" id="lab-interval" data-input-interval
+                     min="{{ bounds.time_interval_s.min }}" max="{{ bounds.time_interval_s.max }}" step="0.05"
+                     value="{{ defaults.time_interval_s }}" aria-describedby="lab-interval-out">
+              <output id="lab-interval-out" for="lab-interval" data-out-interval>{{ defaults.time_interval_s }}</output>
+            </div>
+          </div>
+          <div class="lab-buttons">
+            <button type="button" class="button button-secondary" data-action-reset>Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- STEP 3: OBSERVE ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-observe">
+      <p class="lab-step-num">Step 3</p>
+      <h2 id="lab-step-observe">Observe</h2>
+      <p class="lab-step-lead">What did you observe? Include the induced EMF and whether the flux was increasing or decreasing.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_observe' simulation.slug %}"
+            data-experiment-form="observe">
+        {% csrf_token %}
+        <input type="hidden" name="turns" data-field="turns" value="{{ defaults.turns }}">
+        <input type="hidden" name="area_m2" data-field="areaM2" value="{{ defaults.area_m2 }}">
+        <input type="hidden" name="field_initial_t" data-field="fieldInitialT" value="{{ defaults.field_initial_t }}">
+        <input type="hidden" name="field_final_t" data-field="fieldFinalT" value="{{ defaults.field_final_t }}">
+        <input type="hidden" name="time_interval_s" data-field="timeIntervalS" value="{{ defaults.time_interval_s }}">
+        <label for="exp-observation">Your observation</label>
+        <textarea id="exp-observation" name="observation" rows="3"
+                  placeholder="e.g. A current was induced while the field was changing, but not once it stopped.">{{ experiment_attempt.observation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Observation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="observe" aria-live="polite">
+        {% if experiment_attempt.parameters.observed_emf_v is not None %}Last saved: server-computed induced EMF ({{ experiment_attempt.parameters.observed_emf_v|floatformat:2 }} V).{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 4: EXPLAIN ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-explain">
+      <p class="lab-step-num">Step 4</p>
+      <h2 id="lab-step-explain">Explain</h2>
+      <p class="lab-step-lead">Why do you think this happened? Your reasoning is the most useful part of the investigation.</p>
+      <form class="lab-step-form" method="post"
+            action="{% url 'physics_lab:experiment_explain' simulation.slug %}"
+            data-experiment-form="explain">
+        {% csrf_token %}
+        <input type="hidden" name="turns" data-field="turns" value="{{ defaults.turns }}">
+        <input type="hidden" name="area_m2" data-field="areaM2" value="{{ defaults.area_m2 }}">
+        <input type="hidden" name="field_initial_t" data-field="fieldInitialT" value="{{ defaults.field_initial_t }}">
+        <input type="hidden" name="field_final_t" data-field="fieldFinalT" value="{{ defaults.field_final_t }}">
+        <input type="hidden" name="time_interval_s" data-field="timeIntervalS" value="{{ defaults.time_interval_s }}">
+        <label for="exp-explanation">Your explanation</label>
+        <textarea id="exp-explanation" name="explanation" rows="3"
+                  placeholder="e.g. It's the CHANGE in flux that matters, not the field itself -- no change means no induced EMF at all.">{{ experiment_attempt.explanation }}</textarea>
+        <button type="submit" class="button button-primary">Submit Explanation</button>
+      </form>
+      <p class="lab-step-result" data-step-result="explain" aria-live="polite">
+        {% if experiment_attempt.explanation %}Explanation saved. You can talk it through with your tutor below.{% endif %}
+      </p>
+    </section>
+
+    {# ---------- STEP 5: TALK TO YOUR TUTOR ---------- #}
+    <section class="surface-card lab-step" aria-labelledby="lab-step-tutor">
+      <p class="lab-step-num">Step 5</p>
+      <h2 id="lab-step-tutor">Talk to your tutor</h2>
+      <p class="lab-step-lead">Your tutor will see your prediction, the deterministic values, your observation and your explanation, and respond to your reasoning.</p>
+      {% if tutor_lesson %}
+        <a class="button button-primary" data-tutor-link href="{{ tutor_url }}">
+          Ask the Tutor About This Experiment
+        </a>
+      {% else %}
+        <p class="lab-tutor-missing">
+          Ask your teacher to publish a {{ concept.name }} lesson to connect this experiment to the Physics Tutor.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  <noscript>
+    <p class="lab-noscript">This simulation needs JavaScript. The relationship it shows is <strong>EMF = N |&Delta;&Phi;| / &Delta;t</strong>.</p>
+  </noscript>
+
+  <script defer src="{% static 'js/physics/lab-progress.js' %}"></script>
+  <script defer src="{% static 'js/physics/lab.js' %}"></script>
+  <script defer src="{% static 'js/physics/electromagnetic-induction.js' %}"></script>
+  <script defer src="{% static 'js/physics/experiment-flow.js' %}"></script>
+{% endblock %}

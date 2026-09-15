@@ -244,8 +244,8 @@ class RegistryReadinessTests(TestCase):
         # energy_incline + orbital_motion + series_parallel_circuit +
         # coulombs_law + radioactive_decay + buoyancy + refraction +
         # calorimetry + ideal_gas_law + doppler_effect + magnetic_force +
-        # time_dilation + photoelectric_effect are the registered
-        # simulations today
+        # time_dilation + photoelectric_effect + electromagnetic_induction
+        # are the registered simulations today
         from apps.physics.simulation_registry import registered_simulation_types
 
         self.assertEqual(
@@ -256,6 +256,6 @@ class RegistryReadinessTests(TestCase):
                 "energy_incline", "orbital_motion", "series_parallel_circuit",
                 "coulombs_law", "radioactive_decay", "buoyancy", "refraction",
                 "calorimetry", "ideal_gas_law", "doppler_effect", "magnetic_force",
-                "time_dilation", "photoelectric_effect",
+                "time_dilation", "photoelectric_effect", "electromagnetic_induction",
             },
         )

@@ -166,6 +166,15 @@ from apps.physics.simulations_photoelectric_effect import clamp_intensity
 from apps.physics.simulations_photoelectric_effect import clamp_wavelength
 from apps.physics.simulations_photoelectric_effect import clamp_work_function
 from apps.physics.simulations_photoelectric_effect import photoelectric_effect_state
+from apps.physics.simulations_electromagnetic_induction import (
+    MAX_AREA_M2 as EMF_MAX_AREA_M2,
+    MAX_FIELD_T as EMF_MAX_FIELD_T,
+)
+from apps.physics.simulations_electromagnetic_induction import MAX_TIME_INTERVAL_S as EMF_MAX_TIME_INTERVAL_S
+from apps.physics.simulations_electromagnetic_induction import MAX_TURNS as EMF_MAX_TURNS
+from apps.physics.simulations_electromagnetic_induction import clamp_area, clamp_field
+from apps.physics.simulations_electromagnetic_induction import clamp_time_interval, clamp_turns
+from apps.physics.simulations_electromagnetic_induction import electromagnetic_induction_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -247,6 +256,11 @@ RELATIVITY_PROPER_LENGTH_HARD_MAX_M = RELATIVITY_MAX_PROPER_LENGTH_M * 5
 PHOTO_WAVELENGTH_HARD_MAX_NM = PHOTO_MAX_WAVELENGTH_NM * 5
 PHOTO_WORK_FUNCTION_HARD_MAX_EV = PHOTO_MAX_WORK_FUNCTION_EV * 5
 PHOTO_INTENSITY_HARD_MAX = PHOTO_MAX_INTENSITY * 5
+
+EMF_TURNS_HARD_MAX = EMF_MAX_TURNS * 5
+EMF_AREA_HARD_MAX_M2 = EMF_MAX_AREA_M2 * 5
+EMF_FIELD_HARD_MAX_T = EMF_MAX_FIELD_T * 5
+EMF_TIME_INTERVAL_HARD_MAX_S = EMF_MAX_TIME_INTERVAL_S * 5
 
 TEXT_LIMIT = 2000
 
@@ -1564,6 +1578,88 @@ def validate_photoelectric_effect(wavelength_nm, work_function_ev, intensity) ->
     )
 
 
+@dataclass(frozen=True)
+class ValidatedElectromagneticInduction:
+    """Server-recomputed, deterministic Electromagnetic Induction values."""
+
+    turns: float
+    area_m2: float
+    field_initial_t: float
+    field_final_t: float
+    time_interval_s: float
+    delta_flux_wb: float
+    emf_v: float
+    flux_increasing: bool
+
+    def as_dict(self) -> dict:
+        return {
+            "turns": self.turns,
+            "area_m2": self.area_m2,
+            "field_initial_t": self.field_initial_t,
+            "field_final_t": self.field_final_t,
+            "time_interval_s": self.time_interval_s,
+            "delta_flux_wb": self.delta_flux_wb,
+            "emf_v": self.emf_v,
+            "flux_increasing": self.flux_increasing,
+        }
+
+
+def validate_electromagnetic_induction(
+    turns, area_m2, field_initial_t, field_final_t, time_interval_s
+) -> ValidatedElectromagneticInduction:
+    """Recompute the flux change/induced EMF on the server. Reject
+    nonsense; clamp to lab bounds."""
+
+    try:
+        n_raw = float(turns)
+        a_raw = float(area_m2)
+        b1_raw = float(field_initial_t)
+        b2_raw = float(field_final_t)
+        dt_raw = float(time_interval_s)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError(
+            "Turns, area, field strengths and time interval must be numbers."
+        )
+
+    if any(
+        math.isnan(v) or math.isinf(v) for v in (n_raw, a_raw, b1_raw, b2_raw, dt_raw)
+    ):
+        raise ExperimentValidationError(
+            "Turns, area, field strengths and time interval must be finite numbers."
+        )
+    if n_raw <= 0:
+        raise ExperimentValidationError("Number of turns must be positive.")
+    if a_raw <= 0:
+        raise ExperimentValidationError("Loop area must be positive.")
+    if b1_raw < 0 or b2_raw < 0:
+        raise ExperimentValidationError("Magnetic field cannot be negative.")
+    if dt_raw <= 0:
+        raise ExperimentValidationError("Time interval must be positive.")
+    if (
+        n_raw > EMF_TURNS_HARD_MAX
+        or a_raw > EMF_AREA_HARD_MAX_M2
+        or b1_raw > EMF_FIELD_HARD_MAX_T
+        or b2_raw > EMF_FIELD_HARD_MAX_T
+        or dt_raw > EMF_TIME_INTERVAL_HARD_MAX_S
+    ):
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = electromagnetic_induction_state(
+        turns=n_raw, area_m2=a_raw, field_initial_t=b1_raw,
+        field_final_t=b2_raw, time_interval_s=dt_raw,
+    )
+    return ValidatedElectromagneticInduction(
+        turns=clamp_turns(n_raw),
+        area_m2=clamp_area(a_raw),
+        field_initial_t=clamp_field(b1_raw),
+        field_final_t=clamp_field(b2_raw),
+        time_interval_s=clamp_time_interval(dt_raw),
+        delta_flux_wb=state["delta_flux_wb"],
+        emf_v=state["emf_v"],
+        flux_increasing=state["flux_increasing"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1735,6 +1831,16 @@ def _validate_photoelectric_effect(values: dict) -> ValidatedPhotoelectricEffect
     )
 
 
+def _validate_electromagnetic_induction(values: dict) -> ValidatedElectromagneticInduction:
+    return validate_electromagnetic_induction(
+        values.get("turns"),
+        values.get("area_m2"),
+        values.get("field_initial_t"),
+        values.get("field_final_t"),
+        values.get("time_interval_s"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1755,6 +1861,7 @@ _VALIDATORS = {
     "magnetic_force": _validate_magnetic_force,
     "time_dilation": _validate_time_dilation,
     "photoelectric_effect": _validate_photoelectric_effect,
+    "electromagnetic_induction": _validate_electromagnetic_induction,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1785,6 +1892,9 @@ _EXPLAIN_REQUIRED_FIELDS = {
     ),
     "time_dilation": ("velocity_fraction_c", "proper_time_s", "proper_length_m"),
     "photoelectric_effect": ("wavelength_nm", "work_function_ev", "intensity"),
+    "electromagnetic_induction": (
+        "turns", "area_m2", "field_initial_t", "field_final_t", "time_interval_s",
+    ),
 }
 
 
@@ -1927,6 +2037,15 @@ def _apply_fields_photoelectric_effect(attempt, validated: ValidatedPhotoelectri
     pass
 
 
+def _apply_fields_electromagnetic_induction(
+    attempt, validated: ValidatedElectromagneticInduction
+) -> None:
+    # No ExperimentAttempt column fits an induced EMF -- everything lives
+    # in attempt.parameters, like Coulomb's Law's and Collision's non-
+    # fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -1947,6 +2066,7 @@ _FIELD_APPLIERS = {
     "magnetic_force": _apply_fields_magnetic_force,
     "time_dilation": _apply_fields_time_dilation,
     "photoelectric_effect": _apply_fields_photoelectric_effect,
+    "electromagnetic_induction": _apply_fields_electromagnetic_induction,
 }
 
 
@@ -2229,6 +2349,23 @@ def _apply_parameters_photoelectric_effect(
     }
 
 
+def _apply_parameters_electromagnetic_induction(
+    attempt, simulation, validated: ValidatedElectromagneticInduction
+) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "turns": validated.turns,
+        "area_m2": validated.area_m2,
+        "field_initial_t": validated.field_initial_t,
+        "field_final_t": validated.field_final_t,
+        "time_interval_s": validated.time_interval_s,
+        "observed_delta_flux_wb": validated.delta_flux_wb,
+        "observed_emf_v": validated.emf_v,
+        "observed_flux_increasing": validated.flux_increasing,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -2249,6 +2386,7 @@ _PARAMETER_APPLIERS = {
     "magnetic_force": _apply_parameters_magnetic_force,
     "time_dilation": _apply_parameters_time_dilation,
     "photoelectric_effect": _apply_parameters_photoelectric_effect,
+    "electromagnetic_induction": _apply_parameters_electromagnetic_induction,
 }
 
 
@@ -2517,6 +2655,14 @@ def _base_context(attempt, simulation) -> dict:
             "observed_photon_energy_ev", "observed_ejects_electrons",
             "observed_ke_max_ev", "observed_photoelectron_rate",
         ):
+            if key in params:
+                context[key] = params[key]
+    elif simulation.simulation_type == "electromagnetic_induction":
+        params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+        for key in ("turns", "area_m2", "field_initial_t", "field_final_t", "time_interval_s"):
+            if key in params:
+                context[key] = params[key]
+        for key in ("observed_delta_flux_wb", "observed_emf_v", "observed_flux_increasing"):
             if key in params:
                 context[key] = params[key]
     return context

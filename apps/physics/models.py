@@ -146,6 +146,7 @@ class PhysicsSimulation(models.Model):
         MAGNETIC_FORCE = "magnetic_force", "Magnetic Force on a Moving Charge"
         TIME_DILATION = "time_dilation", "Time Dilation and Length Contraction"
         PHOTOELECTRIC_EFFECT = "photoelectric_effect", "The Photoelectric Effect"
+        ELECTROMAGNETIC_INDUCTION = "electromagnetic_induction", "Electromagnetic Induction"
 
     concept = models.ForeignKey(
         PhysicsConcept,

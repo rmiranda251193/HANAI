@@ -271,6 +271,20 @@ PHYSICS_SIMULATIONS = [
             "monochromatic light, ignoring reflection losses."
         ),
     },
+    {
+        "slug": "electromagnetic-induction",
+        "title": "Electromagnetic Induction Lab",
+        "concept_name": "Electromagnetic induction and Faraday's law",
+        "simulation_type": PhysicsSimulation.SimulationType.ELECTROMAGNETIC_INDUCTION,
+        "description": (
+            "Set a coil's turns and area, and a magnetic field that "
+            "changes over a chosen time interval, and watch the induced "
+            "EMF follow Faraday's law: EMF = N |delta Phi| / delta t. "
+            "Idealized model: the field changes uniformly over the "
+            "interval and the coil sits flat, perpendicular to the field, "
+            "the whole time."
+        ),
+    },
 ]
 
 

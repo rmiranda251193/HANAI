@@ -224,6 +224,11 @@ _FIELD_LABELS = {
     "wavelength_nm": "wavelength",
     "work_function_ev": "work function",
     "intensity": "light intensity",
+    "turns": "number of turns",
+    "area_m2": "loop area",
+    "field_initial_t": "starting field",
+    "field_final_t": "ending field",
+    "time_interval_s": "time interval",
 }
 
 
@@ -679,6 +684,17 @@ def _experiment_prefill(attempt):
             parts.append(f"photon energy = {ctx.photon_energy_ev:.2f} eV (computed by the app)")
         if ctx.ejects_electrons is not None:
             parts.append(_photoelectric_outcome_label(ctx.ejects_electrons, ctx.ke_max_ev))
+    elif ctx.simulation_type == "electromagnetic_induction":
+        if ctx.coil_turns is not None and ctx.coil_area_m2 is not None:
+            parts.append(f"coil = {ctx.coil_turns:.0f} turns, area {ctx.coil_area_m2:.3f} m^2")
+        if ctx.field_initial_t is not None and ctx.field_final_t is not None:
+            parts.append(
+                f"field went from {ctx.field_initial_t:.2f} T to {ctx.field_final_t:.2f} T"
+            )
+        if ctx.time_interval_s is not None:
+            parts.append(f"over {ctx.time_interval_s:.2f} s")
+        if ctx.induced_emf_v is not None:
+            parts.append(f"induced EMF = {ctx.induced_emf_v:.2f} V (computed by the app)")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -840,6 +856,12 @@ def _observation_message(simulation_type, validated):
     if simulation_type == "photoelectric_effect":
         outcome = _photoelectric_outcome_label(validated.ejects_electrons, validated.ke_max_ev)
         return f"Observation saved. Server-computed outcome: {outcome}."
+    if simulation_type == "electromagnetic_induction":
+        direction = "increasing" if validated.flux_increasing else "decreasing"
+        return (
+            "Observation saved. Server-computed induced EMF: "
+            f"{validated.emf_v:.2f} V (flux was {direction})."
+        )
     return (
         "Observation saved. Server-computed acceleration: "
         f"{validated.acceleration_m_s2:.2f} m/s² (a = F / m)."

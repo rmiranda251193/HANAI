@@ -509,6 +509,21 @@ Output contract:
                         "no electrons ejected at all, no matter how high the intensity is set -- "
                         "the photon energy is below the work function"
                     )
+        elif experiment.simulation_type == "electromagnetic_induction":
+            if experiment.coil_turns is not None:
+                exp_lines.append(
+                    f"- setup: {experiment.coil_turns:.0f} turns, area = "
+                    f"{experiment.coil_area_m2:.3f} m^2, field went from "
+                    f"{experiment.field_initial_t:.2f} T to {experiment.field_final_t:.2f} T "
+                    f"over {experiment.time_interval_s:.2f} s"
+                )
+            if experiment.induced_emf_v is not None:
+                direction = "increasing" if experiment.flux_increasing else "decreasing"
+                exp_lines.append(
+                    "- induced EMF (deterministic, EMF = N|delta Phi|/delta t, computed by "
+                    f"the app): {experiment.induced_emf_v:.2f} V, with the flux {direction} "
+                    "(by Lenz's law, the induced current opposes that change)"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(
