@@ -174,7 +174,7 @@ class PhysicsLibraryPageTests(TestCase):
 
     def test_filter_labels_and_nav_link_exist(self):
         body = self.client.get(self.url).content.decode()
-        for name in ("q", "domain", "difficulty"):
+        for name in ("q", "domain", "difficulty", "level"):
             self.assertIn(f'for="lib-{name}"', body)
         self.assertIn(self.url, body)  # the nav link renders on every page
 
@@ -220,6 +220,28 @@ class LibraryLevelAndDepthTests(TestCase):
         # user-editable today -- it is a hand-authored Python literal.
         body = self.client.get(self.url).content.decode()
         self.assertNotIn("<script>", body)
+
+    def test_level_filter_matches_concepts_whose_range_covers_it(self):
+        # n2l is "intermediate" -> range (senior_high, intro_university),
+        # which covers senior_high itself; force is "foundational" -> range
+        # (discovery, foundation), which does not.
+        body = self.client.get(self.url, {"level": "senior_high"}).content.decode()
+        self.assertIn("Newton&#x27;s Second Law</h4>", body)
+        self.assertNotIn("Force</h4>", body)
+
+    def test_level_filter_excludes_concepts_outside_the_range(self):
+        # force's foundational range (discovery, foundation) does not reach
+        # graduate_prep.
+        body = self.client.get(self.url, {"level": "graduate_prep"}).content.decode()
+        self.assertNotIn("Newton&#x27;s Second Law</h4>", body)
+        self.assertNotIn("Force</h4>", body)
+
+    def test_unknown_level_query_value_is_ignored_not_an_error(self):
+        response = self.client.get(self.url, {"level": "not-a-real-level"})
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("Newton&#x27;s Second Law</h4>", body)
+        self.assertIn("Force</h4>", body)
 
 
 class RegistryReadinessTests(TestCase):

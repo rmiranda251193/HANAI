@@ -23,7 +23,7 @@ from .domain_catalog import all_domains, domain_for_topic, get_domain
 from .equation_catalog import equations_for_concept
 from .hands_on_experiments import hands_on_experiment_for
 from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
-from .level_catalog import level_range_for_difficulty
+from .level_catalog import all_levels, get_level, level_range_for_difficulty
 from .models import PhysicsConcept, PhysicsSimulation
 from .simulation_registry import get_simulation_definition
 from .visualization_registry import get_visualization
@@ -56,6 +56,7 @@ def physics_library(request):
     q = (request.GET.get("q") or "").strip()
     domain_key = (request.GET.get("domain") or "").strip()
     difficulty = (request.GET.get("difficulty") or "").strip().lower()
+    selected_level = get_level(request.GET.get("level"))
 
     concepts = list(
         PhysicsConcept.objects.filter(is_active=True)
@@ -72,6 +73,19 @@ def physics_library(request):
         ]
     if difficulty in _DIFFICULTY_ORDER:
         concepts = [c for c in concepts if c.difficulty == difficulty]
+    if selected_level is not None:
+        # A concept "covers" the selected level when its difficulty-derived
+        # level RANGE (see level_range_for_difficulty) spans that level's
+        # position in the taxonomy -- a concept with no recognised
+        # difficulty maps to no range and never matches a level filter.
+        def _covers_selected_level(concept) -> bool:
+            level_range = level_range_for_difficulty(concept.difficulty)
+            if level_range is None:
+                return False
+            low, high = level_range
+            return low.order <= selected_level.order <= high.order
+
+        concepts = [c for c in concepts if _covers_selected_level(c)]
 
     selected_domain = get_domain(domain_key)
 
@@ -147,6 +161,8 @@ def physics_library(request):
             "q": q,
             "selected_domain": selected_domain,
             "selected_difficulty": difficulty if difficulty in _DIFFICULTY_ORDER else "",
+            "levels": all_levels(),
+            "selected_level": selected_level,
             "match_count": len(concepts),
             "coverage": {
                 "covered": covered,

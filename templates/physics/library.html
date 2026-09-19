@@ -33,11 +33,20 @@
         </select>
       </p>
       <p class="lib-field">
-        <label for="lib-difficulty">Level</label>
+        <label for="lib-difficulty">Difficulty</label>
         <select id="lib-difficulty" name="difficulty">
-          <option value="">Any level</option>
+          <option value="">Any difficulty</option>
           {% for value, label in difficulties %}
             <option value="{{ value }}" {% if selected_difficulty == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p class="lib-field">
+        <label for="lib-level">Physics level</label>
+        <select id="lib-level" name="level">
+          <option value="">Any level</option>
+          {% for lvl in levels %}
+            <option value="{{ lvl.key }}" {% if selected_level and selected_level.key == lvl.key %}selected{% endif %}>{{ lvl.title }}</option>
           {% endfor %}
         </select>
       </p>
