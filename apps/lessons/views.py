@@ -14,6 +14,7 @@ from apps.ai.exceptions import AIError
 from apps.ai.requests import LessonGenerationRequest, LessonReviewRequest
 from apps.ai.services import generate_lesson_draft, review_lesson_draft
 from apps.assessments.models import Assessment, QuestionBankItem
+from apps.physics.level_catalog import all_levels
 from apps.physics.models import MisconceptionRecoveryPath, PhysicsConcept, PhysicsSimulation
 from apps.physics.simulation_registry import get_simulation_definition
 from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue, ProvenanceEvent
@@ -195,7 +196,18 @@ def _current_teacher(request):
 
 def lesson_list(request):
     lessons = Lesson.objects.prefetch_related("physics_concepts")
-    return render(request, "lessons/list.html", {"lessons": lessons})
+    selected_level = request.GET.get("level", "").strip()
+    if selected_level:
+        lessons = lessons.filter(level=selected_level)
+    return render(
+        request,
+        "lessons/list.html",
+        {
+            "lessons": lessons,
+            "levels": all_levels(),
+            "selected_level": selected_level,
+        },
+    )
 
 
 def lesson_create(request):
@@ -601,6 +613,7 @@ def _build_context(request, lesson, **extra):
         "recovery_paths": MisconceptionRecoveryPath.objects.filter(is_active=True)
         .select_related("misconception")
         .order_by("title"),
+        "levels": all_levels(),
         "publish_reasons": validate_lesson_for_publish(lesson, activities=activities),
         "can_edit": lesson.created_by_id in (None, getattr(request.user, "id", None)),
         "lesson_history": get_lesson_history(lesson),
@@ -685,6 +698,7 @@ def lesson_update_basics(request, slug):
             grade_level=request.POST.get("grade_level", ""),
             duration_minutes=request.POST.get("duration_minutes", ""),
             description=request.POST.get("description", ""),
+            level=request.POST.get("level", ""),
         ),
         success="basics",
     )

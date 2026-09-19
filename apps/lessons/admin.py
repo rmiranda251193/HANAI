@@ -24,13 +24,14 @@ class LessonAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "grade_level",
+        "level",
         "duration_minutes",
         "status",
         "created_by",
         "created_at",
         "updated_at",
     )
-    list_filter = ("status", "grade_level")
+    list_filter = ("status", "grade_level", "level")
     search_fields = ("title", "slug", "description")
     filter_horizontal = ("physics_concepts",)
     prepopulated_fields = {"slug": ("title",)}
@@ -38,7 +39,7 @@ class LessonAdmin(admin.ModelAdmin):
     inlines = (LessonActivityInline,)
 
     fieldsets = (
-        ("Lesson details", {"fields": ("title", "slug", "description", "topic", "grade_level", "duration_minutes", "difficulty")} ),
+        ("Lesson details", {"fields": ("title", "slug", "description", "topic", "grade_level", "level", "duration_minutes", "difficulty")} ),
         ("Physics domain", {"fields": ("physics_concepts",)}),
         (
             "Learning design",

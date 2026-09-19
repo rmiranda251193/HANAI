@@ -107,6 +107,36 @@ class LessonBuilderViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "lessons/list.html")
 
+    def test_lesson_list_filters_by_physics_level(self):
+        senior_high_lesson = Lesson.objects.create(
+            title="Senior High Lesson", topic="Dynamics", grade_level="11",
+            duration_minutes=45, level="senior_high",
+        )
+        untagged_lesson = Lesson.objects.create(
+            title="Untagged Lesson", topic="Dynamics", grade_level="11",
+            duration_minutes=45,
+        )
+
+        response = self.client.get(reverse("lessons:list"), {"level": "senior_high"})
+
+        self.assertContains(response, "Senior High Lesson")
+        self.assertNotContains(response, "Untagged Lesson")
+
+    def test_lesson_list_shows_all_lessons_with_no_filter(self):
+        Lesson.objects.create(
+            title="Senior High Lesson", topic="Dynamics", grade_level="11",
+            duration_minutes=45, level="senior_high",
+        )
+        Lesson.objects.create(
+            title="Untagged Lesson", topic="Dynamics", grade_level="11",
+            duration_minutes=45,
+        )
+
+        response = self.client.get(reverse("lessons:list"))
+
+        self.assertContains(response, "Senior High Lesson")
+        self.assertContains(response, "Untagged Lesson")
+
     def test_lesson_create_page_works(self):
         response = self.client.get(reverse("lessons:create"))
 

@@ -80,6 +80,16 @@
         <input id="lb-grade" name="grade_level" type="text" value="{{ lesson.grade_level }}" maxlength="50" required {% if not can_edit %}disabled{% endif %}>
       </div>
       <div class="form-field">
+        <label for="lb-level">Physics level <span class="tw-optional">(optional)</span></label>
+        <select id="lb-level" name="level" {% if not can_edit %}disabled{% endif %}>
+          <option value="" {% if not lesson.level %}selected{% endif %}>Not set</option>
+          {% for lvl in levels %}
+            <option value="{{ lvl.key }}" {% if lesson.level == lvl.key %}selected{% endif %}>{{ lvl.title }}</option>
+          {% endfor %}
+        </select>
+        <p class="field-help">The physics depth this lesson targets -- distinct from grade level, since the same grade can be taught at different depths.</p>
+      </div>
+      <div class="form-field">
         <label for="lb-duration">Duration (minutes)</label>
         <input id="lb-duration" name="duration_minutes" type="number" min="1" max="600" value="{{ lesson.duration_minutes }}" required {% if not can_edit %}disabled{% endif %}>
       </div>

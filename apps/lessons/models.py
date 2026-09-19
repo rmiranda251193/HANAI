@@ -4,9 +4,15 @@ from django.utils import timezone
 from django.utils.text import slugify
 import uuid
 
+from apps.physics.level_catalog import all_levels
 from apps.physics.models import PhysicsConcept
 
 User = get_user_model()
+
+# (key, title) choices for the optional Lesson.level field below, sourced
+# from the same code-defined level taxonomy the Physics Library already
+# displays a difficulty-based range from (apps.physics.level_catalog).
+LEVEL_CHOICES = [(lvl.key, lvl.title) for lvl in all_levels()]
 
 class Lesson(models.Model):
     """Teacher-owned learning content linked to reusable Physics concepts."""
@@ -30,6 +36,17 @@ class Lesson(models.Model):
     slug = models.SlugField(max_length=280, unique=True, blank=True)
     topic = models.CharField(max_length=255)
     grade_level = models.CharField(max_length=50, help_text="e.g., 9, 10, 11, 12")
+    level = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        choices=LEVEL_CHOICES,
+        help_text=(
+            "Optional physics depth level this lesson targets (from the "
+            "level taxonomy) -- distinct from grade_level, since the same "
+            "school grade can be taught at different physics depths."
+        ),
+    )
     duration_minutes = models.PositiveSmallIntegerField(
         default=60,
         help_text="Planned lesson duration in minutes.",
@@ -81,6 +98,7 @@ class Lesson(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['topic']),
             models.Index(fields=['grade_level']),
+            models.Index(fields=['level']),
         ]
     
     def __str__(self) -> str:

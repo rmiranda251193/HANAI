@@ -215,6 +215,45 @@ class LessonBasicsTests(AuthoringTestCase):
                 topic="Dynamics", grade_level="11", duration_minutes="not-a-number",
             )
 
+    def test_update_basics_accepts_a_valid_physics_level(self):
+        update_lesson_basics(
+            lesson=self.lesson, teacher=self.teacher_a, title="Forces and Motion",
+            topic="Dynamics", grade_level="11", duration_minutes=45,
+            level="senior_high",
+        )
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.level, "senior_high")
+
+    def test_update_basics_defaults_level_to_blank_when_omitted(self):
+        update_lesson_basics(
+            lesson=self.lesson, teacher=self.teacher_a, title="Forces and Motion",
+            topic="Dynamics", grade_level="11", duration_minutes=45,
+        )
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.level, "")
+
+    def test_update_basics_rejects_an_unknown_physics_level(self):
+        with self.assertRaises(LessonAuthoringError):
+            update_lesson_basics(
+                lesson=self.lesson, teacher=self.teacher_a, title="Forces and Motion",
+                topic="Dynamics", grade_level="11", duration_minutes=45,
+                level="not-a-real-level",
+            )
+
+    def test_update_basics_can_clear_a_previously_set_level(self):
+        update_lesson_basics(
+            lesson=self.lesson, teacher=self.teacher_a, title="Forces and Motion",
+            topic="Dynamics", grade_level="11", duration_minutes=45,
+            level="senior_high",
+        )
+        update_lesson_basics(
+            lesson=self.lesson, teacher=self.teacher_a, title="Forces and Motion",
+            topic="Dynamics", grade_level="11", duration_minutes=45,
+            level="",
+        )
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.level, "")
+
     def test_objectives_are_normalised_order_preserved_empties_dropped(self):
         result = set_learning_objectives(
             lesson=self.lesson,
@@ -437,6 +476,39 @@ class BuilderHttpTests(AuthoringTestCase):
         self.assertIn('for="lb-title"', content)          # labelled input
         self.assertIn('aria-labelledby="lb-activities-title"', content)
         self.assertIn(">Move up<", content)               # real button text, not icon-only
+
+    def test_builder_page_renders_the_physics_level_selector(self):
+        r = self.client_a.get(reverse("lessons:build", args=[self.lesson.slug]))
+        content = r.content.decode()
+        self.assertIn('for="lb-level"', content)
+        self.assertIn('<option value="senior_high"', content)
+
+    def test_update_basics_via_http_sets_the_physics_level(self):
+        r = self.client_a.post(
+            reverse("lessons:update_basics", args=[self.lesson.slug]),
+            {
+                "title": "Forces and Motion", "topic": "Dynamics",
+                "grade_level": "11", "duration_minutes": "45",
+                "level": "senior_high",
+            },
+        )
+        self.assertEqual(r.status_code, 302)
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.level, "senior_high")
+
+    def test_update_basics_via_http_rejects_an_unknown_level_and_rerenders(self):
+        r = self.client_a.post(
+            reverse("lessons:update_basics", args=[self.lesson.slug]),
+            {
+                "title": "Forces and Motion", "topic": "Dynamics",
+                "grade_level": "11", "duration_minutes": "45",
+                "level": "not-a-real-level",
+            },
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Unknown physics level.")
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.level, "")
 
     def test_builder_success_banner_is_announced_and_section_specific(self):
         r = self.client_a.get(

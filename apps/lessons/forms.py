@@ -34,6 +34,7 @@ class LessonForm(forms.ModelForm):
             "title",
             "topic",
             "grade_level",
+            "level",
             "duration_minutes",
             "physics_concepts",
             "learning_objectives",
@@ -48,11 +49,13 @@ class LessonForm(forms.ModelForm):
         }
         labels = {
             "grade_level": "Grade level",
+            "level": "Physics level",
             "duration_minutes": "Duration (minutes)",
             "physics_concepts": "Physics concepts",
         }
         help_texts = {
             "physics_concepts": "Select every concept this lesson teaches or applies.",
+            "level": "Optional -- the physics depth this lesson targets, distinct from grade level.",
         }
 
     def __init__(self, *args, **kwargs):

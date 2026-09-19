@@ -12,6 +12,17 @@
     <a class="button button-primary" href="{% url 'lessons:create' %}">Create Lesson</a>
   </section>
 
+  <form method="get" class="lesson-filter-form" aria-label="Filter lessons by physics level">
+    <label for="lesson-filter-level">Filter by physics level</label>
+    <select id="lesson-filter-level" name="level" onchange="this.form.submit()">
+      <option value="" {% if not selected_level %}selected{% endif %}>All levels</option>
+      {% for lvl in levels %}
+        <option value="{{ lvl.key }}" {% if selected_level == lvl.key %}selected{% endif %}>{{ lvl.title }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="button button-secondary">Filter</button></noscript>
+  </form>
+
   {% if lessons %}
     <section class="lesson-list" aria-label="Lessons">
       {% for lesson in lessons %}
@@ -22,7 +33,7 @@
               <span class="status-badge status-{{ lesson.status }}">{{ lesson.get_status_display }}</span>
             </div>
             <h2><a href="{% url 'lessons:detail' lesson.slug %}">{{ lesson.title }}</a></h2>
-            <p class="lesson-meta">Updated {{ lesson.updated_at|date:"M j, Y, g:i a" }} &middot; {{ lesson.duration_minutes }} minutes</p>
+            <p class="lesson-meta">Updated {{ lesson.updated_at|date:"M j, Y, g:i a" }} &middot; {{ lesson.duration_minutes }} minutes{% if lesson.level %} &middot; {{ lesson.get_level_display }}{% endif %}</p>
             {% if lesson.physics_concepts.exists %}
               <p class="concept-summary">
                 {% for concept in lesson.physics_concepts.all %}{{ concept.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
@@ -32,6 +43,13 @@
           <a class="text-link" href="{% url 'lessons:detail' lesson.slug %}">View draft</a>
         </article>
       {% endfor %}
+    </section>
+  {% elif selected_level %}
+    <section class="empty-state">
+      <p class="eyebrow">No matching lessons</p>
+      <h2>No lessons are tagged at this level yet.</h2>
+      <p>Try a different level, or clear the filter to see all your lessons.</p>
+      <a class="button button-secondary" href="{% url 'lessons:list' %}">Clear filter</a>
     </section>
   {% else %}
     <section class="empty-state">

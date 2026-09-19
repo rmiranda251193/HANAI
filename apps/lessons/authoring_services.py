@@ -29,6 +29,7 @@ from django.utils import timezone
 from django.utils.http import urlencode
 
 from apps.assessments.models import Assessment, QuestionBankItem
+from apps.physics.level_catalog import get_level
 from apps.physics.models import MisconceptionRecoveryPath, PhysicsConcept, PhysicsSimulation
 from apps.physics.simulation_registry import get_simulation_definition
 from apps.provenance.models import ProvenanceEvent
@@ -126,11 +127,13 @@ def update_lesson_basics(
     grade_level: str,
     duration_minutes,
     description: str = "",
+    level: str = "",
 ) -> Lesson:
     title = _clean_text(title, limit=255)
     topic = _clean_text(topic, limit=255)
     grade_level = _clean_text(grade_level, limit=50)
     description = _clean_text(description, limit=8000)
+    level = _clean_text(level, limit=30)
     if not title:
         raise LessonAuthoringError("A lesson title is required.")
     if not topic:
@@ -143,6 +146,10 @@ def update_lesson_basics(
         raise LessonAuthoringError("Duration must be a whole number of minutes.")
     if minutes < 1 or minutes > 600:
         raise LessonAuthoringError("Duration must be between 1 and 600 minutes.")
+    # Unlike grade_level, a physics level is OPTIONAL -- a blank value means
+    # "not tagged yet" and is left as-is, not rejected.
+    if level and get_level(level) is None:
+        raise LessonAuthoringError("Unknown physics level.")
 
     locked = Lesson.objects.select_for_update().get(pk=lesson.pk)
     locked.title = title
@@ -150,6 +157,7 @@ def update_lesson_basics(
     locked.grade_level = grade_level
     locked.duration_minutes = minutes
     locked.description = description
+    locked.level = level
     locked.save(
         update_fields=[
             "title",
@@ -157,6 +165,7 @@ def update_lesson_basics(
             "grade_level",
             "duration_minutes",
             "description",
+            "level",
             "updated_at",
         ]
     )
