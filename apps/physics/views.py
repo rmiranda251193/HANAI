@@ -231,6 +231,8 @@ _FIELD_LABELS = {
     "time_interval_s": "time interval",
     "initial_level": "initial energy level",
     "final_level": "final energy level",
+    "distance_mpc": "distance",
+    "hubble_constant_km_s_mpc": "Hubble constant",
 }
 
 
@@ -706,6 +708,17 @@ def _experiment_prefill(attempt):
             )
         if ctx.has_transition is not None:
             parts.append(_bohr_outcome_label(ctx.has_transition, ctx.is_bohr_absorption, ctx.bohr_photon_energy_ev, ctx.bohr_wavelength_nm))
+    elif ctx.simulation_type == "hubbles_law":
+        if ctx.distance_mpc is not None and ctx.hubble_constant_km_s_mpc is not None:
+            parts.append(
+                f"galaxy at distance = {ctx.distance_mpc:.1f} Mpc, Hubble constant = "
+                f"{ctx.hubble_constant_km_s_mpc:.1f} km/s/Mpc"
+            )
+        if ctx.recession_velocity_km_s is not None and ctx.redshift_z is not None:
+            parts.append(
+                f"recession speed = {ctx.recession_velocity_km_s:.1f} km/s, redshift z = "
+                f"{ctx.redshift_z:.5f} (both computed by the app)"
+            )
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -894,6 +907,12 @@ def _observation_message(simulation_type, validated):
             validated.photon_energy_ev, validated.wavelength_nm,
         )
         return f"Observation saved. Server-computed outcome: {outcome}."
+    if simulation_type == "hubbles_law":
+        return (
+            "Observation saved. Server-computed recession speed: "
+            f"{validated.recession_velocity_km_s:.1f} km/s (redshift z = "
+            f"{validated.redshift_z:.5f})."
+        )
     return (
         "Observation saved. Server-computed acceleration: "
         f"{validated.acceleration_m_s2:.2f} m/s² (a = F / m)."

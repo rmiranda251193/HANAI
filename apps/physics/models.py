@@ -148,6 +148,7 @@ class PhysicsSimulation(models.Model):
         PHOTOELECTRIC_EFFECT = "photoelectric_effect", "The Photoelectric Effect"
         ELECTROMAGNETIC_INDUCTION = "electromagnetic_induction", "Electromagnetic Induction"
         BOHR_MODEL = "bohr_model", "The Bohr Model"
+        HUBBLES_LAW = "hubbles_law", "Hubble's Law"
 
     concept = models.ForeignKey(
         PhysicsConcept,

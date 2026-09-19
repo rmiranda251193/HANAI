@@ -299,6 +299,21 @@ PHYSICS_SIMULATIONS = [
             "full quantum-mechanical picture used for heavier elements."
         ),
     },
+    {
+        "slug": "hubbles-law",
+        "title": "Hubble's Law Lab",
+        "concept_name": "Cosmology and the expanding universe",
+        "simulation_type": PhysicsSimulation.SimulationType.HUBBLES_LAW,
+        "description": (
+            "Set a distant galaxy's distance and the Hubble constant and "
+            "watch its recession speed and redshift follow Hubble's law: "
+            "v = H0 d, z = v / c. Idealized model: the non-relativistic "
+            "regime where recession speed stays well under the speed of "
+            "light, and H0 is treated as a genuine adjustable measurement "
+            "-- real estimates currently range from about 67 to 74 "
+            "km/s/Mpc, the unresolved 'Hubble tension'."
+        ),
+    },
 ]
 
 

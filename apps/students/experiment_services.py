@@ -177,6 +177,12 @@ from apps.physics.simulations_electromagnetic_induction import clamp_time_interv
 from apps.physics.simulations_electromagnetic_induction import electromagnetic_induction_state
 from apps.physics.simulations_bohr_model import MAX_LEVEL as BOHR_MAX_LEVEL
 from apps.physics.simulations_bohr_model import bohr_model_state, clamp_level as clamp_bohr_level
+from apps.physics.simulations_hubbles_law import MAX_DISTANCE_MPC as HUBBLE_MAX_DISTANCE_MPC
+from apps.physics.simulations_hubbles_law import (
+    MAX_HUBBLE_CONSTANT_KM_S_MPC as HUBBLE_MAX_CONSTANT_KM_S_MPC,
+)
+from apps.physics.simulations_hubbles_law import clamp_distance, clamp_hubble_constant
+from apps.physics.simulations_hubbles_law import hubbles_law_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -265,6 +271,9 @@ EMF_FIELD_HARD_MAX_T = EMF_MAX_FIELD_T * 5
 EMF_TIME_INTERVAL_HARD_MAX_S = EMF_MAX_TIME_INTERVAL_S * 5
 
 BOHR_LEVEL_HARD_MAX = BOHR_MAX_LEVEL * 5
+
+HUBBLE_DISTANCE_HARD_MAX_MPC = HUBBLE_MAX_DISTANCE_MPC * 5
+HUBBLE_CONSTANT_HARD_MAX_KM_S_MPC = HUBBLE_MAX_CONSTANT_KM_S_MPC * 5
 
 TEXT_LIMIT = 2000
 
@@ -1721,6 +1730,51 @@ def validate_bohr_model(initial_level, final_level) -> ValidatedBohrModel:
     )
 
 
+@dataclass(frozen=True)
+class ValidatedHubblesLaw:
+    """Server-recomputed, deterministic Hubble's Law values."""
+
+    distance_mpc: float
+    hubble_constant_km_s_mpc: float
+    recession_velocity_km_s: float
+    redshift_z: float
+
+    def as_dict(self) -> dict:
+        return {
+            "distance_mpc": self.distance_mpc,
+            "hubble_constant_km_s_mpc": self.hubble_constant_km_s_mpc,
+            "recession_velocity_km_s": self.recession_velocity_km_s,
+            "redshift_z": self.redshift_z,
+        }
+
+
+def validate_hubbles_law(distance_mpc, hubble_constant_km_s_mpc) -> ValidatedHubblesLaw:
+    """Recompute the recession speed and redshift on the server. Reject
+    nonsense; clamp to lab bounds. There is no time input here -- see the
+    module docstring in ``simulations_hubbles_law.py`` for why."""
+
+    try:
+        d_raw = float(distance_mpc)
+        h0_raw = float(hubble_constant_km_s_mpc)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Distance and the Hubble constant must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (d_raw, h0_raw)):
+        raise ExperimentValidationError("Distance and the Hubble constant must be finite numbers.")
+    if d_raw <= 0 or h0_raw <= 0:
+        raise ExperimentValidationError("Distance and the Hubble constant must be positive.")
+    if d_raw > HUBBLE_DISTANCE_HARD_MAX_MPC or h0_raw > HUBBLE_CONSTANT_HARD_MAX_KM_S_MPC:
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = hubbles_law_state(distance_mpc=d_raw, hubble_constant_km_s_mpc=h0_raw)
+    return ValidatedHubblesLaw(
+        distance_mpc=clamp_distance(d_raw),
+        hubble_constant_km_s_mpc=clamp_hubble_constant(h0_raw),
+        recession_velocity_km_s=state["recession_velocity_km_s"],
+        redshift_z=state["redshift_z"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1909,6 +1963,13 @@ def _validate_bohr_model(values: dict) -> ValidatedBohrModel:
     )
 
 
+def _validate_hubbles_law(values: dict) -> ValidatedHubblesLaw:
+    return validate_hubbles_law(
+        values.get("distance_mpc"),
+        values.get("hubble_constant_km_s_mpc"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1931,6 +1992,7 @@ _VALIDATORS = {
     "photoelectric_effect": _validate_photoelectric_effect,
     "electromagnetic_induction": _validate_electromagnetic_induction,
     "bohr_model": _validate_bohr_model,
+    "hubbles_law": _validate_hubbles_law,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -1965,6 +2027,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
         "turns", "area_m2", "field_initial_t", "field_final_t", "time_interval_s",
     ),
     "bohr_model": ("initial_level", "final_level"),
+    "hubbles_law": ("distance_mpc", "hubble_constant_km_s_mpc"),
 }
 
 
@@ -2123,6 +2186,13 @@ def _apply_fields_bohr_model(attempt, validated: ValidatedBohrModel) -> None:
     pass
 
 
+def _apply_fields_hubbles_law(attempt, validated: ValidatedHubblesLaw) -> None:
+    # No ExperimentAttempt column fits a distance in megaparsecs or a
+    # recession speed -- everything lives in attempt.parameters, like
+    # Coulomb's Law's and Collision's non-fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -2145,6 +2215,7 @@ _FIELD_APPLIERS = {
     "photoelectric_effect": _apply_fields_photoelectric_effect,
     "electromagnetic_induction": _apply_fields_electromagnetic_induction,
     "bohr_model": _apply_fields_bohr_model,
+    "hubbles_law": _apply_fields_hubbles_law,
 }
 
 
@@ -2459,6 +2530,17 @@ def _apply_parameters_bohr_model(attempt, simulation, validated: ValidatedBohrMo
     }
 
 
+def _apply_parameters_hubbles_law(attempt, simulation, validated: ValidatedHubblesLaw) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "distance_mpc": validated.distance_mpc,
+        "hubble_constant_km_s_mpc": validated.hubble_constant_km_s_mpc,
+        "observed_recession_velocity_km_s": validated.recession_velocity_km_s,
+        "observed_redshift_z": validated.redshift_z,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -2481,6 +2563,7 @@ _PARAMETER_APPLIERS = {
     "photoelectric_effect": _apply_parameters_photoelectric_effect,
     "electromagnetic_induction": _apply_parameters_electromagnetic_induction,
     "bohr_model": _apply_parameters_bohr_model,
+    "hubbles_law": _apply_parameters_hubbles_law,
 }
 
 

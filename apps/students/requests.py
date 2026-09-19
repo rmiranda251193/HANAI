@@ -127,9 +127,10 @@ class ExperimentContext:
     ``has_transition``/``is_bohr_absorption``/``bohr_wavelength_nm`` are
     Bohr-Model-specific -- deliberately NOT reusing Photoelectric Effect's
     ``photon_energy_ev``/``wavelength_nm``, since those are a different
-    photon in a different physical situation. A given experiment only ever
-    populates the fields for its own simulation type -- the rest stay
-    ``None``.
+    photon in a different physical situation. ``distance_mpc``/
+    ``hubble_constant_km_s_mpc``/``recession_velocity_km_s``/``redshift_z``
+    are Hubble's-Law-specific. A given experiment only ever populates the
+    fields for its own simulation type -- the rest stay ``None``.
     """
 
     simulation: str = ""
@@ -249,6 +250,10 @@ class ExperimentContext:
     has_transition: bool | None = None
     is_bohr_absorption: bool | None = None
     bohr_wavelength_nm: float | None = None
+    distance_mpc: float | None = None
+    hubble_constant_km_s_mpc: float | None = None
+    recession_velocity_km_s: float | None = None
+    redshift_z: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -301,6 +306,7 @@ class ExperimentContext:
                 self.wavelength_nm is not None,
                 self.coil_turns is not None,
                 self.initial_level is not None,
+                self.distance_mpc is not None,
             ]
         )
 
@@ -547,6 +553,14 @@ class ExperimentContext:
                 has_transition=params.get("observed_has_transition"),
                 is_bohr_absorption=params.get("observed_is_absorption"),
                 bohr_wavelength_nm=params.get("observed_wavelength_nm"),
+            )
+        elif simulation_type == "hubbles_law":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                distance_mpc=params.get("distance_mpc"),
+                hubble_constant_km_s_mpc=params.get("hubble_constant_km_s_mpc"),
+                recession_velocity_km_s=params.get("observed_recession_velocity_km_s"),
+                redshift_z=params.get("observed_redshift_z"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

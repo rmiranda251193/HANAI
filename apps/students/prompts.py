@@ -543,6 +543,18 @@ Output contract:
                         f"a photon of energy {experiment.bohr_photon_energy_ev:.2f} eV "
                         f"(wavelength {experiment.bohr_wavelength_nm:.1f} nm)"
                     )
+        elif experiment.simulation_type == "hubbles_law":
+            if experiment.distance_mpc is not None:
+                exp_lines.append(
+                    f"- setup: a galaxy at distance = {experiment.distance_mpc:.1f} Mpc, "
+                    f"Hubble constant H0 = {experiment.hubble_constant_km_s_mpc:.1f} km/s/Mpc"
+                )
+            if experiment.recession_velocity_km_s is not None:
+                exp_lines.append(
+                    "- outcome (deterministic, v = H0 d, computed by the app): recession "
+                    f"speed = {experiment.recession_velocity_km_s:.1f} km/s, redshift z = "
+                    f"{experiment.redshift_z:.5f} (z = v / c)"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(
