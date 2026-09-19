@@ -31,6 +31,7 @@ class PhysicsConfig(AppConfig):
         from . import simulations_electromagnetic_induction  # noqa: F401
         from . import simulations_bohr_model  # noqa: F401
         from . import simulations_hubbles_law  # noqa: F401
+        from . import simulations_particle_physics  # noqa: F401
 
         # Populate the visualization registry (2D/3D renderer definitions), the
         # code-defined Physics Lab scenario challenges, and the Physics domain /

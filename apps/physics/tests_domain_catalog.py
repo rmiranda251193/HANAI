@@ -245,7 +245,8 @@ class RegistryReadinessTests(TestCase):
         # coulombs_law + radioactive_decay + buoyancy + refraction +
         # calorimetry + ideal_gas_law + doppler_effect + magnetic_force +
         # time_dilation + photoelectric_effect + electromagnetic_induction +
-        # bohr_model + hubbles_law are the registered simulations today
+        # bohr_model + hubbles_law + particle_physics are the registered
+        # simulations today
         from apps.physics.simulation_registry import registered_simulation_types
 
         self.assertEqual(
@@ -257,6 +258,6 @@ class RegistryReadinessTests(TestCase):
                 "coulombs_law", "radioactive_decay", "buoyancy", "refraction",
                 "calorimetry", "ideal_gas_law", "doppler_effect", "magnetic_force",
                 "time_dilation", "photoelectric_effect", "electromagnetic_induction",
-                "bohr_model", "hubbles_law",
+                "bohr_model", "hubbles_law", "particle_physics",
             },
         )

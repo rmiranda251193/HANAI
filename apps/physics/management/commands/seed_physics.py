@@ -1231,6 +1231,28 @@ PHYSICS_TOPICS = [
         "topic": "Particle Physics",
         "difficulty": PhysicsConcept.Difficulty.ADVANCED,
     },
+    {
+        "name": "Relativistic energy and momentum",
+        "description": (
+            "A particle's total energy, momentum and rest mass are related "
+            "by E^2 = (pc)^2 + (mc^2)^2. At zero momentum this reduces to "
+            "Einstein's E = mc^2; at very high momentum, E approaches pc, "
+            "the relation a massless particle satisfies exactly. Particle "
+            "physicists use this relation constantly, expressing momentum "
+            "and mass in the same energy units (MeV) rather than kilograms."
+        ),
+        "topic": "Particle Physics",
+        "difficulty": PhysicsConcept.Difficulty.ADVANCED,
+        "common_misconceptions": [
+            "Believing a moving particle's kinetic energy is still "
+            "(1/2)mv^2 at any speed, rather than this formula's E - mc^2, "
+            "which only reduces to the familiar (1/2)mv^2 approximation "
+            "at everyday, far-below-light speeds.",
+        ],
+        "prerequisites": ["Time dilation"],
+        "equations": ["E^2 = (pc)^2 + (mc^2)^2"],
+        "si_units": ["MeV"],
+    },
     # --- Astrophysics and Space Physics -----------------------------------------
     {
         "name": "Stellar structure and evolution",

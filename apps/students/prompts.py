@@ -555,6 +555,19 @@ Output contract:
                     f"speed = {experiment.recession_velocity_km_s:.1f} km/s, redshift z = "
                     f"{experiment.redshift_z:.5f} (z = v / c)"
                 )
+        elif experiment.simulation_type == "particle_physics":
+            if experiment.rest_energy_mev is not None:
+                exp_lines.append(
+                    f"- setup: rest energy mc^2 = {experiment.rest_energy_mev:.2f} MeV, "
+                    f"momentum pc = {experiment.momentum_mev_c:.2f} MeV"
+                )
+            if experiment.total_energy_mev is not None:
+                exp_lines.append(
+                    "- outcome (deterministic, E^2 = (pc)^2 + (mc^2)^2, computed by the "
+                    f"app): total energy = {experiment.total_energy_mev:.2f} MeV, kinetic "
+                    f"energy = {experiment.kinetic_energy_mev:.2f} MeV, speed = "
+                    f"{experiment.velocity_fraction_c:.3f}c"
+                )
         else:
             if experiment.mass_kg is not None and experiment.force_n is not None:
                 exp_lines.append(

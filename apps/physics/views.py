@@ -233,6 +233,8 @@ _FIELD_LABELS = {
     "final_level": "final energy level",
     "distance_mpc": "distance",
     "hubble_constant_km_s_mpc": "Hubble constant",
+    "rest_energy_mev": "rest energy",
+    "momentum_mev_c": "momentum",
 }
 
 
@@ -719,6 +721,19 @@ def _experiment_prefill(attempt):
                 f"recession speed = {ctx.recession_velocity_km_s:.1f} km/s, redshift z = "
                 f"{ctx.redshift_z:.5f} (both computed by the app)"
             )
+    elif ctx.simulation_type == "particle_physics":
+        if ctx.rest_energy_mev is not None and ctx.momentum_mev_c is not None:
+            parts.append(
+                f"rest energy = {ctx.rest_energy_mev:.2f} MeV, momentum = "
+                f"{ctx.momentum_mev_c:.2f} MeV/c"
+            )
+        if ctx.total_energy_mev is not None and ctx.kinetic_energy_mev is not None:
+            parts.append(
+                f"total energy = {ctx.total_energy_mev:.2f} MeV, kinetic energy = "
+                f"{ctx.kinetic_energy_mev:.2f} MeV (both computed by the app)"
+            )
+        if ctx.velocity_fraction_c is not None:
+            parts.append(f"speed = {ctx.velocity_fraction_c:.3f}c (computed by the app)")
     else:
         if ctx.mass_kg is not None:
             parts.append(f"mass = {ctx.mass_kg:.1f} kg")
@@ -912,6 +927,12 @@ def _observation_message(simulation_type, validated):
             "Observation saved. Server-computed recession speed: "
             f"{validated.recession_velocity_km_s:.1f} km/s (redshift z = "
             f"{validated.redshift_z:.5f})."
+        )
+    if simulation_type == "particle_physics":
+        return (
+            "Observation saved. Server-computed total energy: "
+            f"{validated.total_energy_mev:.2f} MeV (speed "
+            f"{validated.velocity_fraction_c:.3f}c)."
         )
     return (
         "Observation saved. Server-computed acceleration: "

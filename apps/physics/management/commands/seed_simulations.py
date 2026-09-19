@@ -314,6 +314,19 @@ PHYSICS_SIMULATIONS = [
             "km/s/Mpc, the unresolved 'Hubble tension'."
         ),
     },
+    {
+        "slug": "particle-physics",
+        "title": "Relativistic Energy and Momentum Lab",
+        "concept_name": "Relativistic energy and momentum",
+        "simulation_type": PhysicsSimulation.SimulationType.PARTICLE_PHYSICS,
+        "description": (
+            "Set a particle's rest energy and momentum and watch its "
+            "total energy, kinetic energy and speed follow the "
+            "relativistic energy-momentum relation: E^2 = (pc)^2 + "
+            "(mc^2)^2. Idealized model: a single free particle in flat "
+            "spacetime, with no interactions, decays or external fields."
+        ),
+    },
 ]
 
 

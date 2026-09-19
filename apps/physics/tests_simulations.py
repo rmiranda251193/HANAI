@@ -85,10 +85,11 @@ class PhysicsSimulationModelTests(TestCase):
         # a seventeenth (Magnetic Force on a Moving Charge), an eighteenth
         # (Time Dilation and Length Contraction), a nineteenth (The
         # Photoelectric Effect), a twentieth (Electromagnetic Induction),
-        # a twenty-first (The Bohr Model) and a twenty-second (Hubble's
-        # Law); the seed command still creates every row exactly once and
-        # only updates on every re-run.
-        self.assertIn("0 created, 22 updated", out.getvalue())
+        # a twenty-first (The Bohr Model), a twenty-second (Hubble's Law)
+        # and a twenty-third (Relativistic Energy and Momentum); the seed
+        # command still creates every row exactly once and only updates on
+        # every re-run.
+        self.assertIn("0 created, 23 updated", out.getvalue())
         simulation = PhysicsSimulation.objects.get(slug="newtons-second-law")
         self.assertEqual(simulation.concept.name, "Newton's Second Law")
 

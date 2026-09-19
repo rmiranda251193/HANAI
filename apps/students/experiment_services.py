@@ -183,6 +183,9 @@ from apps.physics.simulations_hubbles_law import (
 )
 from apps.physics.simulations_hubbles_law import clamp_distance, clamp_hubble_constant
 from apps.physics.simulations_hubbles_law import hubbles_law_state
+from apps.physics.simulations_particle_physics import MAX_MOMENTUM_MEV_C, MAX_REST_ENERGY_MEV
+from apps.physics.simulations_particle_physics import clamp_momentum, clamp_rest_energy
+from apps.physics.simulations_particle_physics import particle_physics_state
 
 from .misconception_services import assess_student_misconceptions
 from .models import ExperimentAttempt, LearningEvidence
@@ -274,6 +277,9 @@ BOHR_LEVEL_HARD_MAX = BOHR_MAX_LEVEL * 5
 
 HUBBLE_DISTANCE_HARD_MAX_MPC = HUBBLE_MAX_DISTANCE_MPC * 5
 HUBBLE_CONSTANT_HARD_MAX_KM_S_MPC = HUBBLE_MAX_CONSTANT_KM_S_MPC * 5
+
+PARTICLE_REST_ENERGY_HARD_MAX_MEV = MAX_REST_ENERGY_MEV * 5
+PARTICLE_MOMENTUM_HARD_MAX_MEV_C = MAX_MOMENTUM_MEV_C * 5
 
 TEXT_LIMIT = 2000
 
@@ -1775,6 +1781,58 @@ def validate_hubbles_law(distance_mpc, hubble_constant_km_s_mpc) -> ValidatedHub
     )
 
 
+@dataclass(frozen=True)
+class ValidatedParticlePhysics:
+    """Server-recomputed, deterministic relativistic energy/momentum values."""
+
+    rest_energy_mev: float
+    momentum_mev_c: float
+    total_energy_mev: float
+    kinetic_energy_mev: float
+    velocity_fraction_c: float
+
+    def as_dict(self) -> dict:
+        return {
+            "rest_energy_mev": self.rest_energy_mev,
+            "momentum_mev_c": self.momentum_mev_c,
+            "total_energy_mev": self.total_energy_mev,
+            "kinetic_energy_mev": self.kinetic_energy_mev,
+            "velocity_fraction_c": self.velocity_fraction_c,
+        }
+
+
+def validate_particle_physics(rest_energy_mev, momentum_mev_c) -> ValidatedParticlePhysics:
+    """Recompute the total energy, kinetic energy and speed on the server.
+    Reject nonsense; clamp to lab bounds. There is no time input here --
+    see the module docstring in ``simulations_particle_physics.py`` for
+    why. Momentum of exactly zero is a valid, meaningful state (a
+    particle at rest) -- only negative momentum is rejected."""
+
+    try:
+        mc2_raw = float(rest_energy_mev)
+        pc_raw = float(momentum_mev_c)
+    except (TypeError, ValueError):
+        raise ExperimentValidationError("Rest energy and momentum must be numbers.")
+
+    if any(math.isnan(v) or math.isinf(v) for v in (mc2_raw, pc_raw)):
+        raise ExperimentValidationError("Rest energy and momentum must be finite numbers.")
+    if mc2_raw <= 0:
+        raise ExperimentValidationError("Rest energy must be positive.")
+    if pc_raw < 0:
+        raise ExperimentValidationError("Momentum cannot be negative.")
+    if mc2_raw > PARTICLE_REST_ENERGY_HARD_MAX_MEV or pc_raw > PARTICLE_MOMENTUM_HARD_MAX_MEV_C:
+        raise ExperimentValidationError("Those values are outside the simulation's range.")
+
+    state = particle_physics_state(rest_energy_mev=mc2_raw, momentum_mev_c=pc_raw)
+    return ValidatedParticlePhysics(
+        rest_energy_mev=clamp_rest_energy(mc2_raw),
+        momentum_mev_c=clamp_momentum(pc_raw),
+        total_energy_mev=state["total_energy_mev"],
+        kinetic_energy_mev=state["kinetic_energy_mev"],
+        velocity_fraction_c=state["velocity_fraction_c"],
+    )
+
+
 # --- per-simulation-type dispatch ---------------------------------------
 #
 # The generic record_experiment_observation/explanation functions below never
@@ -1970,6 +2028,13 @@ def _validate_hubbles_law(values: dict) -> ValidatedHubblesLaw:
     )
 
 
+def _validate_particle_physics(values: dict) -> ValidatedParticlePhysics:
+    return validate_particle_physics(
+        values.get("rest_energy_mev"),
+        values.get("momentum_mev_c"),
+    )
+
+
 _VALIDATORS = {
     "newtons_second_law": _validate_newtons_second_law,
     "kinematics": _validate_kinematics,
@@ -1993,6 +2058,7 @@ _VALIDATORS = {
     "electromagnetic_induction": _validate_electromagnetic_induction,
     "bohr_model": _validate_bohr_model,
     "hubbles_law": _validate_hubbles_law,
+    "particle_physics": _validate_particle_physics,
 }
 
 # Which submitted fields must ALL be present before Explain recomputes the
@@ -2028,6 +2094,7 @@ _EXPLAIN_REQUIRED_FIELDS = {
     ),
     "bohr_model": ("initial_level", "final_level"),
     "hubbles_law": ("distance_mpc", "hubble_constant_km_s_mpc"),
+    "particle_physics": ("rest_energy_mev", "momentum_mev_c"),
 }
 
 
@@ -2193,6 +2260,13 @@ def _apply_fields_hubbles_law(attempt, validated: ValidatedHubblesLaw) -> None:
     pass
 
 
+def _apply_fields_particle_physics(attempt, validated: ValidatedParticlePhysics) -> None:
+    # No ExperimentAttempt column fits an energy in MeV or a momentum --
+    # everything lives in attempt.parameters, like Coulomb's Law's and
+    # Collision's non-fitting values.
+    pass
+
+
 _FIELD_APPLIERS = {
     "newtons_second_law": _apply_fields_newtons_second_law,
     "kinematics": _apply_fields_kinematics,
@@ -2216,6 +2290,7 @@ _FIELD_APPLIERS = {
     "electromagnetic_induction": _apply_fields_electromagnetic_induction,
     "bohr_model": _apply_fields_bohr_model,
     "hubbles_law": _apply_fields_hubbles_law,
+    "particle_physics": _apply_fields_particle_physics,
 }
 
 
@@ -2541,6 +2616,18 @@ def _apply_parameters_hubbles_law(attempt, simulation, validated: ValidatedHubbl
     }
 
 
+def _apply_parameters_particle_physics(attempt, simulation, validated: ValidatedParticlePhysics) -> None:
+    attempt.parameters = {
+        **(attempt.parameters or {}),
+        "simulation_type": simulation.simulation_type,
+        "rest_energy_mev": validated.rest_energy_mev,
+        "momentum_mev_c": validated.momentum_mev_c,
+        "observed_total_energy_mev": validated.total_energy_mev,
+        "observed_kinetic_energy_mev": validated.kinetic_energy_mev,
+        "observed_velocity_fraction_c": validated.velocity_fraction_c,
+    }
+
+
 _PARAMETER_APPLIERS = {
     "newtons_second_law": _apply_parameters_newtons_second_law,
     "kinematics": _apply_parameters_kinematics,
@@ -2564,6 +2651,7 @@ _PARAMETER_APPLIERS = {
     "electromagnetic_induction": _apply_parameters_electromagnetic_induction,
     "bohr_model": _apply_parameters_bohr_model,
     "hubbles_law": _apply_parameters_hubbles_law,
+    "particle_physics": _apply_parameters_particle_physics,
 }
 
 

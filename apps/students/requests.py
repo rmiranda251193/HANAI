@@ -129,8 +129,14 @@ class ExperimentContext:
     ``photon_energy_ev``/``wavelength_nm``, since those are a different
     photon in a different physical situation. ``distance_mpc``/
     ``hubble_constant_km_s_mpc``/``recession_velocity_km_s``/``redshift_z``
-    are Hubble's-Law-specific. A given experiment only ever populates the
-    fields for its own simulation type -- the rest stay ``None``.
+    are Hubble's-Law-specific. ``rest_energy_mev``/``momentum_mev_c``/
+    ``total_energy_mev``/``kinetic_energy_mev`` are Particle-Physics-
+    specific (which reuses Time Dilation's ``velocity_fraction_c`` for its
+    own derived beta = pc / E -- the same plain "speed as a fraction of
+    c" meaning in both, even though Time Dilation takes it as a direct
+    input and Particle Physics derives it). A given experiment only ever
+    populates the fields for its own simulation type -- the rest stay
+    ``None``.
     """
 
     simulation: str = ""
@@ -254,6 +260,10 @@ class ExperimentContext:
     hubble_constant_km_s_mpc: float | None = None
     recession_velocity_km_s: float | None = None
     redshift_z: float | None = None
+    rest_energy_mev: float | None = None
+    momentum_mev_c: float | None = None
+    total_energy_mev: float | None = None
+    kinetic_energy_mev: float | None = None
     prediction: str = ""
     observation: str = ""
     explanation: str = ""
@@ -307,6 +317,7 @@ class ExperimentContext:
                 self.coil_turns is not None,
                 self.initial_level is not None,
                 self.distance_mpc is not None,
+                self.rest_energy_mev is not None,
             ]
         )
 
@@ -561,6 +572,15 @@ class ExperimentContext:
                 hubble_constant_km_s_mpc=params.get("hubble_constant_km_s_mpc"),
                 recession_velocity_km_s=params.get("observed_recession_velocity_km_s"),
                 redshift_z=params.get("observed_redshift_z"),
+            )
+        elif simulation_type == "particle_physics":
+            params = attempt.parameters if isinstance(attempt.parameters, dict) else {}
+            kwargs.update(
+                rest_energy_mev=params.get("rest_energy_mev"),
+                momentum_mev_c=params.get("momentum_mev_c"),
+                total_energy_mev=params.get("observed_total_energy_mev"),
+                kinetic_energy_mev=params.get("observed_kinetic_energy_mev"),
+                velocity_fraction_c=params.get("observed_velocity_fraction_c"),
             )
         else:
             kwargs.update(mass_kg=attempt.mass_kg, force_n=attempt.force_n)

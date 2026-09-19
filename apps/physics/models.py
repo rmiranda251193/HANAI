@@ -149,6 +149,7 @@ class PhysicsSimulation(models.Model):
         ELECTROMAGNETIC_INDUCTION = "electromagnetic_induction", "Electromagnetic Induction"
         BOHR_MODEL = "bohr_model", "The Bohr Model"
         HUBBLES_LAW = "hubbles_law", "Hubble's Law"
+        PARTICLE_PHYSICS = "particle_physics", "Relativistic Energy and Momentum"
 
     concept = models.ForeignKey(
         PhysicsConcept,
