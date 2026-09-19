@@ -598,6 +598,7 @@ class TutorRequest:
     lesson_title: str
     topic: str
     grade_level: str
+    level: str = ""
     learning_objectives: tuple[str, ...] = ()
     common_misconceptions: tuple[str, ...] = ()
     concepts: tuple[ConceptContext, ...] = ()
@@ -612,6 +613,7 @@ class TutorRequest:
         object.__setattr__(self, "lesson_title", self.lesson_title.strip())
         object.__setattr__(self, "topic", self.topic.strip())
         object.__setattr__(self, "grade_level", str(self.grade_level).strip())
+        object.__setattr__(self, "level", str(self.level or "").strip())
         object.__setattr__(
             self,
             "learning_objectives",
@@ -675,6 +677,7 @@ class TutorRequest:
             lesson_title=lesson.title,
             topic=lesson.topic,
             grade_level=lesson.grade_level,
+            level=getattr(lesson, "level", "") or "",
             learning_objectives=tuple(lesson.learning_objectives or []),
             common_misconceptions=tuple(lesson.common_misconceptions or []),
             concepts=tuple(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from apps.ai.prompts import Prompt
+from apps.physics.level_catalog import get_level
 
 from .requests import TutorRequest
 from .schemas import TUTOR_RESPONSE_JSON_SCHEMA
@@ -19,6 +20,26 @@ def _bullets(items: tuple[str, ...], empty_label: str) -> str:
 def build_tutor_prompt(request: TutorRequest) -> Prompt:
     """Build the system and user prompts for one tutoring turn."""
 
+    # The lesson's OPTIONAL physics depth level (from apps.physics.level_catalog
+    # -- Discovery through Graduate Prep), distinct from the free-text
+    # grade_level a lesson always has. When a teacher has tagged one, it
+    # gives the tutor a concrete, real anchor for vocabulary/depth instead
+    # of only the vaguer "respect the grade level" instruction below --
+    # e.g. a "senior_high" lesson should stay at F = ma and kinematics
+    # equations, not reach for Lagrangian mechanics, even though both could
+    # plausibly suit "grade 12" depending on the course.
+    level_obj = get_level(request.level)
+    if level_obj is not None:
+        level_guidance = (
+            f"- This lesson is tagged at the '{level_obj.title}' physics level "
+            f"({level_obj.stage}). Match explanation depth and vocabulary to "
+            f"that level specifically: {level_obj.blurb} Do not reach for "
+            "material meant for a more advanced level, and do not talk down "
+            "below this level either."
+        )
+    else:
+        level_guidance = "- Respect the stated grade level in vocabulary and depth."
+
     system = f"""You are the Physics tutor for DodongOS Physics AI.
 
 Core rule: AI assists. Teachers decide. Students learn by thinking.
@@ -29,7 +50,7 @@ general chatbot and you are not a search engine.
 Grounding rules:
 - Stay inside the supplied lesson and Physics concepts. Treat the concept
   knowledge (definitions, equations, SI units) as the source of truth.
-- Respect the stated grade level in vocabulary and depth.
+{level_guidance}
 - Use scientifically correct terminology and SI units where appropriate.
 - Do not claim access to information that was not supplied. If something needed
   is missing, say so plainly instead of inventing it.
@@ -606,12 +627,16 @@ Output contract:
         or "(the student has not typed anything specific)"
     )
 
+    physics_level_line = (
+        f"Physics level: {level_obj.title} ({level_obj.stage})\n" if level_obj is not None else ""
+    )
+
     user = f"""Help the student with this lesson.
 
 Lesson title: {request.lesson_title}
 Topic: {request.topic}
 Grade level: {request.grade_level}
-
+{physics_level_line}
 Learning objectives:
 {objectives}
 

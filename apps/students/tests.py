@@ -185,6 +185,23 @@ class TutorRequestAndPromptTests(TutorDataMixin, TestCase):
         with self.assertRaises(ValueError):
             make_tutor_request(student_question="", student_attempt="")
 
+    def test_tutor_request_from_session_includes_the_lesson_physics_level(self):
+        lesson = self.make_lesson()
+        lesson.level = "senior_high"
+        lesson.save(update_fields=["level"])
+        session = self.make_session(lesson)
+
+        request = TutorRequest.from_session(session, student_question="x")
+
+        self.assertEqual(request.level, "senior_high")
+
+    def test_tutor_request_from_session_defaults_level_to_blank_when_untagged(self):
+        session = self.make_session()
+
+        request = TutorRequest.from_session(session, student_question="x")
+
+        self.assertEqual(request.level, "")
+
     def test_prompt_contains_lesson_topic(self):
         prompt = build_tutor_prompt(make_tutor_request(topic="Thermodynamics"))
         self.assertIn("Thermodynamics", prompt.user)
@@ -200,6 +217,23 @@ class TutorRequestAndPromptTests(TutorDataMixin, TestCase):
         self.assertIn("Grade level: 9", prompt.user)
         self.assertEqual(prompt.version, TUTOR_PROMPT_VERSION)
         self.assertIn(TUTOR_PROMPT_VERSION, prompt.system)
+
+    def test_prompt_uses_specific_level_guidance_when_the_lesson_is_tagged(self):
+        prompt = build_tutor_prompt(make_tutor_request(level="senior_high"))
+        self.assertIn("Physics level: Senior High", prompt.user)
+        self.assertIn("Senior High", prompt.system)
+        # The level's own blurb text, not just its name -- concrete guidance.
+        self.assertIn("F = ma", prompt.system)
+
+    def test_prompt_falls_back_to_generic_guidance_when_untagged(self):
+        prompt = build_tutor_prompt(make_tutor_request())
+        self.assertNotIn("Physics level:", prompt.user)
+        self.assertIn("Respect the stated grade level", prompt.system)
+
+    def test_prompt_ignores_an_unknown_level_value(self):
+        prompt = build_tutor_prompt(make_tutor_request(level="not-a-real-level"))
+        self.assertNotIn("Physics level:", prompt.user)
+        self.assertIn("Respect the stated grade level", prompt.system)
 
     def test_prompt_contains_recent_conversation(self):
         prompt = build_tutor_prompt(
