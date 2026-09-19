@@ -13,6 +13,15 @@ browser as ground truth and never trusted from a POST; evaluation reuses the
 existing Step 18 evaluators in ``apps.students.practice_services`` rather than
 re-implementing grading here.
 
+``QuestionType.FREE_RESPONSE`` is the one deliberate exception to "every
+question is deterministically gradeable": there is no expected answer at
+all, and no AI ever grades it either. A submitted free-response answer
+leaves ``AssessmentAnswer.is_correct`` as ``None`` (pending) until a
+teacher explicitly reviews it via ``services.grade_free_response_answer``
+-- the same "stays a candidate until an explicit teacher decision"
+principle ``apps.students.models.StudentMisconception`` already uses,
+applied to grading instead of misconception review.
+
 This module does not touch ``Lesson.problems`` or the existing practice
 engine -- both continue to work unchanged. See ``services.py`` for how a
 question is (or is not) linked back to a lesson.
@@ -31,6 +40,7 @@ class QuestionBankItem(models.Model):
     class QuestionType(models.TextChoices):
         NUMERIC = "numeric", "Numeric"
         MULTIPLE_CHOICE = "multiple_choice", "Multiple choice"
+        FREE_RESPONSE = "free_response", "Free response"
 
     class Difficulty(models.TextChoices):
         EASY = "easy", "Easy"
@@ -238,9 +248,26 @@ class AssessmentAnswer(models.Model):
         blank=True,
         related_name="assessment_answers",
     )
-    answer_text = models.CharField(max_length=500)
-    is_correct = models.BooleanField(null=True, blank=True)
+    answer_text = models.CharField(max_length=4000)
+    is_correct = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Null means ungraded -- always true for a fresh free-response answer.",
+    )
     attempted_at = models.DateTimeField(auto_now_add=True)
+
+    # Free-response only: who reviewed it, when, and what feedback they left.
+    # Numeric/multiple-choice answers are graded automatically and never
+    # populate these -- see services.grade_free_response_answer.
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assessment_answers_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    teacher_feedback = models.CharField(max_length=1000, blank=True, default="")
 
     class Meta:
         ordering = ["attempted_at", "id"]

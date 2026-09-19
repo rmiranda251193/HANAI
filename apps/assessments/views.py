@@ -306,6 +306,40 @@ def assessment_publish(request, assessment_id):
     return redirect("teachers:assessment_detail_teacher", assessment_id=assessment_id)
 
 
+@teacher_required
+def free_response_review_queue(request):
+    """Every free-response answer awaiting a teacher's grading decision.
+
+    ``decision``/``feedback`` are the only trusted-from-POST inputs; the
+    teacher, the answer, and whether it is actually a free-response answer
+    are all resolved and checked server-side in
+    ``services.grade_free_response_answer``.
+    """
+
+    error = ""
+    if request.method == "POST":
+        try:
+            services.grade_free_response_answer(
+                answer_id=request.POST.get("answer_id"),
+                teacher=request.user,
+                decision=request.POST.get("decision", ""),
+                feedback=request.POST.get("feedback", ""),
+            )
+        except services.AssessmentError as exc:
+            error = str(exc)
+        except Exception:
+            logger.exception("Unexpected free-response grading failure.")
+            error = UNEXPECTED_ERROR
+        else:
+            return redirect("teachers:free_response_review")
+
+    return render(
+        request,
+        "teachers/free_response_review.html",
+        {"pending": services.list_pending_free_response_answers(), "error": error},
+    )
+
+
 @require_POST
 @teacher_required
 def assessment_archive(request, assessment_id):

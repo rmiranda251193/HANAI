@@ -50,6 +50,14 @@ class QuestionDataMixin:
             correct_choice=correct_choice,
         )
 
+    def free_response_question(self, *, teacher=None, concept=None, prompt=None):
+        return services.create_question(
+            teacher=teacher or self.make_user(staff=True),
+            question_type=QuestionBankItem.QuestionType.FREE_RESPONSE,
+            prompt=prompt or f"Explain why momentum is conserved in this collision. {self.uid()}",
+            concept_id=concept.pk if concept else None,
+        )
+
 
 # --- 1-14: question bank ---------------------------------------------------
 
@@ -85,6 +93,29 @@ class QuestionCreationTests(QuestionDataMixin, TestCase):
     def test_concept_is_optional(self):
         q = self.numeric_question(concept=None)
         self.assertIsNone(q.concept_id)
+
+    def test_free_response_question_can_be_created_with_no_answer_key(self):
+        q = self.free_response_question()
+        self.assertEqual(q.question_type, QuestionBankItem.QuestionType.FREE_RESPONSE)
+        self.assertIsNone(q.expected_value)
+        self.assertIsNone(q.correct_choice)
+        self.assertEqual(q.choices, [])
+
+    def test_free_response_question_ignores_posted_choice_and_numeric_fields(self):
+        # A forged/leftover choice or expected_value in the POST must never
+        # silently attach to a free-response question -- there is no answer
+        # key for this type at all.
+        q = services.create_question(
+            teacher=self.make_user(staff=True),
+            question_type=QuestionBankItem.QuestionType.FREE_RESPONSE,
+            prompt="Explain Newton's third law in your own words.",
+            choices=["a", "b"],
+            correct_choice=0,
+            expected_value=42,
+        )
+        self.assertEqual(q.choices, [])
+        self.assertIsNone(q.correct_choice)
+        self.assertIsNone(q.expected_value)
 
 
 class QuestionValidationTests(QuestionDataMixin, TestCase):
@@ -260,6 +291,34 @@ class QuestionActiveTests(QuestionDataMixin, TestCase):
         q = self.numeric_question(teacher=teacher)
         services.set_question_active(question_id=q.pk, teacher=teacher, is_active=False)
         self.assertTrue(QuestionBankItem.objects.filter(pk=q.pk).exists())
+
+
+class FreeResponseQuestionFormTests(QuestionDataMixin, TestCase):
+    def test_type_picker_offers_free_response(self):
+        teacher = self.make_user(staff=True)
+        self.client.force_login(teacher)
+        r = self.client.get(reverse("teachers:question_create"))
+        self.assertContains(r, "Free response")
+        self.assertContains(r, "type=free_response")
+
+    def test_free_response_form_has_no_expected_value_or_choice_fields(self):
+        teacher = self.make_user(staff=True)
+        self.client.force_login(teacher)
+        r = self.client.get(reverse("teachers:question_create") + "?type=free_response")
+        self.assertNotContains(r, 'name="expected_value"')
+        self.assertNotContains(r, 'name="choice"')
+        self.assertContains(r, "free-response review queue")
+
+    def test_teacher_can_create_a_free_response_question_via_http(self):
+        teacher = self.make_user(staff=True)
+        self.client.force_login(teacher)
+        r = self.client.post(
+            reverse("teachers:question_create") + "?type=free_response",
+            {"question_type": "free_response", "prompt": "Explain Newton's third law."},
+        )
+        self.assertEqual(r.status_code, 302)
+        q = QuestionBankItem.objects.get(prompt="Explain Newton's third law.")
+        self.assertEqual(q.question_type, QuestionBankItem.QuestionType.FREE_RESPONSE)
 
 
 class QuestionSecurityTests(QuestionDataMixin, TestCase):

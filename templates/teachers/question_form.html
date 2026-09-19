@@ -7,7 +7,12 @@
     <div>
       <p class="eyebrow">Teacher workspace</p>
       <h1>{% if question %}Edit question{% else %}Create question{% endif %}</h1>
-      <p>{% if question_type == "numeric" %}Numeric question{% else %}Multiple-choice question{% endif %} &middot; graded deterministically on the server.</p>
+      <p>
+        {% if question_type == "numeric" %}Numeric question &middot; graded deterministically on the server.
+        {% elif question_type == "free_response" %}Free-response question &middot; graded by you, not automatically.
+        {% else %}Multiple-choice question &middot; graded deterministically on the server.
+        {% endif %}
+      </p>
     </div>
     <a class="text-link" href="{% url 'teachers:question_bank' %}">Back to Question Bank</a>
   </section>
@@ -19,7 +24,7 @@
     </section>
   {% endif %}
 
-  {% if is_used %}
+  {% if is_used and question_type != "free_response" %}
     <section class="generation-message" role="status">
       <p class="card-label">Question Bank</p>
       <p>A student has already answered this question, so its trusted answer definition (expected value, tolerance, choices, correct choice) is locked. The prompt, hint and explanation can still be edited. To change the answer definition, create a new question.</p>
@@ -79,6 +84,8 @@
             <input type="text" id="qf-tolerance" name="tolerance" inputmode="decimal" value="{{ values.tolerance }}">
           </div>
         {% endif %}
+      {% elif question_type == "free_response" %}
+        <p class="tw-signals-note">There is no expected value or choices for a free-response question. Every submitted answer waits in the <a href="{% url 'teachers:free_response_review' %}">free-response review queue</a> until you grade it.</p>
       {% else %}
         {% if is_used %}
           <div class="form-field form-field-wide">

@@ -55,9 +55,16 @@
           <div class="practice-feedback-region" aria-live="polite">
             <section class="practice-feedback practice-feedback-{{ current_question.result }}">
               <p class="practice-result-label">
-                {% if current_question.result == "correct" %}Correct.{% elif current_question.result == "incorrect" %}Incorrect.{% else %}Answer recorded.{% endif %}
+                {% if current_question.result == "correct" %}Correct.
+                {% elif current_question.result == "incorrect" %}Incorrect.
+                {% elif current_question.type == "free_response" %}Submitted &mdash; awaiting teacher review.
+                {% else %}Answer recorded.
+                {% endif %}
               </p>
               <p class="practice-feedback-body">Your answer: &ldquo;{{ current_question.answer_text }}&rdquo;</p>
+              {% if current_question.teacher_feedback %}
+                <p class="practice-feedback-body"><strong>Teacher feedback:</strong> {{ current_question.teacher_feedback }}</p>
+              {% endif %}
             </section>
           </div>
         {% else %}
@@ -74,6 +81,9 @@
                   </label>
                 {% endfor %}
               </fieldset>
+            {% elif current_question.type == "free_response" %}
+              <label for="asm-answer">Your answer</label>
+              <textarea id="asm-answer" name="answer" rows="8" required></textarea>
             {% else %}
               <label for="asm-answer">Your answer{% if current_question.unit %} (in {{ current_question.unit }}){% endif %}</label>
               <input type="text" id="asm-answer" name="answer" inputmode="decimal" autocomplete="off" spellcheck="false" required>
@@ -94,7 +104,7 @@
               <li>
                 <a href="?q={{ q.assessment_question_id }}">Question {{ q.number }}</a>
                 <span class="practice-side-state">
-                  {% if q.result == "correct" %}Correct{% elif q.result == "incorrect" %}Incorrect{% elif q.answered %}Recorded{% else %}Not answered{% endif %}
+                  {% if q.result == "correct" %}Correct{% elif q.result == "incorrect" %}Incorrect{% elif q.type == "free_response" and q.answered %}Awaiting review{% elif q.answered %}Recorded{% else %}Not answered{% endif %}
                 </span>
               </li>
             {% endfor %}

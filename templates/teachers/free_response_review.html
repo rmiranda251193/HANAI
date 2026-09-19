@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Free-Response Review &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>Free-Response Review</h1>
+      <p>Free-response answers have no automatic grading. Review each one and record your own decision -- oldest submissions first.</p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:question_bank' %}">Back to Question Bank</a>
+  </section>
+
+  {% if error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Free-Response Review</p>
+      <p>{{ error }}</p>
+    </section>
+  {% endif %}
+
+  {% if pending %}
+    <section class="qb-list" aria-label="Answers awaiting review">
+      {% for answer in pending %}
+        <article class="surface-card qb-card" aria-labelledby="fr-answer-{{ answer.pk }}-title">
+          <p class="qb-meta">
+            <span class="status-badge">{{ answer.attempt.assessment.title }}</span>
+            <span class="journey-chip">{{ answer.attempt.student.display_name }}</span>
+            <span class="qb-difficulty">Submitted {{ answer.attempted_at|date:"M j, Y, g:i a" }}</span>
+          </p>
+          <h2 id="fr-answer-{{ answer.pk }}-title" class="qb-prompt">{{ answer.assessment_question.question.prompt }}</h2>
+          <blockquote class="fr-answer-text">{{ answer.answer_text }}</blockquote>
+
+          <form method="post" action="{% url 'teachers:free_response_review' %}" class="tw-form">
+            {% csrf_token %}
+            <input type="hidden" name="answer_id" value="{{ answer.pk }}">
+            <fieldset class="form-field form-field-wide">
+              <legend>Decision</legend>
+              <label class="qf-choice-correct">
+                <input type="radio" name="decision" value="correct" required>
+                Meets expectations
+              </label>
+              <label class="qf-choice-correct">
+                <input type="radio" name="decision" value="needs_revision" required>
+                Needs revision
+              </label>
+            </fieldset>
+            <div class="form-field form-field-wide">
+              <label for="fr-feedback-{{ answer.pk }}">Feedback <span class="tw-optional">(optional, shown to the student)</span></label>
+              <textarea id="fr-feedback-{{ answer.pk }}" name="feedback" rows="2"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="button button-primary">Save decision</button>
+            </div>
+          </form>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">All caught up</p>
+      <h2>No free-response answers are waiting for review.</h2>
+    </section>
+  {% endif %}
+{% endblock %}

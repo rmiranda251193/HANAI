@@ -7,7 +7,7 @@
     <div>
       <p class="eyebrow">Teacher workspace</p>
       <h1>Create a question</h1>
-      <p>Choose a question type. Both are graded deterministically -- there is no AI grading.</p>
+      <p>Choose a question type. Numeric and multiple choice are graded deterministically; free response is graded by you.</p>
     </div>
     <a class="text-link" href="{% url 'teachers:question_bank' %}">Back to Question Bank</a>
   </section>
@@ -20,6 +20,10 @@
     <a class="surface-card qb-type-option" href="{% url 'teachers:question_create' %}?type=multiple_choice">
       <h2>Multiple choice</h2>
       <p>A question with two or more choices and one correct option.</p>
+    </a>
+    <a class="surface-card qb-type-option" href="{% url 'teachers:question_create' %}?type=free_response">
+      <h2>Free response</h2>
+      <p>An AP-style written answer with no expected value or choices. There is no automatic grading -- you review and grade each student's answer yourself.</p>
     </a>
   </section>
 {% endblock %}

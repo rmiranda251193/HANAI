@@ -47,6 +47,11 @@ teacher_patterns = [
         views.assessment_archive,
         name="assessment_archive",
     ),
+    path(
+        "assessments/free-response/review/",
+        views.free_response_review_queue,
+        name="free_response_review",
+    ),
 ]
 
 student_patterns = [

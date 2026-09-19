@@ -55,6 +55,22 @@ class ExecutionDataMixin:
         rows = list(AssessmentQuestion.objects.filter(assessment=a).order_by("position"))
         return a, rows
 
+    def published_free_response_assessment(self, *, teacher=None, concept=None):
+        teacher = teacher or self.make_user(staff=True)
+        a = services.create_assessment(
+            teacher=teacher, title=f"Free response check {self.uid()}",
+            concept_id=concept.pk if concept else None,
+        )
+        q = services.create_question(
+            teacher=teacher,
+            question_type=QuestionBankItem.QuestionType.FREE_RESPONSE,
+            prompt=f"Explain why momentum is conserved. {self.uid()}",
+            concept_id=concept.pk if concept else None,
+        )
+        aq = services.add_question_to_assessment(assessment_id=a.pk, teacher=teacher, question_id=q.pk)
+        services.publish_assessment(assessment_id=a.pk, teacher=teacher)
+        return a, aq, q
+
 
 # --- 25-38: student execution + security --------------------------------
 
@@ -288,6 +304,227 @@ class CompletionSemanticsTests(ExecutionDataMixin, TestCase):
         body = r.content.decode().lower()
         for banned in ("mastery", "proficient", "you are ready", "at risk", "weakness"):
             self.assertNotIn(banned, body)
+
+
+# --- free-response: submission stays ungraded until teacher review -------
+
+
+class FreeResponseExecutionTests(ExecutionDataMixin, TestCase):
+    def test_submitting_a_free_response_answer_leaves_it_ungraded(self):
+        a, aq, q = self.published_free_response_assessment()
+        student = self.make_student()
+        result = services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="Momentum is conserved because no external force acts.",
+        )
+        self.assertIsNone(result["is_correct"])
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        self.assertIsNone(answer.is_correct)
+        self.assertIsNone(answer.reviewed_by)
+        self.assertIsNone(answer.reviewed_at)
+
+    def test_a_long_free_response_answer_is_not_truncated_to_500_chars(self):
+        a, aq, q = self.published_free_response_assessment()
+        student = self.make_student()
+        long_answer = "Momentum is conserved. " * 40  # well over 500 characters
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer=long_answer,
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        self.assertEqual(answer.answer_text, long_answer.strip())
+
+    def test_submitting_a_free_response_answer_still_completes_the_assessment(self):
+        a, aq, q = self.published_free_response_assessment()
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        attempt = AssessmentAttempt.objects.get(student=student, assessment=a)
+        self.assertTrue(attempt.is_complete)
+
+    def test_pending_answer_appears_in_the_review_queue(self):
+        a, aq, q = self.published_free_response_assessment()
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        pending = services.list_pending_free_response_answers()
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].assessment_question_id, aq.pk)
+
+    def test_graded_answer_no_longer_appears_in_the_review_queue(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        services.grade_free_response_answer(
+            answer_id=answer.pk, teacher=teacher, decision="correct"
+        )
+        self.assertEqual(services.list_pending_free_response_answers(), [])
+
+    def test_grading_records_reviewer_verdict_and_feedback(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        graded = services.grade_free_response_answer(
+            answer_id=answer.pk, teacher=teacher, decision="needs_revision",
+            feedback="Say more about conservation of momentum specifically.",
+        )
+        self.assertFalse(graded.is_correct)
+        self.assertEqual(graded.reviewed_by, teacher)
+        self.assertIsNotNone(graded.reviewed_at)
+        self.assertEqual(
+            graded.teacher_feedback, "Say more about conservation of momentum specifically."
+        )
+
+    def test_regrading_overwrites_the_previous_verdict(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        services.grade_free_response_answer(answer_id=answer.pk, teacher=teacher, decision="needs_revision")
+        regraded = services.grade_free_response_answer(answer_id=answer.pk, teacher=teacher, decision="correct")
+        self.assertTrue(regraded.is_correct)
+
+    def test_an_unrecognised_decision_string_is_rejected_not_coerced(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        with self.assertRaises(services.AssessmentError):
+            services.grade_free_response_answer(answer_id=answer.pk, teacher=teacher, decision="corect")
+        answer.refresh_from_db()
+        self.assertIsNone(answer.is_correct)  # still pending, not silently graded
+
+    def test_cannot_grade_a_numeric_answer_through_the_free_response_path(self):
+        a, rows = self.published_assessment(questions=1)
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=rows[0].pk, submitted_answer="10"
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=rows[0])
+        with self.assertRaises(services.AssessmentError):
+            services.grade_free_response_answer(answer_id=answer.pk, teacher=teacher, decision="correct")
+
+    def test_review_queue_is_ordered_oldest_first(self):
+        a, aq1, q1 = self.published_free_response_assessment()
+        _, aq2, q2 = self.published_free_response_assessment()
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=aq2.assessment_id, assessment_question_id=aq2.pk,
+            submitted_answer="Second question, submitted first.",
+        )
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq1.pk,
+            submitted_answer="First question, submitted second.",
+        )
+        pending = services.list_pending_free_response_answers()
+        self.assertEqual([p.assessment_question_id for p in pending], [aq2.pk, aq1.pk])
+
+    def test_student_page_shows_pending_review_not_correct_or_incorrect(self):
+        a, aq, q = self.published_free_response_assessment()
+        r = self.client.post(
+            reverse("students:assessment_detail", args=[a.pk]),
+            {"assessment_question_id": aq.pk, "answer": "An explanation."},
+        )
+        self.assertEqual(r.status_code, 302)
+        body = self.client.get(reverse("students:assessment_detail", args=[a.pk])).content.decode()
+        self.assertIn("awaiting teacher review", body.lower())
+        self.assertNotIn("Correct.", body)
+        self.assertNotIn("Incorrect.", body)
+
+    def test_student_page_shows_teacher_feedback_once_graded(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        self.client.post(
+            reverse("students:assessment_detail", args=[a.pk]),
+            {"assessment_question_id": aq.pk, "answer": "An explanation."},
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        services.grade_free_response_answer(
+            answer_id=answer.pk, teacher=teacher, decision="needs_revision",
+            feedback="Add more detail about the conservation law.",
+        )
+        body = self.client.get(reverse("students:assessment_detail", args=[a.pk])).content.decode()
+        self.assertIn("Add more detail about the conservation law.", body)
+
+
+class FreeResponseReviewViewTests(ExecutionDataMixin, TestCase):
+    def test_teacher_sees_pending_answers_in_the_review_queue(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation of momentum conservation.",
+        )
+        self.client.force_login(teacher)
+        r = self.client.get(reverse("teachers:free_response_review"))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "An explanation of momentum conservation.")
+
+    def test_grading_via_http_removes_it_from_the_queue(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        self.client.force_login(teacher)
+        r = self.client.post(
+            reverse("teachers:free_response_review"),
+            {"answer_id": answer.pk, "decision": "correct", "feedback": "Nicely explained."},
+        )
+        self.assertEqual(r.status_code, 302)
+        answer.refresh_from_db()
+        self.assertTrue(answer.is_correct)
+        self.assertEqual(answer.teacher_feedback, "Nicely explained.")
+
+    def test_student_cannot_reach_the_review_queue(self):
+        r = self.client.get(reverse("teachers:free_response_review"))
+        self.assertEqual(r.status_code, 403)
+
+    def test_csrf_is_enforced_on_grading(self):
+        a, aq, q = self.published_free_response_assessment()
+        teacher = a.created_by
+        student = self.make_student()
+        services.submit_assessment_answer(
+            student=student, assessment_id=a.pk, assessment_question_id=aq.pk,
+            submitted_answer="An explanation.",
+        )
+        answer = AssessmentAnswer.objects.get(assessment_question=aq)
+        strict = Client(enforce_csrf_checks=True)
+        strict.force_login(teacher)
+        r = strict.post(
+            reverse("teachers:free_response_review"),
+            {"answer_id": answer.pk, "decision": "correct"},
+        )
+        self.assertEqual(r.status_code, 403)
+        answer.refresh_from_db()
+        self.assertIsNone(answer.is_correct)
 
 
 # --- 46-52: learning evidence ---------------------------------------------

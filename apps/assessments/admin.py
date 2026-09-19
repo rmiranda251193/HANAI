@@ -94,10 +94,27 @@ class AssessmentAttemptAdmin(admin.ModelAdmin):
 
 @admin.register(AssessmentAnswer)
 class AssessmentAnswerAdmin(admin.ModelAdmin):
-    list_display = ("attempt", "assessment_question", "is_correct", "attempted_at")
+    """Fully read-only, including the free-response review fields: grading
+    must go through ``services.grade_free_response_answer`` (via the teacher
+    review queue), the only place that checks the question is actually
+    free-response and validates the decision -- editing here directly would
+    bypass both checks, exactly like ``is_correct`` already had to be
+    protected against for the deterministic types."""
+
+    list_display = ("attempt", "assessment_question", "is_correct", "reviewed_by", "attempted_at")
     list_filter = ("is_correct",)
-    list_select_related = ("attempt", "assessment_question")
-    readonly_fields = ("attempt", "assessment_question", "answer_text", "is_correct", "evidence", "attempted_at")
+    list_select_related = ("attempt", "assessment_question", "reviewed_by")
+    readonly_fields = (
+        "attempt",
+        "assessment_question",
+        "answer_text",
+        "is_correct",
+        "evidence",
+        "attempted_at",
+        "reviewed_by",
+        "reviewed_at",
+        "teacher_feedback",
+    )
 
     def has_add_permission(self, request):
         return False

@@ -57,6 +57,8 @@ CHOICE_MAX_LEN = 300
 TITLE_MAX_LEN = 200
 DESCRIPTION_MAX_LEN = 2000
 ANSWER_MAX_LEN = 500
+FREE_RESPONSE_ANSWER_MAX_LEN = 4000
+FEEDBACK_MAX_LEN = 1000
 KEY_BASE_MAX_LEN = 100
 
 QUESTION_LIST_LIMIT = 500
@@ -248,9 +250,11 @@ def create_question(
     if question_type == _QuestionType.NUMERIC:
         value, unit, tol = _clean_numeric_fields(expected_value, expected_unit, tolerance)
         kwargs.update(expected_value=value, expected_unit=unit, tolerance=tol)
-    else:
+    elif question_type == _QuestionType.MULTIPLE_CHOICE:
         cleaned_choices, index = _clean_choice_fields(choices or [], correct_choice)
         kwargs.update(choices=cleaned_choices, correct_choice=index)
+    # FREE_RESPONSE has no expected answer at all -- no choices, no expected
+    # value, nothing to validate here. See the model docstring for why.
 
     return QuestionBankItem.objects.create(**kwargs)
 
@@ -295,13 +299,14 @@ def update_question(*, question_id, teacher, **fields) -> QuestionBankItem:
                     unit,
                     tol,
                 )
-        else:
+        elif question.question_type == _QuestionType.MULTIPLE_CHOICE:
             if {"choices", "correct_choice"} & set(fields):
                 cleaned_choices, index = _clean_choice_fields(
                     fields.get("choices", question.choices),
                     fields.get("correct_choice", question.correct_choice),
                 )
                 question.choices, question.correct_choice = cleaned_choices, index
+        # FREE_RESPONSE has no answer definition to edit here.
 
     question.save()
     return question
@@ -572,6 +577,7 @@ def get_student_assessment_detail(*, student, assessment_id, current_id=None) ->
             "answered": answer is not None,
             "result": result,
             "answer_text": answer.answer_text if answer else "",
+            "teacher_feedback": answer.teacher_feedback if answer else "",
         }
         questions.append(entry)
         if answer is None and next_unanswered is None:
@@ -628,21 +634,37 @@ def submit_assessment_answer(
         raise AssessmentError("You already answered this question.")
 
     question = assessment_question.question
-    answer_text = re.sub(
-        r"\s+", " ", str(submitted_answer if submitted_answer is not None else "")
-    ).strip()
+    is_free_response = question.question_type == _QuestionType.FREE_RESPONSE
+    # A free-response answer is a written response, not a short numeric/choice
+    # value -- collapsing internal whitespace the way the other two types do
+    # would mangle line breaks a student intentionally typed, so only the
+    # surrounding whitespace is trimmed.
+    if is_free_response:
+        answer_text = str(submitted_answer if submitted_answer is not None else "").strip()
+    else:
+        answer_text = re.sub(
+            r"\s+", " ", str(submitted_answer if submitted_answer is not None else "")
+        ).strip()
     if not answer_text:
         raise AnswerValidationError("Enter an answer before submitting.")
-    if len(answer_text) > ANSWER_MAX_LEN:
+    max_len = FREE_RESPONSE_ANSWER_MAX_LEN if is_free_response else ANSWER_MAX_LEN
+    if len(answer_text) > max_len:
         raise AnswerValidationError("That answer is too long. Keep it short.")
 
     if question.question_type == _QuestionType.NUMERIC:
         evaluation = evaluate_numeric_answer(answer_text, question.expected_value, question.tolerance)
         is_correct = evaluation.is_correct
-    else:
+    elif question.question_type == _QuestionType.MULTIPLE_CHOICE:
         evaluation = evaluate_choice_answer(answer_text, question.choices, question.correct_choice)
         is_correct = evaluation.is_correct
         answer_text = evaluation.submitted_label
+    else:
+        # FREE_RESPONSE: no deterministic answer key and no AI grading --
+        # stays ungraded (None) until a teacher reviews it explicitly, via
+        # grade_free_response_answer below. Submitting it still counts
+        # toward assessment completion (a factual coverage statement, see
+        # the module docstring) even though it is not yet graded.
+        is_correct = None
 
     context = {
         # The assessment's title, not its numeric id -- stable (there is no
@@ -669,7 +691,7 @@ def submit_assessment_answer(
         attempt=attempt,
         assessment_question=assessment_question,
         evidence=evidence,
-        answer_text=answer_text[:500],
+        answer_text=answer_text[:max_len],
         is_correct=is_correct,
     )
 
@@ -680,6 +702,70 @@ def submit_assessment_answer(
         attempt.save(update_fields=["completed_at"])
 
     return {"answer": answer, "is_correct": is_correct, "completed": attempt.completed_at is not None}
+
+
+# --- teacher review: free-response grading -------------------------------
+
+FREE_RESPONSE_REVIEW_LIMIT = 200
+_DECISIONS = {"correct", "needs_revision"}
+
+
+def list_pending_free_response_answers(*, limit: int = FREE_RESPONSE_REVIEW_LIMIT) -> list[AssessmentAnswer]:
+    """Every free-response answer awaiting a teacher's decision, oldest first.
+
+    "Pending" means ``is_correct is None`` -- the same sentinel a fresh
+    free-response submission always starts at (see ``submit_assessment_answer``)
+    and that grading always resolves away from. Numeric/multiple-choice
+    answers never appear here: they are always graded immediately.
+    """
+
+    return list(
+        AssessmentAnswer.objects.filter(
+            assessment_question__question__question_type=_QuestionType.FREE_RESPONSE,
+            is_correct__isnull=True,
+        )
+        .select_related(
+            "attempt",
+            "attempt__student",
+            "attempt__assessment",
+            "assessment_question",
+            "assessment_question__question",
+        )
+        .order_by("attempted_at", "id")[:limit]
+    )
+
+
+@transaction.atomic
+def grade_free_response_answer(*, answer_id, teacher, decision: str, feedback: str = "") -> AssessmentAnswer:
+    """A teacher's explicit, server-recorded verdict on one free-response answer.
+
+    ``decision`` must be exactly ``"correct"`` or ``"needs_revision"`` -- an
+    unrecognised value is rejected outright rather than silently coerced to
+    a boolean, so a typo in a form value can never be mistaken for "needs
+    revision". Re-grading an already-reviewed answer is allowed (a teacher
+    may reconsider); each grading call overwrites the previous verdict,
+    reviewer and feedback, and records a fresh ``reviewed_at``.
+    """
+
+    answer = (
+        AssessmentAnswer.objects.select_for_update()
+        .select_related("assessment_question__question")
+        .filter(pk=answer_id)
+        .first()
+    )
+    if answer is None:
+        raise AssessmentError("That answer could not be found.")
+    if answer.assessment_question.question.question_type != _QuestionType.FREE_RESPONSE:
+        raise AssessmentError("Only free-response answers are graded this way.")
+    if decision not in _DECISIONS:
+        raise AssessmentError("Choose a valid decision.")
+
+    answer.is_correct = decision == "correct"
+    answer.teacher_feedback = _clip(feedback, FEEDBACK_MAX_LEN)
+    answer.reviewed_by = teacher if getattr(teacher, "is_authenticated", False) else None
+    answer.reviewed_at = timezone.now()
+    answer.save(update_fields=["is_correct", "teacher_feedback", "reviewed_by", "reviewed_at"])
+    return answer
 
 
 # --- planner / evidence integration --------------------------------------
@@ -749,6 +835,8 @@ def get_teacher_assessment_evidence(student) -> dict:
             result = "Correct"
         elif answer.is_correct is False:
             result = "Incorrect"
+        elif answer.assessment_question.question.question_type == _QuestionType.FREE_RESPONSE:
+            result = "Pending review"
         else:
             result = "Recorded"
         rows.append(
