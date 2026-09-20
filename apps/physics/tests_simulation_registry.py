@@ -9,7 +9,12 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import PhysicsConcept, PhysicsSimulation
-from .simulation_registry import get_simulation_definition, registered_simulation_types
+from .simulation_registry import (
+    get_simulation_definition,
+    is_scenario_capable,
+    registered_simulation_types,
+    scenario_capable_simulation_types,
+)
 
 
 class SimulationRegistryTests(TestCase):
@@ -19,6 +24,33 @@ class SimulationRegistryTests(TestCase):
         self.assertEqual(definition.template, "physics/newtons_second_law.html")
         self.assertIn("mass_kg", definition.input_fields)
         self.assertIn("force_n", definition.input_fields)
+
+    def test_kinematics_and_newtons_second_law_declare_a_scenario_capability(self):
+        """Each simulation owns its own Physics-specific scenario behaviour
+        (apps.physics.simulation_registry.ScenarioCapability) -- Scenario
+        Studio discovers this generically, it never hard-codes these type
+        names anywhere."""
+
+        for sim_type, expected_fields in (
+            ("kinematics", {"position_m", "velocity_m_s", "acceleration_m_s2"}),
+            ("newtons_second_law", {"acceleration_m_s2", "velocity_m_s", "position_m"}),
+        ):
+            self.assertTrue(is_scenario_capable(sim_type))
+            capability = get_simulation_definition(sim_type).scenario
+            self.assertEqual(capability.observable_fields, expected_fields)
+            self.assertTrue(callable(capability.state_at))
+
+        self.assertIn("kinematics", scenario_capable_simulation_types())
+        self.assertIn("newtons_second_law", scenario_capable_simulation_types())
+
+    def test_most_registered_simulations_are_not_scenario_capable_yet(self):
+        """A regression guard against accidentally making every simulation
+        scenario-capable by default -- it must stay an explicit, per-type
+        opt-in."""
+
+        not_capable = set(registered_simulation_types()) - scenario_capable_simulation_types()
+        self.assertIn("projectile_motion", not_capable)
+        self.assertGreater(len(not_capable), len(scenario_capable_simulation_types()))
 
     def test_kinematics_definition_resolves(self):
         definition = get_simulation_definition("kinematics")

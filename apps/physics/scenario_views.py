@@ -16,6 +16,7 @@ from . import scenario_services as services
 from .lab_scenarios import allowed_target_kinds, value_fields_for
 from .models import PhysicsScenario, PhysicsSimulation
 from .scenario_services import TARGET_FIELD_LABELS, TARGET_KIND_LABELS
+from .simulation_registry import scenario_capable_simulation_types
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ UNEXPECTED_ERROR = "That could not be saved. Please try again."
 def _simulation_choices():
     return list(
         PhysicsSimulation.objects.filter(
-            is_active=True, simulation_type__in=services.TEACHER_SCENARIO_SUPPORTED_TYPES
+            is_active=True, simulation_type__in=scenario_capable_simulation_types()
         )
         .order_by("title")
         .values_list("pk", "title", "simulation_type")

@@ -84,10 +84,14 @@ class LibraryReflectsSeededTopicsTests(TestCase):
         self.assertIn("SI units:", body)
 
     def test_coverage_counts_most_of_the_curriculum(self):
+        from apps.physics.domain_catalog import all_domains
+
+        total = len(all_domains(include_other=False))
         body = self.client.get(self.url).content.decode()
-        self.assertIn("of 23 curriculum domains", body)
-        # At least half the real domains now have content (was 2 of 23 before).
-        match = re.search(r"covers\s+(\d+)\s+of 23", body)
+        self.assertIn(f"of {total} curriculum domains", body)
+        # At least half the real domains now have content (was 2 of 23 before
+        # the curriculum grew from 23 to 31 domains).
+        match = re.search(rf"covers\s+(\d+)\s+of {total}", body)
         self.assertIsNotNone(match)
         self.assertGreaterEqual(int(match.group(1)), 15)
         # Interactive labs are honestly reported as a smaller, separate count.

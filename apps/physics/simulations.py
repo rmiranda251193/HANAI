@@ -157,9 +157,42 @@ def make_initial_state(
     return NewtonsSecondLawSimulation(mass_kg=mass_kg, force_n=force_n)
 
 
+# --- Teacher Scenario Studio / deterministic scenario checker -------------
+#
+# This simulation's own authoritative Physics owns its own scenario
+# behaviour -- see apps.physics.simulation_registry.ScenarioCapability and
+# apps.physics.lab_scenarios (the one generic checker that calls these).
+#
+# There is no free "initial velocity" input here -- the object always starts
+# from rest, so under the constant acceleration a = F/m, v = a*t and
+# x = 1/2 * a * t^2 (the same equations Kinematics' own state_at uses with
+# v0 = x0 = 0). Force is never negative here, so this simulation's motion
+# never reverses direction -- see ``supports_reverses`` below.
+
+_SCENARIO_VALUE_FIELDS = frozenset({"acceleration_m_s2", "velocity_m_s", "position_m"})
+
+
+def _scenario_state_at(parameters: dict, at_time_s: float) -> dict:
+    mass = clamp_mass(parameters.get("mass_kg", DEFAULT_MASS_KG))
+    force = clamp_force(parameters.get("force_n", DEFAULT_FORCE_N))
+    acceleration = newtons_second_law_acceleration(force, mass)
+    t = max(0.0, float(at_time_s or 0))
+    return {
+        "mass_kg": mass,
+        "force_n": force,
+        "acceleration_m_s2": acceleration,
+        "velocity_m_s": acceleration * t,
+        "position_m": 0.5 * acceleration * t * t,
+    }
+
+
 # --- registry entry ------------------------------------------------------
 
-from .simulation_registry import SimulationDefinition, register  # noqa: E402
+from .simulation_registry import (  # noqa: E402
+    ScenarioCapability,
+    SimulationDefinition,
+    register,
+)
 
 register(
     SimulationDefinition(
@@ -181,5 +214,9 @@ register(
             ),
         },
         input_fields=("mass_kg", "force_n"),
+        scenario=ScenarioCapability(
+            observable_fields=_SCENARIO_VALUE_FIELDS,
+            state_at=_scenario_state_at,
+        ),
     )
 )

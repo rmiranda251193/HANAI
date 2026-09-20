@@ -3,24 +3,26 @@ existing Physics Lab architecture.
 
 This module creates and validates ``PhysicsScenario`` rows -- it does not
 compute Physics itself. A scenario converts to the exact same
-``lab_scenarios.LabScenario`` shape the two built-in, code-defined
-challenges already use (``lab_scenarios.to_lab_scenario``), and student
-checks are evaluated by the exact same ``lab_scenarios.evaluate_scenario``,
-unchanged. There is no second experiment engine, no second grading engine,
-and nothing here ever stores or executes a formula: ``initial_state`` and
+``lab_scenarios.LabScenario`` shape the built-in, code-defined challenges
+already use (``lab_scenarios.to_lab_scenario``), and student checks are
+evaluated by the exact same ``lab_scenarios.evaluate_scenario``, unchanged.
+There is no second experiment engine, no second grading engine, and nothing
+here ever stores or executes a formula: ``initial_state`` and
 ``target_condition`` are plain, server-validated JSON, checked against the
 selected simulation's own registered bounds
 (``apps.physics.simulation_registry``) and the checker's own allow-listed
 target kinds (``apps.physics.lab_scenarios.allowed_target_kinds`` /
 ``value_fields_for``).
 
-Deliberately scoped to the simulation types ``lab_scenarios.py``'s
-deterministic checker actually supports -- see
-``TEACHER_SCENARIO_SUPPORTED_TYPES`` (Kinematics and Newton's Second Law so
-far). Extending this to another simulation type means teaching
-``lab_scenarios.py`` that type's own state fields first, via its
-``_STATE_BUILDERS`` registry -- the same "grown one at a time" discipline
-``hands_on_experiments.py``/``depth_layers.py`` already use.
+Which simulation types a teacher may build a scenario for is never
+hard-coded here: this module asks each simulation's own registered
+``SimulationDefinition`` whether it declared a ``ScenarioCapability`` (see
+``apps.physics.simulation_registry.is_scenario_capable`` /
+``scenario_capable_simulation_types``). Adding a new scenario-capable
+simulation therefore never touches this file -- it is entirely a matter of
+that simulation's own module registering its capability, the same "grown one
+at a time" discipline ``hands_on_experiments.py``/``depth_layers.py`` already
+use for other catalogs.
 """
 
 from __future__ import annotations
@@ -40,12 +42,7 @@ from .lab_scenarios import (
     value_fields_for,
 )
 from .models import PhysicsScenario, PhysicsSimulation
-from .simulation_registry import get_simulation_definition
-
-# The simulation types the deterministic checker actually understands today.
-# A teacher may only build a scenario for one of these -- extended one type
-# at a time as lab_scenarios.py's own state-builder registry grows.
-TEACHER_SCENARIO_SUPPORTED_TYPES = frozenset({"kinematics", "newtons_second_law"})
+from .simulation_registry import get_simulation_definition, is_scenario_capable
 
 TITLE_MAX = 200
 DESCRIPTION_MAX = 2000
@@ -136,7 +133,7 @@ def _resolve_simulation(simulation_id) -> PhysicsSimulation:
         raise ScenarioError("That simulation is not active.")
     if get_simulation_definition(simulation.simulation_type) is None:
         raise ScenarioError("That simulation type is not available yet.")
-    if simulation.simulation_type not in TEACHER_SCENARIO_SUPPORTED_TYPES:
+    if not is_scenario_capable(simulation.simulation_type):
         raise ScenarioError(
             "Scenario authoring is not available for this simulation type yet."
         )
@@ -219,7 +216,7 @@ def _validate_target_condition(simulation_type: str, raw) -> dict:
                 data["description"] = f"{label} is less than {target:g} at t = {at_time_s:g} s."
 
     try:
-        TargetCondition(**data)
+        TargetCondition(simulation_type=simulation_type, **data)
     except (TypeError, ValueError) as exc:
         raise ScenarioError(str(exc))
     return data

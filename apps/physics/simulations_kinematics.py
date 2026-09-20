@@ -98,9 +98,47 @@ def kinematics_state(
     }
 
 
+# --- Teacher Scenario Studio / deterministic scenario checker -------------
+#
+# This simulation's own authoritative Physics owns its own scenario
+# behaviour -- see apps.physics.simulation_registry.ScenarioCapability and
+# apps.physics.lab_scenarios (the one generic checker that calls these).
+
+_SCENARIO_VALUE_FIELDS = frozenset({"position_m", "velocity_m_s", "acceleration_m_s2"})
+
+
+def _scenario_state_at(parameters: dict, at_time_s: float) -> dict:
+    return kinematics_state(
+        initial_position=parameters.get("initial_position_m", 0),
+        initial_velocity=parameters.get("initial_velocity_m_s", 0),
+        acceleration=parameters.get("acceleration_m_s2", 0),
+        time=at_time_s,
+    )
+
+
+def _scenario_reverses_at(parameters: dict) -> tuple[bool, str]:
+    x0 = clamp_initial_position(parameters.get("initial_position_m", 0))
+    v0 = clamp_initial_velocity(parameters.get("initial_velocity_m_s", 0))
+    a = clamp_acceleration(parameters.get("acceleration_m_s2", 0))
+    if v0 > 0 and a < 0:
+        t_stop = -v0 / a
+        if 0 < t_stop < MAX_TIME_S:
+            end = kinematics_state(
+                initial_position=x0, initial_velocity=v0,
+                acceleration=a, time=min(MAX_TIME_S, t_stop * 2),
+            )
+            if end["velocity_m_s"] < 0:
+                return True, f"it moved forward, stopped near t = {t_stop:.1f} s, then moved backward"
+    return False, "the object never reversed direction"
+
+
 # --- registry entry ------------------------------------------------------
 
-from .simulation_registry import SimulationDefinition, register  # noqa: E402
+from .simulation_registry import (  # noqa: E402
+    ScenarioCapability,
+    SimulationDefinition,
+    register,
+)
 
 register(
     SimulationDefinition(
@@ -131,6 +169,12 @@ register(
             "initial_velocity_m_s",
             "acceleration_m_s2",
             "time_s",
+        ),
+        scenario=ScenarioCapability(
+            observable_fields=_SCENARIO_VALUE_FIELDS,
+            state_at=_scenario_state_at,
+            supports_reverses=True,
+            reverses_at=_scenario_reverses_at,
         ),
     )
 )

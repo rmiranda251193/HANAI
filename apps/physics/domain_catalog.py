@@ -21,6 +21,17 @@ General Relativity. It is a scope statement about the subject, never a claim
 that HANAI has content at every one of those levels yet; see
 ``level_catalog.py``'s own module docstring and ``apps.physics.depth_layers``
 for what is actually populated today.
+
+This module is HANAI's "Physics universe registry": the full set of
+curriculum domains the platform intends to reach, from foundational Physics
+through graduate-preparation topics, independent of which of them have a
+deterministic simulation, a Scenario Studio capability, or any concept
+content yet. A domain like Plasma Physics or Statistical Physics can (and
+does) exist here purely as curriculum metadata -- "this field exists and
+this is roughly where it sits" -- without a fabricated simulation pretending
+it is already implemented. Compare
+``apps.physics.simulation_registry.scenario_capable_simulation_types`` for
+what is *actually* implemented and scenario-capable today.
 """
 
 from __future__ import annotations
@@ -48,6 +59,10 @@ _DOMAINS: tuple[PhysicsDomain, ...] = (
                   "Measurement, units, estimation and the scientific method.",
                   ("Introduction", "Measurement", "Units"),
                   level_range=("discovery", "senior_high")),
+    PhysicsDomain("mathematical_methods", "Mathematical Methods", 15,
+                  "The vectors, calculus and differential equations Physics is expressed in.",
+                  ("Mathematical Methods", "Vectors", "Calculus for Physics"),
+                  level_range=("senior_high", "advanced_undergraduate")),
     PhysicsDomain("kinematics", "Kinematics", 20,
                   "Describing motion: position, displacement, velocity and acceleration.",
                   ("Kinematics", "Free Fall", "Projectile Motion"),
@@ -84,9 +99,13 @@ _DOMAINS: tuple[PhysicsDomain, ...] = (
                   "The laws of thermodynamics, gas processes and engines.",
                   ("Thermodynamics", "Gas Laws", "Heat Engines"),
                   level_range=("senior_high", "advanced_undergraduate")),
+    PhysicsDomain("oscillations", "Oscillations", 105,
+                  "Simple harmonic motion, damping, driven oscillators and resonance.",
+                  ("Oscillations", "Simple Harmonic Motion", "Damped Oscillations"),
+                  level_range=("senior_high", "advanced_undergraduate")),
     PhysicsDomain("waves", "Waves", 110,
                   "Wave motion, superposition, standing waves and resonance.",
-                  ("Waves", "Wave Motion", "Oscillations"),
+                  ("Waves", "Wave Motion"),
                   level_range=("senior_high", "advanced_undergraduate")),
     PhysicsDomain("sound", "Sound", 120,
                   "Sound waves, intensity, the Doppler effect and acoustics.",
@@ -124,6 +143,10 @@ _DOMAINS: tuple[PhysicsDomain, ...] = (
                   "Atomic structure, spectra and energy levels.",
                   ("Atomic Physics", "Atomic Structure"),
                   level_range=("senior_high", "advanced_undergraduate")),
+    PhysicsDomain("molecular", "Molecular Physics", 205,
+                  "Molecular bonding, spectra and intermolecular forces.",
+                  ("Molecular Physics", "Molecular Structure"),
+                  level_range=("intro_university", "graduate_prep")),
     PhysicsDomain("nuclear", "Nuclear Physics", 210,
                   "Radioactive decay, half-life, fission and fusion.",
                   ("Nuclear Physics", "Nuclear Decay"),
@@ -132,10 +155,30 @@ _DOMAINS: tuple[PhysicsDomain, ...] = (
                   "Fundamental particles, the Standard Model and interactions.",
                   ("Particle Physics",),
                   level_range=("intro_university", "graduate_prep")),
+    PhysicsDomain("condensed_matter", "Condensed Matter Physics", 225,
+                  "Crystal structure, band theory, semiconductors and superconductivity.",
+                  ("Condensed Matter", "Solid State Physics"),
+                  level_range=("intermediate_university", "graduate_prep")),
     PhysicsDomain("astrophysics", "Astrophysics and Space Physics", 230,
                   "Stars, gravitation on cosmic scales, cosmology.",
                   ("Astrophysics", "Space Physics", "Cosmology"),
                   level_range=("junior_high", "advanced_undergraduate")),
+    PhysicsDomain("plasma", "Plasma Physics", 235,
+                  "The fourth state of matter: ionised gases and magnetically confined plasmas.",
+                  ("Plasma Physics", "Ionised Gases"),
+                  level_range=("intermediate_university", "graduate_prep")),
+    PhysicsDomain("statistical", "Statistical Physics", 240,
+                  "Statistical mechanics, entropy from microstates, and phase transitions.",
+                  ("Statistical Physics", "Statistical Mechanics"),
+                  level_range=("advanced_undergraduate", "graduate_prep")),
+    PhysicsDomain("computational", "Computational Physics", 250,
+                  "Numerical methods and simulation techniques for Physics problems.",
+                  ("Computational Physics", "Numerical Methods"),
+                  level_range=("intermediate_university", "graduate_prep")),
+    PhysicsDomain("experimental", "Experimental Physics", 260,
+                  "Measurement uncertainty, error analysis and experimental design.",
+                  ("Experimental Physics", "Measurement Uncertainty", "Error Analysis"),
+                  level_range=("senior_high", "advanced_undergraduate")),
     PhysicsDomain("other", "Other", 999,
                   "Concepts not yet mapped to a curriculum domain.", (),
                   level_range=("discovery", "graduate_prep")),

@@ -34,11 +34,14 @@ CATALOG_DIR = Path(__file__).resolve().parent
 class DomainCatalogTests(TestCase):
     def test_has_the_full_curriculum_of_domains(self):
         real = all_domains(include_other=False)
-        self.assertEqual(len(real), 23)
-        self.assertEqual(len(all_domains()), 24)  # + "other"
+        self.assertEqual(len(real), 31)
+        self.assertEqual(len(all_domains()), 32)  # + "other"
         keys = [d.key for d in real]
         for expected in ("kinematics", "dynamics", "waves", "optics", "circuits",
-                         "magnetism", "relativity", "quantum", "nuclear", "astrophysics"):
+                         "magnetism", "relativity", "quantum", "nuclear", "astrophysics",
+                         "mathematical_methods", "oscillations", "molecular",
+                         "condensed_matter", "plasma", "statistical", "computational",
+                         "experimental"):
             self.assertIn(expected, keys)
 
     def test_domains_are_ordered_and_frozen_dataclasses(self):
