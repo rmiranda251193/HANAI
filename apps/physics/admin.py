@@ -5,8 +5,10 @@ from .models import (
     MisconceptionRecoveryPath,
     PhysicsConcept,
     PhysicsMisconception,
+    PhysicsScenario,
     PhysicsSimulation,
 )
+from .scenario_services import is_used
 
 
 @admin.register(PhysicsConcept)
@@ -109,3 +111,34 @@ class MisconceptionRecoveryActivityAdmin(admin.ModelAdmin):
     search_fields = ("label", "instructions", "check_prompt", "path__title")
     list_select_related = ("path", "simulation")
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(PhysicsScenario)
+class PhysicsScenarioAdmin(admin.ModelAdmin):
+    list_display = ("title", "simulation", "difficulty", "status", "created_by", "updated_at")
+    list_filter = ("status", "difficulty", "category", "simulation__simulation_type")
+    search_fields = ("title", "slug", "description", "instructions")
+    list_select_related = ("simulation", "created_by")
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = ("created_at", "updated_at")
+
+    def get_readonly_fields(self, request, obj=None):
+        """Once a student has a real check against this scenario, its
+        Physics identity is locked here too -- the same rule
+        ``scenario_services.update_scenario`` enforces for the teacher UI,
+        so a staff user in /admin/ cannot silently rewrite what a past
+        result meant."""
+
+        fields = list(self.readonly_fields)
+        if obj is not None and is_used(obj):
+            fields += ["simulation", "initial_state", "target_condition"]
+        return fields
+
+    fieldsets = (
+        ("Scenario", {"fields": ("title", "slug", "simulation", "description", "instructions")}),
+        ("Guidance", {"fields": ("prediction_prompt", "reflection_prompt")}),
+        ("Physics", {"fields": ("initial_state", "target_condition")}),
+        ("Classification", {"fields": ("difficulty", "category")}),
+        ("Status", {"fields": ("status", "created_by")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )

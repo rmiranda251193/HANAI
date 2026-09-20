@@ -229,6 +229,13 @@
                           {% for r in recovery_paths %}<option value="recovery:{{ r.pk }}" {% if r.pk == activity.recovery_path_id %}selected{% endif %}>{{ r.title }}</option>{% endfor %}
                         </select>
                       </div>
+                    {% elif activity.activity_type == "scenario" %}
+                      <div class="form-field">
+                        <label for="lb-edit-ref-{{ activity.pk }}">Your scenario</label>
+                        <select id="lb-edit-ref-{{ activity.pk }}" name="reference_id" required>
+                          {% for s in scenarios %}<option value="scenario:{{ s.pk }}" {% if s.pk == activity.scenario_id %}selected{% endif %}>{{ s.title }}</option>{% endfor %}
+                        </select>
+                      </div>
                     {% elif activity.activity_type == "tutor" %}
                       <div class="form-field">
                         <label for="lb-edit-focus-{{ activity.pk }}">Tutor focus <span class="tw-optional">(optional)</span></label>
@@ -286,6 +293,9 @@
               </optgroup>
               <optgroup label="Recovery path" data-ref-type="recovery">
                 {% for r in recovery_paths %}<option value="recovery:{{ r.pk }}">{{ r.title }}</option>{% endfor %}
+              </optgroup>
+              <optgroup label="Your scenario" data-ref-type="scenario">
+                {% for s in scenarios %}<option value="scenario:{{ s.pk }}">{{ s.title }} ({{ s.simulation.title }})</option>{% endfor %}
               </optgroup>
             </select>
             <p class="field-help">Pick the item that matches the activity type above. Explanation and tutor activities need no link.</p>

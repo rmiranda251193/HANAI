@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}{% if scenario %}Edit Scenario{% else %}Create Scenario{% endif %} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>{% if scenario %}Edit scenario{% else %}Create a scenario{% endif %}</h1>
+      <p>Design an investigation on top of an existing Physics Lab simulation -- the server always determines whether the goal was reached.</p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:scenario_list' %}">Back to My Scenarios</a>
+  </section>
+
+  {% if error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Scenario Studio</p>
+      <p>{{ error }}</p>
+    </section>
+  {% endif %}
+
+  {% if ai_suggested %}
+    <section class="generation-message" role="status">
+      <p class="card-label">AI suggestion</p>
+      <p>Review and edit the fields below, then save. Nothing is created until you press Save Scenario.</p>
+    </section>
+  {% endif %}
+
+  {% if is_used %}
+    <section class="generation-message" role="status">
+      <p class="card-label">Scenario Studio</p>
+      <p>A student has already run this scenario, so its simulation, starting values and success condition are locked. The title, description, task and prompts can still be edited. Create a new scenario to change the Physics.</p>
+    </section>
+  {% endif %}
+
+  <section class="surface-card">
+    <form method="post" action="{% if scenario %}{% url 'teachers:scenario_edit' scenario.slug %}{% else %}{% url 'teachers:scenario_create' %}{% endif %}" class="tw-form">
+      {% csrf_token %}
+
+      <fieldset class="form-field form-field-wide">
+        <legend>1. Scenario</legend>
+        <div class="form-field">
+          <label for="sf-title">Title</label>
+          <input type="text" id="sf-title" name="title" maxlength="200" value="{{ values.title }}" required>
+        </div>
+        <div class="form-field form-field-wide">
+          <label for="sf-description">Description <span class="tw-optional">(optional, shown in your scenario list)</span></label>
+          <textarea id="sf-description" name="description" rows="2">{{ values.description }}</textarea>
+        </div>
+      </fieldset>
+
+      <fieldset class="form-field form-field-wide">
+        <legend>2. Simulation</legend>
+        {% if is_used %}
+          <p>{{ scenario.simulation.title }}</p>
+        {% else %}
+          <div class="form-field">
+            <label for="sf-simulation">Physics Lab simulation</label>
+            <select id="sf-simulation" name="simulation_id" required>
+              <option value="">&mdash; choose &mdash;</option>
+              {% for pk, title, sim_type in simulation_choices %}
+                <option value="{{ pk }}" {% if values.simulation_id|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>{{ title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <p class="tw-signals-note">Scenario Studio currently supports Kinematics. More simulation types are added one at a time as their own deterministic checker is written.</p>
+          <div class="form-actions">
+            <button type="submit" name="action" value="choose_simulation" formnovalidate class="button button-secondary">Load fields for this simulation</button>
+          </div>
+        {% endif %}
+      </fieldset>
+
+      {% if input_fields %}
+      <fieldset class="form-field form-field-wide">
+        <legend>3. Initial conditions</legend>
+        {% if is_used %}
+          <dl class="lab-motion">
+            {% for row in initial_state_rows %}
+              <div><dt>{{ row.name }}</dt><dd>{{ row.value }}</dd></div>
+            {% endfor %}
+          </dl>
+        {% else %}
+          {% for row in initial_state_rows %}
+            <div class="form-field">
+              <label for="sf-initial-{{ row.name }}">{{ row.name }}</label>
+              <input type="text" id="sf-initial-{{ row.name }}" name="initial_{{ row.name }}" inputmode="decimal" value="{{ row.value }}">
+            </div>
+          {% endfor %}
+        {% endif %}
+      </fieldset>
+      {% endif %}
+
+      <fieldset class="form-field form-field-wide">
+        <legend>4. Student task</legend>
+        <div class="form-field form-field-wide">
+          <label for="sf-instructions">What should the student do?</label>
+          <textarea id="sf-instructions" name="instructions" rows="2" required>{{ values.instructions }}</textarea>
+        </div>
+      </fieldset>
+
+      <fieldset class="form-field form-field-wide">
+        <legend>5. Prediction <span class="tw-optional">(optional)</span></legend>
+        <div class="form-field form-field-wide">
+          <label for="sf-prediction">Prompt shown before the student experiments</label>
+          <textarea id="sf-prediction" name="prediction_prompt" rows="2">{{ values.prediction_prompt }}</textarea>
+        </div>
+      </fieldset>
+
+      {% if input_fields %}
+      <fieldset class="form-field form-field-wide">
+        <legend>6. Success condition</legend>
+        {% if is_used %}
+          <p>{{ scenario.target_condition.description }}</p>
+        {% else %}
+          <div class="form-field">
+            <label for="sf-target-kind">Condition type</label>
+            <select id="sf-target-kind" name="target_kind" required>
+              <option value="">&mdash; choose &mdash;</option>
+              {% for value, label in target_kind_choices %}
+                <option value="{{ value }}" {% if values.target.kind == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="sf-target-field">Variable <span class="tw-optional">(not used for "Reverses direction")</span></label>
+            <select id="sf-target-field" name="target_field">
+              <option value="">&mdash; choose &mdash;</option>
+              {% for value, label in target_field_choices %}
+                <option value="{{ value }}" {% if values.target.field == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="sf-at-time">At time (s)</label>
+            <input type="text" id="sf-at-time" name="at_time_s" inputmode="decimal" value="{{ values.target.at_time_s|default:'5' }}">
+          </div>
+          <div class="form-field">
+            <label for="sf-target-value">Target value <span class="tw-optional">(for Equals / Greater than / Less than)</span></label>
+            <input type="text" id="sf-target-value" name="target_value" inputmode="decimal" value="{{ values.target.target }}">
+          </div>
+          <div class="form-field">
+            <label for="sf-tolerance">Tolerance <span class="tw-optional">(for Equals only)</span></label>
+            <input type="text" id="sf-tolerance" name="tolerance" inputmode="decimal" value="{{ values.target.tolerance }}">
+          </div>
+          <div class="form-field">
+            <label for="sf-range-min">Minimum <span class="tw-optional">(for Within a range only)</span></label>
+            <input type="text" id="sf-range-min" name="range_min" inputmode="decimal" value="{{ values.target.range_min }}">
+          </div>
+          <div class="form-field">
+            <label for="sf-range-max">Maximum <span class="tw-optional">(for Within a range only)</span></label>
+            <input type="text" id="sf-range-max" name="range_max" inputmode="decimal" value="{{ values.target.range_max }}">
+          </div>
+        {% endif %}
+      </fieldset>
+      {% endif %}
+
+      <fieldset class="form-field form-field-wide">
+        <legend>7. Reflection <span class="tw-optional">(optional)</span></legend>
+        <div class="form-field form-field-wide">
+          <label for="sf-reflection">Prompt for the existing Explain step</label>
+          <textarea id="sf-reflection" name="reflection_prompt" rows="2">{{ values.reflection_prompt }}</textarea>
+        </div>
+      </fieldset>
+
+      <fieldset class="form-field form-field-wide">
+        <legend>8. Classification</legend>
+        <div class="form-field">
+          <label for="sf-difficulty">Difficulty</label>
+          <select id="sf-difficulty" name="difficulty">
+            {% for value, label in difficulty_choices %}
+              <option value="{{ value }}" {% if values.difficulty == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="sf-category">Category <span class="tw-optional">(optional)</span></label>
+          <select id="sf-category" name="category">
+            <option value="">&mdash; none &mdash;</option>
+            {% for value, label in category_choices %}
+              <option value="{{ value }}" {% if values.category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </fieldset>
+
+      {% if not scenario %}
+      <fieldset class="form-field form-field-wide">
+        <legend>AI assistant <span class="tw-optional">(optional)</span></legend>
+        <div class="form-field form-field-wide">
+          <label for="sf-ai-request">Describe the investigation you want</label>
+          <textarea id="sf-ai-request" name="teacher_request" rows="2" placeholder="e.g. Create a Kinematics challenge where students must make an object stop.">{{ values.teacher_request }}</textarea>
+        </div>
+        <p class="tw-signals-note">The AI only suggests values for the fields above -- nothing is saved until you review them and press Save Scenario.</p>
+        <div class="form-actions">
+          <button type="submit" name="action" value="ai_suggest" formnovalidate class="button button-secondary">Suggest with AI</button>
+        </div>
+      </fieldset>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" name="action" value="save" class="button button-primary">Save Scenario</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

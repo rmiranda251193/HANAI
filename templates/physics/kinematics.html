@@ -298,6 +298,7 @@
              data-lab-instrument
              data-scenarios='{{ scenarios_json }}'
              data-scenario-check-base="{% url 'physics_lab:experiment_scenario_check' simulation.slug 'SCENARIO_ID' %}"
+             data-selected-scenario="{{ selected_scenario_id }}"
              data-claims='{{ claims_json }}'
              data-claim-check-base="{% url 'physics_lab:experiment_claim_check' simulation.slug 'CLAIM_ID' %}">
       <p class="lab-step-num">Instruments</p>

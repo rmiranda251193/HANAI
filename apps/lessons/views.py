@@ -15,7 +15,12 @@ from apps.ai.requests import LessonGenerationRequest, LessonReviewRequest
 from apps.ai.services import generate_lesson_draft, review_lesson_draft
 from apps.assessments.models import Assessment, QuestionBankItem
 from apps.physics.level_catalog import all_levels
-from apps.physics.models import MisconceptionRecoveryPath, PhysicsConcept, PhysicsSimulation
+from apps.physics.models import (
+    MisconceptionRecoveryPath,
+    PhysicsConcept,
+    PhysicsScenario,
+    PhysicsSimulation,
+)
 from apps.physics.simulation_registry import get_simulation_definition
 from apps.provenance.models import GeneratedLessonDraft, PersistedReviewIssue, ProvenanceEvent
 from apps.provenance.services import (
@@ -612,6 +617,16 @@ def _build_context(request, lesson, **extra):
         ).order_by("title"),
         "recovery_paths": MisconceptionRecoveryPath.objects.filter(is_active=True)
         .select_related("misconception")
+        .order_by("title"),
+        # Only this teacher's own active scenarios -- a scenario is
+        # single-owner (see apps.physics.scenario_services._require_owner),
+        # unlike the shared simulations/questions/assessments/recovery
+        # paths above, so the lesson builder never even offers another
+        # teacher's scenario to link in.
+        "scenarios": PhysicsScenario.objects.filter(
+            created_by=request.user, status=PhysicsScenario.Status.ACTIVE
+        )
+        .select_related("simulation")
         .order_by("title"),
         "levels": all_levels(),
         "publish_reasons": validate_lesson_for_publish(lesson, activities=activities),

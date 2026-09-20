@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 
@@ -282,3 +283,116 @@ class MisconceptionRecoveryActivity(models.Model):
 
     def __str__(self) -> str:
         return f"{self.path.title} step {self.order}: {self.label}"
+
+
+class PhysicsScenario(models.Model):
+    """A teacher-authored Physics Lab investigation/challenge.
+
+    This is a reference/orchestration object, the same PhysicsX pattern as
+    ``PhysicsSimulation``/``MisconceptionRecoveryPath``: it names a goal and
+    points at an existing, registered simulation type -- it never invents
+    new Physics. A scenario converts to a code-defined ``lab_scenarios.LabScenario``
+    on the fly (see ``apps.physics.scenario_services.to_lab_scenario``) and is
+    checked by the exact same ``evaluate_scenario`` the two built-in,
+    code-defined challenges already use. There is no second experiment
+    engine, no second evidence system, and no executable Physics stored here
+    -- ``initial_state`` and ``target_condition`` are plain, validated JSON,
+    never a formula or expression.
+
+    Deliberately scoped to Kinematics only for now (the only simulation type
+    ``lab_scenarios.py``'s deterministic checker actually supports) -- see
+    ``apps.physics.scenario_services.TEACHER_SCENARIO_SUPPORTED_TYPES``.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        ARCHIVED = "archived", "Archived"
+
+    class Difficulty(models.TextChoices):
+        FOUNDATION = "foundation", "Foundation"
+        INTRODUCTORY = "introductory", "Introductory"
+        INTERMEDIATE = "intermediate", "Intermediate"
+        ADVANCED = "advanced", "Advanced"
+
+    class Category(models.TextChoices):
+        INVESTIGATION = "investigation", "Investigation"
+        CHALLENGE = "challenge", "Challenge"
+        PREDICTION = "prediction", "Prediction"
+        MEASUREMENT = "measurement", "Measurement"
+        COMPARISON = "comparison", "Comparison"
+
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True, blank=True)
+    simulation = models.ForeignKey(
+        PhysicsSimulation,
+        on_delete=models.PROTECT,
+        related_name="teacher_scenarios",
+        help_text="The existing Physics Lab this scenario runs inside.",
+    )
+    description = models.TextField(
+        blank=True, default="", help_text="Teacher-facing summary shown in the scenario list."
+    )
+    instructions = models.TextField(help_text="The student-facing task, e.g. 'Make the cart stop.'")
+    prediction_prompt = models.TextField(
+        blank=True, default="", help_text="Optional prompt shown before the student experiments."
+    )
+    reflection_prompt = models.TextField(
+        blank=True, default="", help_text="Optional prompt for the existing Explain step."
+    )
+    initial_state = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Suggested starting values, keyed by the simulation's own input "
+            "field names. Validated against that simulation's registered "
+            "bounds -- never arbitrary fields."
+        ),
+    )
+    target_condition = models.JSONField(
+        default=dict,
+        help_text=(
+            "A single structured goal -- kind/field/at_time_s/target/tolerance "
+            "(or range_min/range_max), matching lab_scenarios.TargetCondition "
+            "exactly. Never a formula or expression."
+        ),
+    )
+    difficulty = models.CharField(
+        max_length=20, choices=Difficulty.choices, default=Difficulty.INTRODUCTORY
+    )
+    category = models.CharField(max_length=20, choices=Category.choices, blank=True, default="")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="physics_scenarios",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["status", "-updated_at"]),
+            models.Index(fields=["created_by", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.title)[:200] or "scenario"
+            slug = base
+            suffix = 2
+            while PhysicsScenario.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{suffix}"[:220]
+                suffix += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == self.Status.ACTIVE

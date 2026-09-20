@@ -268,6 +268,16 @@
     }
     if (scenario.select) {
       scenario.select.addEventListener("change", renderScenario);
+      // A lesson's "Open the Scenario" link may pre-select a specific
+      // teacher-authored scenario (?scenario=<slug> on the page URL,
+      // resolved and validated server-side into this data attribute) --
+      // purely a display convenience, changes no Physics or evidence.
+      var preselect = instrument.getAttribute("data-selected-scenario") || "";
+      if (preselect && scenarioData[preselect]) {
+        scenario.select.value = preselect;
+        var scenarioDetails = scenario.select.closest("details");
+        if (scenarioDetails) scenarioDetails.open = true;
+      }
       renderScenario();
     }
     function csrfToken() {

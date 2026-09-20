@@ -315,9 +315,9 @@ class LabQueryBudgetTests(TestCase):
         # A handful of queries: simulation lookup, tutor-lesson lookup, guest
         # student get_or_create on first-ever visit (a SELECT, then an
         # INSERT wrapped in its own SAVEPOINT/RELEASE SAVEPOINT pair -- 4
-        # queries total), and the latest-attempt lookup. Bounded, not
-        # per-control.
-        with self.assertNumQueries(7):
+        # queries total), the latest-attempt lookup, and one teacher-authored-
+        # scenario read (empty here). Bounded, not per-control.
+        with self.assertNumQueries(8):
             self.client.get(reverse("physics_lab:detail", args=[simulation.slug]))
 
 

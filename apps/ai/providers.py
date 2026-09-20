@@ -14,6 +14,27 @@ DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_OPENAI_TIMEOUT = 60.0
 
 
+def example_scenario_suggestion_dict() -> dict:
+    """A genuinely valid Kinematics scenario draft (real registered field
+    names, in-bounds values) -- used by the fake provider so
+    ``AI_PROVIDER=fake`` manual testing can exercise the full "AI suggests,
+    teacher reviews and saves" flow end to end, exactly like
+    ``example_lesson_draft_dict`` already does for lesson generation."""
+
+    return {
+        "title": "Make the cart stop",
+        "description": "A short investigation into how acceleration can bring a moving cart to rest.",
+        "instructions": "Adjust the acceleration so the cart comes to a stop.",
+        "initial_state": {"initial_velocity_m_s": 10, "acceleration_m_s2": -2},
+        "target_kind": "value",
+        "target_field": "velocity_m_s",
+        "target_value": 0,
+        "tolerance": 0.1,
+        "at_time_s": 5,
+        "reflection_prompt": "Explain why your chosen acceleration made the cart stop.",
+    }
+
+
 class AIProvider(ABC):
     """Application-facing text generation boundary.
 
@@ -58,6 +79,10 @@ class FakeAIProvider(AIProvider):
             if self._review_response is not None:
                 return self._review_response
             return json.dumps(example_lesson_review_dict())
+        # Matches "scenario-suggestion-v1" so a version bump doesn't silently
+        # switch this branch off either -- see apps.physics.scenario_prompts.
+        if "scenario-suggestion" in system_prompt:
+            return json.dumps(example_scenario_suggestion_dict())
         return json.dumps(example_lesson_draft_dict())
 
 

@@ -22,6 +22,7 @@ from django.utils import timezone
 from apps.assessments.services import get_teacher_assessment_evidence
 from apps.lessons.models import Lesson
 from apps.physics.models import PhysicsConcept, PhysicsSimulation
+from apps.physics.scenario_services import get_teacher_scenario_evidence
 from apps.provenance.services import sanitize_provenance_metadata
 from apps.students.models import (
     ExperimentAttempt,
@@ -277,6 +278,7 @@ def build_teacher_student_evidence(*, student: StudentProfile) -> dict:
             "candidate_status": StudentMisconception.Status.CANDIDATE,
             "practice_evidence": _practice_evidence(student),
             "assessment_evidence": get_teacher_assessment_evidence(student),
+            "scenario_evidence": get_teacher_scenario_evidence(student),
             "recovery_evidence": build_teacher_recovery_evidence(student),
             "learning_patterns": learning_patterns,
             "learning_path": build_student_concept_path(

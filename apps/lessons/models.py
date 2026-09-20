@@ -142,6 +142,7 @@ class LessonActivity(models.Model):
         TUTOR = "tutor", "Tutor discussion"
         ASSESSMENT = "assessment", "Assessment"
         RECOVERY = "recovery", "Misconception recovery"
+        SCENARIO = "scenario", "Physics Scenario"
 
     # Which reference field each type reads. Types not listed here (explanation,
     # tutor) carry no object reference.
@@ -150,6 +151,7 @@ class LessonActivity(models.Model):
         ActivityType.PRACTICE: "question",
         ActivityType.ASSESSMENT: "assessment",
         ActivityType.RECOVERY: "recovery_path",
+        ActivityType.SCENARIO: "scenario",
     }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -198,6 +200,13 @@ class LessonActivity(models.Model):
     )
     recovery_path = models.ForeignKey(
         "physics.MisconceptionRecoveryPath",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    scenario = models.ForeignKey(
+        "physics.PhysicsScenario",
         on_delete=models.PROTECT,
         null=True,
         blank=True,

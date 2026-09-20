@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Scenario Studio &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace</p>
+      <h1>My Scenarios</h1>
+      <p>Design your own Physics Lab investigations and challenges, built on the existing simulations.</p>
+    </div>
+    <a class="button button-primary" href="{% url 'teachers:scenario_create' %}">Create Scenario</a>
+  </section>
+
+  {% if scenarios %}
+    <section class="qb-list" aria-label="My scenarios">
+      {% for scenario in scenarios %}
+        <article class="surface-card qb-card">
+          <p class="qb-meta">
+            <span class="status-badge status-{{ scenario.status }}">{{ scenario.get_status_display }}</span>
+            <span class="journey-chip">{{ scenario.simulation.title }}</span>
+            <span class="qb-difficulty">{{ scenario.get_difficulty_display }}</span>
+            {% if scenario.category %}<span class="qb-difficulty">{{ scenario.get_category_display }}</span>{% endif %}
+          </p>
+          <h2 class="qb-prompt"><a href="{% url 'teachers:scenario_detail' scenario.slug %}">{{ scenario.title }}</a></h2>
+          <p class="lesson-meta">Updated {{ scenario.updated_at|date:"M j, Y, g:i a" }}</p>
+          <div class="form-actions">
+            <a class="text-link" href="{% url 'teachers:scenario_detail' scenario.slug %}">View</a>
+            <a class="text-link" href="{% url 'teachers:scenario_edit' scenario.slug %}">Edit</a>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <p class="eyebrow">No scenarios yet</p>
+      <h2>Design your first investigation.</h2>
+      <p>Set a starting state and a success condition for an existing Physics Lab simulation.</p>
+      <div class="form-actions">
+        <a class="button button-primary" href="{% url 'teachers:scenario_create' %}">Create Scenario</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

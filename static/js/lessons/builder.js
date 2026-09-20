@@ -13,7 +13,7 @@
   const refGroup = form.querySelector("[data-ref-group]");
   if (!typeSelect) return;
 
-  const REFERENCED = new Set(["physics_lab", "practice", "assessment", "recovery"]);
+  const REFERENCED = new Set(["physics_lab", "practice", "assessment", "recovery", "scenario"]);
 
   function apply() {
     const type = typeSelect.value;

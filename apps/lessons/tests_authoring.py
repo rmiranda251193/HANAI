@@ -314,7 +314,10 @@ class ActivityServiceTests(AuthoringTestCase):
         self.assertEqual(
             ACTIVITY_TYPES,
             frozenset(
-                {"explanation", "physics_lab", "practice", "tutor", "assessment", "recovery"}
+                {
+                    "explanation", "physics_lab", "practice", "tutor", "assessment",
+                    "recovery", "scenario",
+                }
             ),
         )
 

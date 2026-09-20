@@ -30,7 +30,12 @@ from django.utils.http import urlencode
 
 from apps.assessments.models import Assessment, QuestionBankItem
 from apps.physics.level_catalog import get_level
-from apps.physics.models import MisconceptionRecoveryPath, PhysicsConcept, PhysicsSimulation
+from apps.physics.models import (
+    MisconceptionRecoveryPath,
+    PhysicsConcept,
+    PhysicsScenario,
+    PhysicsSimulation,
+)
 from apps.physics.simulation_registry import get_simulation_definition
 from apps.provenance.models import ProvenanceEvent
 from apps.provenance.services import record_event
@@ -57,6 +62,7 @@ _REFERENCE_MODEL = {
     _ActivityType.PRACTICE: ("question", QuestionBankItem),
     _ActivityType.ASSESSMENT: ("assessment", Assessment),
     _ActivityType.RECOVERY: ("recovery_path", MisconceptionRecoveryPath),
+    _ActivityType.SCENARIO: ("scenario", PhysicsScenario),
 }
 
 TITLE_MAX = 200
@@ -225,6 +231,19 @@ def set_lesson_concepts(*, lesson: Lesson, teacher, concept_ids) -> list[Physics
 # --- activity reference resolution ------------------------------------
 
 
+def _check_reference_ownership(activity_type: str, obj, teacher) -> None:
+    """A scenario is single-owner (unlike the shared simulation/question/
+    assessment/recovery-path library) -- a teacher may only link their own
+    scenario into a lesson, never another teacher's by forging its id. A
+    legacy scenario with no recorded creator is open to any teacher, the
+    same rule ``apps.physics.scenario_services._require_owner`` uses."""
+
+    if activity_type != _ActivityType.SCENARIO:
+        return
+    if obj.created_by_id is not None and obj.created_by_id != getattr(teacher, "id", None):
+        raise LessonAuthoringError("You can only link your own scenarios to a lesson.")
+
+
 def _resolve_reference(activity_type: str, reference_id):
     """Return (field_name, object) for a typed reference, validated for use.
 
@@ -303,6 +322,11 @@ def _reference_usability_problem(activity_type: str, obj) -> str:
     elif activity_type == _ActivityType.RECOVERY:
         if not obj.is_active:
             return "That recovery path is not active."
+    elif activity_type == _ActivityType.SCENARIO:
+        if obj.status != PhysicsScenario.Status.ACTIVE:
+            return "That scenario is not active."
+        if not obj.simulation.is_active:
+            return "That scenario's simulation is not active."
     return ""
 
 
@@ -375,6 +399,7 @@ def create_activity(
     }
     if key in _REFERENCE_MODEL:
         field_name, obj = _resolve_reference(key, reference_id)
+        _check_reference_ownership(key, obj, teacher)
         fields[field_name] = obj
 
     # On SQLite ``select_for_update`` is a no-op, so a genuinely concurrent
@@ -438,6 +463,7 @@ def update_activity(
     update_fields = ["title", "instructions", "tutor_focus", "updated_at"]
     if locked.activity_type in _REFERENCE_MODEL:
         field_name, obj = _resolve_reference(locked.activity_type, reference_id)
+        _check_reference_ownership(locked.activity_type, obj, teacher)
         setattr(locked, field_name, obj)
         update_fields.append(field_name)
 
@@ -642,6 +668,8 @@ def _reference_label(activity: LessonActivity) -> str:
         return activity.assessment.title
     if activity.activity_type == _ActivityType.RECOVERY and activity.recovery_path_id:
         return activity.recovery_path.title
+    if activity.activity_type == _ActivityType.SCENARIO and activity.scenario_id:
+        return activity.scenario.title
     return ""
 
 
@@ -701,6 +729,14 @@ def _student_launch(activity: LessonActivity, lesson: Lesson) -> tuple[str, str]
         # detector has an active misconception for this student, so the lesson
         # links to the student's own recovery entry point, never forcing one.
         return reverse("students:progress"), "Check your focus area"
+    if (
+        t == _ActivityType.SCENARIO
+        and activity.scenario_id
+        and activity.scenario.status == PhysicsScenario.Status.ACTIVE
+        and activity.scenario.simulation.is_active
+    ):
+        base = reverse("physics_lab:detail", args=[activity.scenario.simulation.slug])
+        return base + "?" + urlencode({"scenario": activity.scenario.slug}), "Open the Scenario"
     return "", ""
 
 

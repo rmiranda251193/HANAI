@@ -224,6 +224,27 @@
     {% endif %}
   </section>
 
+  <section class="surface-card journey-section" aria-labelledby="tw-scenario-title">
+    <p class="card-label">Scenario evidence</p>
+    <h2 id="tw-scenario-title">Teacher-authored scenarios this student has run</h2>
+    {% if scenario_evidence %}
+      <ul class="tw-practice-list">
+        {% for row in scenario_evidence %}
+          <li class="tw-practice-item">
+            <p class="tw-practice-question">{{ row.scenario }}</p>
+            <p class="tw-practice-meta">
+              {{ row.attempts }} attempt{{ row.attempts|pluralize }}
+              &middot; <span class="tw-practice-result">{{ row.latest_result }}</span>
+              &middot; {{ row.latest_when|date:"M j, Y, g:i a" }}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No teacher-authored scenarios run yet.</p>
+    {% endif %}
+  </section>
+
   <section class="surface-card journey-section" aria-labelledby="tw-recovery-title">
     <p class="card-label">Misconception recovery</p>
     <h2 id="tw-recovery-title">Recovery activity assigned from possible learning signals</h2>

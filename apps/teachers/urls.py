@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.assessments.urls import teacher_patterns as assessment_teacher_patterns
+from apps.physics.scenario_urls import teacher_patterns as scenario_teacher_patterns
 
 from . import views
 
@@ -31,4 +32,4 @@ urlpatterns = [
     ),
     path("analytics/", views.analytics_dashboard, name="analytics"),
     path("analytics/export.csv", views.analytics_export, name="analytics_export"),
-] + assessment_teacher_patterns
+] + assessment_teacher_patterns + scenario_teacher_patterns

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ scenario.title }} &middot; HANAI{% endblock %}
+
+{% block content %}
+  <section class="page-heading detail-heading">
+    <div>
+      <p class="eyebrow">Teacher workspace &middot; Scenario Studio</p>
+      <h1>{{ scenario.title }}</h1>
+      <p>{{ scenario.simulation.title }} &middot; {{ scenario.get_difficulty_display }}{% if scenario.category %} &middot; {{ scenario.get_category_display }}{% endif %}</p>
+    </div>
+    <a class="text-link" href="{% url 'teachers:scenario_list' %}">All scenarios</a>
+  </section>
+
+  {% if error %}
+    <section class="generation-message generation-message-error" role="alert">
+      <p class="card-label">Scenario Studio</p>
+      <p>{{ error }}</p>
+    </section>
+  {% endif %}
+
+  <section class="surface-card" aria-labelledby="scenario-preview-title">
+    <p class="card-label">Preview <span class="tw-optional">(read-only)</span></p>
+    <h2 id="scenario-preview-title">What the student will see</h2>
+    <span class="status-badge status-{{ scenario.status }}">{{ scenario.get_status_display }}</span>
+
+    <dl class="lab-motion">
+      <div><dt>Simulation</dt><dd>{{ scenario.simulation.title }}</dd></div>
+      {% if scenario.description %}<div><dt>Description</dt><dd>{{ scenario.description }}</dd></div>{% endif %}
+      <div><dt>Student task</dt><dd>{{ scenario.instructions }}</dd></div>
+      {% if scenario.prediction_prompt %}<div><dt>Prediction prompt</dt><dd>{{ scenario.prediction_prompt }}</dd></div>{% endif %}
+      <div><dt>Starting state</dt>
+        <dd>
+          {% for field, value in scenario.initial_state.items %}
+            {{ field }} = {{ value }}{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            (uses the simulation's own defaults)
+          {% endfor %}
+        </dd>
+      </div>
+      <div><dt>Success condition</dt><dd>{{ scenario.target_condition.description }}</dd></div>
+      {% if scenario.reflection_prompt %}<div><dt>Reflection prompt</dt><dd>{{ scenario.reflection_prompt }}</dd></div>{% endif %}
+    </dl>
+
+    {% if scenario.status == "active" and scenario.simulation.is_active %}
+      <p class="tw-signals-note">
+        <a class="text-link" href="{% url 'physics_lab:detail' scenario.simulation.slug %}?scenario={{ scenario.slug }}">Open in the Physics Lab</a>
+        to try it as a student would (this does not create a preview record -- opening the lab page itself never does).
+      </p>
+    {% endif %}
+  </section>
+
+  {% if is_owner %}
+    <section class="surface-card">
+      <p class="card-label">Actions</p>
+      <div class="form-actions">
+        <a class="text-link" href="{% url 'teachers:scenario_edit' scenario.slug %}">Edit</a>
+        {% if scenario.status != "active" %}
+          <form method="post" action="{% url 'teachers:scenario_activate' scenario.slug %}">
+            {% csrf_token %}
+            <button type="submit" class="button button-primary">Activate</button>
+          </form>
+        {% endif %}
+        {% if scenario.status != "archived" %}
+          <form method="post" action="{% url 'teachers:scenario_archive' scenario.slug %}">
+            {% csrf_token %}
+            <button type="submit" class="button button-secondary">Archive</button>
+          </form>
+        {% endif %}
+        {% if not is_used %}
+          <form method="post" action="{% url 'teachers:scenario_delete' scenario.slug %}" onsubmit="return confirm('Delete this scenario permanently?');">
+            {% csrf_token %}
+            <button type="submit" class="button button-secondary">Delete</button>
+          </form>
+        {% endif %}
+      </div>
+      {% if is_used %}
+        <p class="tw-signals-note">A student has already run this scenario, so it cannot be deleted and its Physics is locked. Archive it instead if you no longer want it active.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

@@ -23,7 +23,12 @@ from .domain_catalog import all_domains, domain_for_topic, get_domain
 from .equation_catalog import equations_for_concept
 from .hands_on_experiments import hands_on_experiment_for
 from .claim_catalog import claims_for, get_claim
-from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
+from .lab_scenarios import (
+    TEACHER_SCENARIO_PREFIX,
+    evaluate_scenario,
+    get_scenario,
+    scenarios_for,
+)
 from .level_catalog import all_levels, get_level, level_range_for_difficulty
 from .models import PhysicsConcept, PhysicsSimulation
 from .simulation_registry import get_simulation_definition
@@ -314,6 +319,15 @@ def physics_lab_detail(request, slug):
     }
     _scenario_list = [s.as_client_dict for s in scenarios_for(simulation.simulation_type)]
     _claim_list = [c.as_client_dict for c in claims_for(simulation.simulation_type)]
+    # A lesson's "Open the Scenario" link (see apps.lessons.authoring_services)
+    # passes ?scenario=<slug> so the Instruments panel opens with that
+    # teacher-authored scenario pre-selected -- purely a display convenience,
+    # never trusted as an id: it only ever matches something already in
+    # _scenario_list, resolved server-side above.
+    _requested_scenario_slug = (request.GET.get("scenario") or "").strip()
+    _selected_scenario_id = f"{TEACHER_SCENARIO_PREFIX}{_requested_scenario_slug}" if _requested_scenario_slug else ""
+    if _selected_scenario_id not in {s["scenario_id"] for s in _scenario_list}:
+        _selected_scenario_id = ""
     visualization = get_visualization(simulation.simulation_type)
     context = {
         "simulation": simulation,
@@ -328,6 +342,7 @@ def physics_lab_detail(request, slug):
         "visualization": visualization,
         "scenarios": _scenario_list,
         "scenarios_json": json.dumps({s["scenario_id"]: s for s in _scenario_list}),
+        "selected_scenario_id": _selected_scenario_id,
         "claims": _claim_list,
         "claims_json": json.dumps({c["claim_id"]: c for c in _claim_list}),
         "preview": preview,
@@ -403,6 +418,29 @@ def experiment_scenario_check(request, slug, scenario_id):
         return JsonResponse(
             {"ok": False, "error": "Those parameters are not valid numbers."}, status=400
         )
+
+    # Only teacher-authored scenarios get a compact evidence row -- the
+    # built-in, code-defined challenges stay zero-persistence exactly as
+    # before (see lab_scenarios.py's own docstring and its dedicated tests).
+    if scenario_id.startswith(TEACHER_SCENARIO_PREFIX):
+        from .models import PhysicsScenario
+        from .scenario_services import record_scenario_check
+
+        db_scenario = (
+            PhysicsScenario.objects.filter(
+                slug=scenario_id[len(TEACHER_SCENARIO_PREFIX):],
+                status=PhysicsScenario.Status.ACTIVE,
+            )
+            .select_related("simulation")
+            .first()
+        )
+        if db_scenario is not None:
+            record_scenario_check(
+                student=_current_student(request),
+                scenario=db_scenario,
+                met=result["met"],
+                checks=result["checks"],
+            )
 
     return JsonResponse(
         {
