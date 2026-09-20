@@ -28,4 +28,9 @@ urlpatterns = [
         views.experiment_scenario_check,
         name="experiment_scenario_check",
     ),
+    path(
+        "<slug:slug>/claim/<slug:claim_id>/check/",
+        views.experiment_claim_check,
+        name="experiment_claim_check",
+    ),
 ]

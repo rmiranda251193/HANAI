@@ -297,7 +297,9 @@
     <section class="surface-card lab-step" aria-labelledby="lab-step-instruments"
              data-lab-instrument
              data-scenarios='{{ scenarios_json }}'
-             data-scenario-check-base="{% url 'physics_lab:experiment_scenario_check' simulation.slug 'SCENARIO_ID' %}">
+             data-scenario-check-base="{% url 'physics_lab:experiment_scenario_check' simulation.slug 'SCENARIO_ID' %}"
+             data-claims='{{ claims_json }}'
+             data-claim-check-base="{% url 'physics_lab:experiment_claim_check' simulation.slug 'CLAIM_ID' %}">
       <p class="lab-step-num">Instruments</p>
       <h2 id="lab-step-instruments">Measure, compare, and challenge</h2>
 
@@ -395,6 +397,30 @@
           <ul class="lab-scenario-goals" data-scenario-goals></ul>
           <button type="button" class="button button-primary" data-scenario-check>Check goal</button>
           <p class="lab-scenario-result" data-scenario-result aria-live="polite"></p>
+        </div>
+      </details>
+      {% endif %}
+
+      {% if claims %}
+      <details class="lab-tool">
+        <summary>Challenge the AI</summary>
+        <div class="lab-tool-body lab-claim-tool">
+          <p class="lab-tool-hint">HANAI states a Physics claim. Decide whether it is true or false and write your reasoning BEFORE you check &mdash; the explanation only appears after you commit to an answer.</p>
+          <p class="lab-claim-field">
+            <label for="lab-claim-select">Claim</label>
+            <select id="lab-claim-select" data-claim-select>
+              {% for c in claims %}<option value="{{ c.claim_id }}">Claim {{ forloop.counter }}</option>{% endfor %}
+            </select>
+          </p>
+          <p class="lab-claim-statement" data-claim-statement></p>
+          <fieldset class="lab-claim-choice" aria-label="Is this claim true or false?">
+            <label><input type="radio" name="lab-claim-answer" value="true"> True</label>
+            <label><input type="radio" name="lab-claim-answer" value="false"> False</label>
+          </fieldset>
+          <label for="lab-claim-reasoning">Your reasoning</label>
+          <textarea id="lab-claim-reasoning" data-claim-reasoning rows="2" placeholder="Why do you think that?"></textarea>
+          <button type="button" class="button button-primary" data-claim-check>Check my answer</button>
+          <p class="lab-claim-result" data-claim-result aria-live="polite"></p>
         </div>
       </details>
       {% endif %}

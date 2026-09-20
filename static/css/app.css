@@ -459,9 +459,14 @@ a { color: inherit; }
 .lab-measure-row input, .lab-scenario-field select { padding: .4rem .5rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--field-bg); color: var(--text); font: inherit; max-width: 6rem; }
 .lab-scenario-field select { max-width: 100%; }
 .lab-measure-deltas { margin: .5rem 0; font-weight: 700; color: var(--text); }
-.lab-measure-answer, .lab-compare-out, .lab-scenario-result { margin: .5rem 0 0; padding: .6rem .75rem; border: 1px dashed var(--line); border-radius: .45rem; color: var(--text-secondary); font-size: .86rem; line-height: 1.55; }
-.lab-scenario-field { display: grid; gap: .3rem; margin: .3rem 0; }
+.lab-measure-answer, .lab-compare-out, .lab-scenario-result, .lab-claim-result { margin: .5rem 0 0; padding: .6rem .75rem; border: 1px dashed var(--line); border-radius: .45rem; color: var(--text-secondary); font-size: .86rem; line-height: 1.55; }
+.lab-scenario-field, .lab-claim-field { display: grid; gap: .3rem; margin: .3rem 0; }
+.lab-claim-field select { padding: .4rem .5rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--field-bg); color: var(--text); font: inherit; max-width: 100%; }
 .lab-scenario-goals { margin: .4rem 0 .6rem; padding-left: 1.2rem; color: var(--text-secondary); font-size: .86rem; line-height: 1.5; }
+.lab-claim-statement { margin: .3rem 0 .6rem; padding: .6rem .75rem; border-left: 3px solid var(--cyan); background: var(--surface-inset); font-weight: 600; color: var(--text); }
+.lab-claim-choice { display: flex; gap: 1rem; margin: .3rem 0 .6rem; }
+.lab-claim-choice label { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; }
+.lab-claim-tool textarea { width: 100%; margin: .3rem 0 .6rem; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--field-bg); color: var(--text); font: inherit; resize: vertical; }
 .lab-prediction-comparison { margin: .8rem 0 0; padding: .8rem .9rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface-inset); }
 .lab-compare-lead { margin: 0 0 .5rem; color: var(--text-secondary); line-height: 1.55; }
 .lab-compare-table { width: 100%; border-collapse: collapse; font-size: .86rem; }

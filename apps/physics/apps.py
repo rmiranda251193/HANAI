@@ -38,5 +38,6 @@ class PhysicsConfig(AppConfig):
         # equation catalogs (data only -- no models, no migrations).
         from . import visualization_registry  # noqa: F401
         from . import lab_scenarios  # noqa: F401
+        from . import claim_catalog  # noqa: F401
         from . import domain_catalog  # noqa: F401
         from . import equation_catalog  # noqa: F401

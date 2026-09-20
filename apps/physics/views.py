@@ -22,6 +22,7 @@ from .depth_layers import depth_layers_for
 from .domain_catalog import all_domains, domain_for_topic, get_domain
 from .equation_catalog import equations_for_concept
 from .hands_on_experiments import hands_on_experiment_for
+from .claim_catalog import claims_for, get_claim
 from .lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
 from .level_catalog import all_levels, get_level, level_range_for_difficulty
 from .models import PhysicsConcept, PhysicsSimulation
@@ -312,6 +313,7 @@ def physics_lab_detail(request, slug):
         field: {"min": lo, "max": hi} for field, (lo, hi) in definition.bounds.items()
     }
     _scenario_list = [s.as_client_dict for s in scenarios_for(simulation.simulation_type)]
+    _claim_list = [c.as_client_dict for c in claims_for(simulation.simulation_type)]
     visualization = get_visualization(simulation.simulation_type)
     context = {
         "simulation": simulation,
@@ -326,6 +328,8 @@ def physics_lab_detail(request, slug):
         "visualization": visualization,
         "scenarios": _scenario_list,
         "scenarios_json": json.dumps({s["scenario_id"]: s for s in _scenario_list}),
+        "claims": _claim_list,
+        "claims_json": json.dumps({c["claim_id"]: c for c in _claim_list}),
         "preview": preview,
         "hands_on": hands_on_experiment_for(simulation.simulation_type),
         # Bootstrap payload for the optional React island (static/react/lab.js).
@@ -411,6 +415,38 @@ def experiment_scenario_check(request, slug, scenario_id):
                 if result["met"]
                 else "Not there yet -- adjust the values and check again."
             ),
+        }
+    )
+
+
+@require_POST
+def experiment_claim_check(request, slug, claim_id):
+    """Server-authoritative "Challenge the AI" verdict. Persists nothing.
+
+    The ground truth (``is_true``) and the explanation both come from the
+    fixed, code-reviewed claim catalog -- never from the POST body, and
+    never decided by an AI/LLM call. The student's own yes/no judgement is
+    the only untrusted input; a forged ``is_true``/``matched``/``correct``
+    field in the request changes nothing. Exactly like the scenario
+    checker, nothing here is recorded as learning evidence -- this is a
+    short reasoning warm-up, not a graded assessment.
+    """
+
+    simulation = _active_simulation(slug)
+    claim = get_claim(claim_id)
+    if claim is None or claim.simulation_type != simulation.simulation_type:
+        raise Http404("That claim is not available.")
+
+    answered_true = request.POST.get("answer") == "true"
+    matched = answered_true == claim.is_true
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "claim_id": claim.claim_id,
+            "is_true": claim.is_true,
+            "matched": matched,
+            "explanation": claim.explanation,
         }
     )
 

@@ -5,10 +5,11 @@
  * kinematics.js already dispatches (server-mirrored values, re-validated on the
  * server at submit time) and drives: the live HUD, the state inspector, the
  * vector inspector, the motion trail (2D), the measurement tool, the
- * two-experiment comparison, and the scenario-challenge checker. It computes no
- * authoritative Physics -- comparison/measurement use the same exported
- * `PhysicsLab.Kinematics.computeState` that mirrors the Python model, and the
- * challenge check is answered by the server.
+ * two-experiment comparison, the scenario-challenge checker, and the
+ * "Challenge the AI" claim checker. It computes no authoritative Physics --
+ * comparison/measurement use the same exported `PhysicsLab.Kinematics.computeState`
+ * that mirrors the Python model, and both the scenario check and the claim's
+ * ground truth are answered by the server, never guessed client-side.
  */
 (function (window, document) {
   "use strict";
@@ -299,6 +300,70 @@
           })
           .catch(function () { scenario.result.textContent = "Could not reach the server."; })
           .then(function () { scenario.check.disabled = false; });
+      });
+    }
+
+    // --- "Challenge the AI" claim checker -----------------
+    // Reveals neither the ground truth nor the explanation until the
+    // student has picked True/False and written their own reasoning --
+    // the point is committing to a judgement first, the same principle
+    // the Predict step already uses.
+    var claim = {
+      select: q(instrument, "[data-claim-select]"),
+      statement: q(instrument, "[data-claim-statement]"),
+      reasoning: q(instrument, "[data-claim-reasoning]"),
+      check: q(instrument, "[data-claim-check]"),
+      result: q(instrument, "[data-claim-result]")
+    };
+    var claimData = {};
+    try {
+      claimData = JSON.parse(instrument.getAttribute("data-claims") || "{}");
+    } catch (e) { claimData = {}; }
+    var claimCheckBase = instrument.getAttribute("data-claim-check-base") || "";
+
+    function claimAnswerInputs() {
+      return qa(instrument, "input[name='lab-claim-answer']");
+    }
+    function renderClaim() {
+      if (!claim.select) return;
+      var c = claimData[claim.select.value];
+      if (!c) return;
+      if (claim.statement) claim.statement.textContent = c.statement;
+      claimAnswerInputs().forEach(function (i) { i.checked = false; });
+      if (claim.reasoning) claim.reasoning.value = "";
+      if (claim.result) claim.result.textContent = "";
+    }
+    if (claim.select) {
+      claim.select.addEventListener("change", renderClaim);
+      renderClaim();
+    }
+    if (claim.check && claim.result) {
+      claim.check.addEventListener("click", function () {
+        if (!claim.select || !claimCheckBase) return;
+        var chosen = claimAnswerInputs().filter(function (i) { return i.checked; })[0];
+        if (!chosen) {
+          claim.result.textContent = "Choose True or False first.";
+          return;
+        }
+        var url = claimCheckBase.replace("CLAIM_ID", encodeURIComponent(claim.select.value));
+        var body = new FormData();
+        body.append("csrfmiddlewaretoken", csrfToken());
+        body.append("answer", chosen.value);
+        claim.check.disabled = true;
+        claim.result.textContent = "Checking on the server…";
+        fetch(url, { method: "POST", credentials: "same-origin", headers: { "X-Requested-With": "fetch" }, body: body })
+          .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+          .then(function (payload) {
+            if (payload && payload.ok) {
+              var verdict = payload.matched ? "You judged this correctly." : "Not quite.";
+              var truth = "The claim is actually " + (payload.is_true ? "TRUE" : "FALSE") + ".";
+              claim.result.textContent = verdict + " " + truth + " " + payload.explanation;
+            } else {
+              claim.result.textContent = (payload && payload.error) || "Could not check that.";
+            }
+          })
+          .catch(function () { claim.result.textContent = "Could not reach the server."; })
+          .then(function () { claim.check.disabled = false; });
       });
     }
 

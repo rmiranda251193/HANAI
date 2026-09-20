@@ -16,6 +16,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from apps.physics.claim_catalog import claims_for, get_claim
 from apps.physics.lab_scenarios import evaluate_scenario, get_scenario, scenarios_for
 from apps.physics.models import PhysicsConcept, PhysicsSimulation
 from apps.students.experiment_services import record_experiment_prediction
@@ -135,6 +136,70 @@ class ScenarioCheckerTests(TestCase):
             self.assertNotIn("tolerance", json.dumps(s.as_client_dict))
 
 
+class ClaimCheckerTests(TestCase):
+    """"Challenge the AI" -- reasoning-first, deterministic ground truth,
+    persists nothing, exactly like the scenario checker."""
+
+    def setUp(self):
+        self.sim = _kinematics_sim()
+        self.url = lambda cid: reverse(
+            "physics_lab:experiment_claim_check", args=[self.sim.slug, cid]
+        )
+
+    def test_ground_truth_is_never_ai_or_client_decided(self):
+        for c in claims_for("kinematics"):
+            for value in vars(c).values():
+                self.assertNotIn(type(value).__name__, {"function", "type", "code"})
+            self.assertIsInstance(c.is_true, bool)
+
+    def test_client_dict_never_reveals_the_answer(self):
+        for c in claims_for("kinematics"):
+            payload = json.dumps(c.as_client_dict)
+            self.assertNotIn("is_true", payload)
+            self.assertNotIn(c.explanation, payload)
+
+    def test_endpoint_reports_whether_the_students_answer_matched(self):
+        c = get_claim("acceleration-means-speeding-up")
+        self.assertFalse(c.is_true)
+        correct = self.client.post(self.url(c.claim_id), {"answer": "false"})
+        self.assertEqual(correct.status_code, 200)
+        payload = correct.json()
+        self.assertTrue(payload["matched"])
+        self.assertIs(payload["is_true"], False)
+        self.assertTrue(payload["explanation"])
+
+        wrong = self.client.post(self.url(c.claim_id), {"answer": "true"})
+        self.assertFalse(wrong.json()["matched"])
+
+    def test_endpoint_ignores_a_forged_matched_or_is_true_field(self):
+        c = get_claim("acceleration-means-speeding-up")
+        response = self.client.post(
+            self.url(c.claim_id),
+            {"answer": "true", "matched": "true", "is_true": "true", "correct": "true"},
+        )
+        payload = response.json()
+        self.assertIs(payload["is_true"], False)  # the real, catalogued ground truth
+        self.assertFalse(payload["matched"])       # "true" really was the wrong answer
+
+    def test_true_claim_is_also_represented_not_only_false_ones(self):
+        true_claims = [c for c in claims_for("kinematics") if c.is_true]
+        self.assertGreaterEqual(len(true_claims), 1)
+
+    def test_endpoint_persists_nothing(self):
+        before = (ExperimentAttempt.objects.count(), LearningEvidence.objects.count())
+        self.client.post(
+            self.url("acceleration-means-speeding-up"), {"answer": "false"}
+        )
+        after = (ExperimentAttempt.objects.count(), LearningEvidence.objects.count())
+        self.assertEqual(before, after)
+
+    def test_unknown_claim_or_wrong_simulation_is_404(self):
+        self.assertEqual(self.client.post(self.url("does-not-exist")).status_code, 404)
+        self.assertEqual(
+            self.client.get(self.url("acceleration-means-speeding-up")).status_code, 405
+        )
+
+
 @override_settings(AI_PROVIDER="fake")
 class KinematicsInstrumentPageTests(TestCase):
     def setUp(self):
@@ -176,6 +241,23 @@ class KinematicsInstrumentPageTests(TestCase):
         self.assertIn("reach-20-at-4", data)
         self.assertNotIn("tolerance", m.group(1))
         self.assertIn("/scenario/SCENARIO_ID/check/", body)
+
+    def test_claims_json_is_valid_and_check_base_has_the_placeholder(self):
+        body = self._body()
+        import re
+
+        m = re.search(r"data-claims='([^']*)'", body)
+        self.assertIsNotNone(m)
+        data = json.loads(m.group(1).replace("&quot;", '"').replace("&#x27;", "'"))
+        self.assertIn("acceleration-means-speeding-up", data)
+        # never leaks the ground truth or explanation into the page markup
+        self.assertNotIn("is_true", m.group(1))
+        for c in claims_for("kinematics"):
+            self.assertNotIn(c.explanation, body)
+        self.assertIn("/claim/CLAIM_ID/check/", body)
+        self.assertIn("data-claim-select", body)
+        self.assertIn("data-claim-check", body)
+        self.assertIn("Challenge the AI", body)
 
     def test_structured_prediction_fields_and_comparison_region(self):
         body = self._body()
@@ -293,6 +375,10 @@ class InstrumentJsSafetyTests(TestCase):
             self.assertNotRegex(src, r"\bnew\s+Function\s*\(")
             self.assertNotRegex(src, r"\.innerHTML\s*=")
             self.assertNotRegex(src, r"\bdocument\.write\s*\(")
+
+    def test_claim_check_url_is_built_by_placeholder_substitution_only(self):
+        src = self._js("lab-instrument.js")
+        self.assertIn('replace("CLAIM_ID"', src)
 
     def test_scenario_check_url_is_built_by_placeholder_substitution_only(self):
         src = self._js("lab-instrument.js")
