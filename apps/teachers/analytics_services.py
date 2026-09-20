@@ -293,6 +293,14 @@ class SimulationRow:
 
 
 @dataclass(frozen=True)
+class ScenarioRow:
+    scenario: str
+    attempts: int
+    target_achieved: int
+    achievement_label: str
+
+
+@dataclass(frozen=True)
 class AttentionRow:
     student_id: int
     student: str
@@ -313,6 +321,7 @@ class AnalyticsSnapshot:
     practice_summary: tuple[CountRow, ...]
     physics_lab_summary: tuple[CountRow, ...]
     simulation_usage: tuple[SimulationRow, ...]
+    scenario_summary: tuple[ScenarioRow, ...]
     tutor_summary: tuple[CountRow, ...]
     activity_type_summary: tuple[CountRow, ...]
     attention_signals: tuple[AttentionRow, ...]
@@ -629,6 +638,35 @@ def get_cohort_analytics(filters: AnalyticsFilters) -> AnalyticsSnapshot:
         )
     )
 
+    # --- teacher-authored scenario challenges (Scenario Studio) -----
+    # These checks record a compact LearningEvidence row (kind
+    # EXPERIMENT_OBSERVED, a "scenario" key in context) rather than an
+    # ExperimentAttempt, so they are counted here rather than folded into
+    # physics_lab_summary above. Not lesson/concept filtered: a scenario
+    # check is not itself tagged with the lesson it may have been launched
+    # from -- see the "notes" disclosure below.
+    scenario_rows_raw = list(
+        LearningEvidence.objects.filter(
+            Q(student_id__in=student_ids) & ev_window("created_at"),
+            kind=_Kind.EXPERIMENT_OBSERVED,
+            context__has_key="scenario",
+        )
+        .values("context__scenario", "context__scenario_title")
+        .annotate(
+            attempts=Count("id"),
+            target_achieved=_sum_case(Q(context__result=True)),
+        )
+    )
+    scenario_summary = tuple(
+        ScenarioRow(
+            scenario=r["context__scenario_title"] or r["context__scenario"],
+            attempts=r["attempts"],
+            target_achieved=r["target_achieved"] or 0,
+            achievement_label=_rate_label(r["target_achieved"] or 0, r["attempts"], unit="attempts"),
+        )
+        for r in sorted(scenario_rows_raw, key=lambda r: -r["attempts"])
+    )
+
     # --- tutor (aggregate only, never conversation content) -------
     tutor_sessions = (
         TutorSession.objects.filter(
@@ -740,6 +778,9 @@ def get_cohort_analytics(filters: AnalyticsFilters) -> AnalyticsSnapshot:
         "score, a grade, or a prediction.",
         "Per-activity launch/completion is not tracked at the lesson-activity "
         "level; activity composition is shown instead.",
+        "Scenario challenge attempts are not filtered by lesson or concept: a "
+        "check is not itself tagged with the lesson it may have been "
+        "launched from.",
     )
 
     return AnalyticsSnapshot(
@@ -754,6 +795,7 @@ def get_cohort_analytics(filters: AnalyticsFilters) -> AnalyticsSnapshot:
         practice_summary=practice_summary,
         physics_lab_summary=physics_lab_summary,
         simulation_usage=simulation_usage,
+        scenario_summary=scenario_summary,
         tutor_summary=tutor_summary,
         activity_type_summary=activity_type_summary,
         attention_signals=attention_signals,

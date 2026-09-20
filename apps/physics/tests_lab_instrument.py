@@ -91,15 +91,19 @@ class ScenarioCheckerTests(TestCase):
 
     def test_evaluate_scenario_is_deterministic_and_clamps(self):
         s = get_scenario("reach-20-at-4")
+
+        def check(**parameters):
+            return evaluate_scenario(s, parameters=parameters)["met"]
+
         self.assertTrue(
-            evaluate_scenario(s, initial_position=0, initial_velocity=3, acceleration=1)["met"]
+            check(initial_position_m=0, initial_velocity_m_s=3, acceleration_m_s2=1)
         )
         self.assertFalse(
-            evaluate_scenario(s, initial_position=0, initial_velocity=3, acceleration=2)["met"]
+            check(initial_position_m=0, initial_velocity_m_s=3, acceleration_m_s2=2)
         )
         # forged huge values are clamped by the model, cannot pass
         self.assertFalse(
-            evaluate_scenario(s, initial_position=9e9, initial_velocity=9e9, acceleration=9e9)["met"]
+            check(initial_position_m=9e9, initial_velocity_m_s=9e9, acceleration_m_s2=9e9)
         )
 
     def test_endpoint_is_server_authoritative_and_ignores_forged_completion(self):

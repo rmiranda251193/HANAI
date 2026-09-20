@@ -299,8 +299,8 @@ class PhysicsScenario(models.Model):
     -- ``initial_state`` and ``target_condition`` are plain, validated JSON,
     never a formula or expression.
 
-    Deliberately scoped to Kinematics only for now (the only simulation type
-    ``lab_scenarios.py``'s deterministic checker actually supports) -- see
+    Deliberately scoped to the simulation types ``lab_scenarios.py``'s
+    deterministic checker actually supports -- see
     ``apps.physics.scenario_services.TEACHER_SCENARIO_SUPPORTED_TYPES``.
     """
 

@@ -63,7 +63,7 @@
               {% endfor %}
             </select>
           </div>
-          <p class="tw-signals-note">Scenario Studio currently supports Kinematics. More simulation types are added one at a time as their own deterministic checker is written.</p>
+          <p class="tw-signals-note">Scenario Studio currently supports Kinematics and Newton's Second Law. More simulation types are added one at a time as their own deterministic checker is written.</p>
           <div class="form-actions">
             <button type="submit" name="action" value="choose_simulation" formnovalidate class="button button-secondary">Load fields for this simulation</button>
           </div>
@@ -122,7 +122,7 @@
             </select>
           </div>
           <div class="form-field">
-            <label for="sf-target-field">Variable <span class="tw-optional">(not used for "Reverses direction")</span></label>
+            <label for="sf-target-field">Variable{% if supports_reverses %} <span class="tw-optional">(not used for "Reverses direction")</span>{% endif %}</label>
             <select id="sf-target-field" name="target_field">
               <option value="">&mdash; choose &mdash;</option>
               {% for value, label in target_field_choices %}

@@ -288,6 +288,24 @@
     {% endif %}
   </section>
 
+  <section class="surface-card" aria-labelledby="tw-analytics-scenario-title">
+    <p class="card-label">Scenario Studio insights</p>
+    <h2 id="tw-analytics-scenario-title">Teacher-authored scenario challenges</h2>
+    {% if snapshot.scenario_summary %}
+      <table class="tw-analytics-table">
+        <caption class="visually-hidden">Teacher-authored scenario challenge attempts</caption>
+        <thead><tr><th scope="col">Scenario</th><th scope="col">Attempts</th><th scope="col">Target achieved</th></tr></thead>
+        <tbody>
+          {% for row in snapshot.scenario_summary %}
+            <tr><th scope="row">{{ row.scenario }}</th><td>{{ row.attempts }}</td><td>{{ row.achievement_label }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="tw-analytics-lede">No scenario challenge attempts in this range yet.</p>
+    {% endif %}
+  </section>
+
   <section class="surface-card" aria-labelledby="tw-analytics-tutor-title">
     <p class="card-label">Tutor insights</p>
     <h2 id="tw-analytics-tutor-title">Tutor use (aggregate only)</h2>

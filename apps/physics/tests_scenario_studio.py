@@ -21,10 +21,12 @@ from apps.ai.providers import FakeAIProvider
 from apps.physics import scenario_services as services
 from apps.physics.lab_scenarios import (
     TEACHER_SCENARIO_PREFIX,
+    allowed_target_kinds,
     evaluate_scenario,
     get_scenario,
     scenarios_for,
     to_lab_scenario,
+    value_fields_for,
 )
 from apps.physics.models import PhysicsConcept, PhysicsScenario, PhysicsSimulation
 from apps.students.models import ExperimentAttempt, LearningEvidence, StudentProfile
@@ -48,13 +50,27 @@ def _kinematics_sim(*, title="Kinematics -- Straight-Line Motion", is_active=Tru
     )
 
 
-def _newtons_second_law_sim():
-    concept = PhysicsConcept.objects.create(
-        name="Force", description="A push or pull.", topic="Dynamics"
+def _newtons_second_law_sim(*, title="Newton's Second Law Lab"):
+    concept, _ = PhysicsConcept.objects.get_or_create(
+        name="Force", defaults={"description": "A push or pull.", "topic": "Dynamics"}
     )
     return PhysicsSimulation.objects.create(
-        concept=concept, title="Newton's Second Law Lab",
+        concept=concept, title=title,
         simulation_type=PhysicsSimulation.SimulationType.NEWTONS_SECOND_LAW,
+    )
+
+
+def _projectile_sim():
+    # Registered (so get_simulation_definition finds it) but not yet a
+    # Scenario Studio-supported type -- the negative example for "this
+    # simulation type is not scoped in yet", now that both Kinematics and
+    # Newton's Second Law are supported.
+    concept = PhysicsConcept.objects.create(
+        name="Projectile Motion", description="2D motion under gravity.", topic="Kinematics"
+    )
+    return PhysicsSimulation.objects.create(
+        concept=concept, title="Projectile Motion Lab",
+        simulation_type=PhysicsSimulation.SimulationType.PROJECTILE_MOTION,
     )
 
 
@@ -204,9 +220,14 @@ class ScenarioValidationTests(TestCase):
             services._resolve_simulation(inactive.pk)
 
     def test_unsupported_simulation_type_is_rejected(self):
-        n2l = _newtons_second_law_sim()
+        projectile = _projectile_sim()
         with self.assertRaises(services.ScenarioError):
-            services._resolve_simulation(n2l.pk)
+            services._resolve_simulation(projectile.pk)
+
+    def test_newtons_second_law_simulation_is_supported(self):
+        n2l = _newtons_second_law_sim()
+        resolved = services._resolve_simulation(n2l.pk)
+        self.assertEqual(resolved.pk, n2l.pk)
 
 
 class ScenarioServiceCrudTests(TestCase):
@@ -418,7 +439,8 @@ class ScenarioCheckerIntegrationTests(TestCase):
         )
         lab_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}")
         result = evaluate_scenario(
-            lab_scenario, initial_position=0, initial_velocity=10, acceleration=-2
+            lab_scenario,
+            parameters={"initial_position_m": 0, "initial_velocity_m_s": 10, "acceleration_m_s2": -2},
         )
         self.assertTrue(result["met"])
 
@@ -434,7 +456,8 @@ class ScenarioCheckerIntegrationTests(TestCase):
         )
         lab_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}")
         result = evaluate_scenario(
-            lab_scenario, initial_position=0, initial_velocity=2, acceleration=1
+            lab_scenario,
+            parameters={"initial_position_m": 0, "initial_velocity_m_s": 2, "acceleration_m_s2": 1},
         )
         self.assertTrue(result["met"])
         self.assertAlmostEqual(
@@ -455,10 +478,16 @@ class ScenarioCheckerIntegrationTests(TestCase):
         gt_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{gt.slug}")
         lt_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{lt.slug}")
         self.assertTrue(
-            evaluate_scenario(gt_scenario, initial_position=0, initial_velocity=5, acceleration=1)["met"]
+            evaluate_scenario(
+                gt_scenario,
+                parameters={"initial_position_m": 0, "initial_velocity_m_s": 5, "acceleration_m_s2": 1},
+            )["met"]
         )
         self.assertTrue(
-            evaluate_scenario(lt_scenario, initial_position=0, initial_velocity=5, acceleration=-1)["met"]
+            evaluate_scenario(
+                lt_scenario,
+                parameters={"initial_position_m": 0, "initial_velocity_m_s": 5, "acceleration_m_s2": -1},
+            )["met"]
         )
 
     def test_forged_huge_values_are_clamped_and_cannot_cheat(self):
@@ -468,15 +497,171 @@ class ScenarioCheckerIntegrationTests(TestCase):
         )
         lab_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}")
         result = evaluate_scenario(
-            lab_scenario, initial_position=9e9, initial_velocity=9e9, acceleration=9e9
+            lab_scenario,
+            parameters={"initial_position_m": 9e9, "initial_velocity_m_s": 9e9, "acceleration_m_s2": 9e9},
         )
         self.assertFalse(result["met"])
 
     def test_built_in_scenarios_are_unaffected_regression(self):
         s = get_scenario("reach-20-at-4")
         self.assertTrue(
-            evaluate_scenario(s, initial_position=0, initial_velocity=3, acceleration=1)["met"]
+            evaluate_scenario(
+                s,
+                parameters={"initial_position_m": 0, "initial_velocity_m_s": 3, "acceleration_m_s2": 1},
+            )["met"]
         )
+
+
+class NewtonsSecondLawScenarioTests(TestCase):
+    """The second Scenario Studio simulation type. Newton's Second Law has no
+    free "initial velocity" -- the object always starts from rest, so under
+    the constant acceleration a = F/m, v = a*t and x = 1/2 * a * t^2."""
+
+    def setUp(self):
+        self.sim = _newtons_second_law_sim()
+        self.teacher = User.objects.create_user("teach", password=PW, is_staff=True)
+
+    def _active_scenario(self, *, initial_state, target_condition, title="N2L scenario"):
+        scenario = services.create_scenario(
+            teacher=self.teacher, title=title, simulation_id=self.sim.pk,
+            instructions="x", initial_state=initial_state, target_condition=target_condition,
+        )
+        services.set_scenario_status(
+            scenario_id=scenario.pk, teacher=self.teacher, status=PhysicsScenario.Status.ACTIVE
+        )
+        scenario.refresh_from_db()
+        return scenario
+
+    def test_simulation_is_supported(self):
+        resolved = services._resolve_simulation(self.sim.pk)
+        self.assertEqual(resolved.pk, self.sim.pk)
+
+    def test_value_fields_exclude_mass_and_force(self):
+        fields = value_fields_for("newtons_second_law")
+        self.assertEqual(fields, {"acceleration_m_s2", "velocity_m_s", "position_m"})
+
+    def test_reverses_kind_is_not_offered_for_newtons_second_law(self):
+        self.assertNotIn("reverses", allowed_target_kinds("newtons_second_law"))
+        self.assertIn("reverses", allowed_target_kinds("kinematics"))
+
+    def test_reverses_target_is_rejected_for_newtons_second_law(self):
+        with self.assertRaises(services.ScenarioError):
+            services._validate_target_condition("newtons_second_law", {"kind": "reverses"})
+
+    def test_acceleration_target_manual_example(self):
+        # mass = 2 kg, force = 10 N -> a = 5 m/s^2, constant regardless of time.
+        scenario = self._active_scenario(
+            initial_state={"mass_kg": 2, "force_n": 10},
+            target_condition={
+                "kind": "value", "field": "acceleration_m_s2", "at_time_s": 0,
+                "target": 5, "tolerance": 0.1,
+            },
+        )
+        lab_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}")
+        result = evaluate_scenario(lab_scenario, parameters={"mass_kg": 2, "force_n": 10})
+        self.assertTrue(result["met"])
+
+    def test_velocity_at_time_target_manual_example(self):
+        # mass = 2 kg, force = 10 N -> a = 5 m/s^2 -> v(2) = 10 m/s.
+        scenario = self._active_scenario(
+            initial_state={"mass_kg": 2, "force_n": 10},
+            target_condition={
+                "kind": "value", "field": "velocity_m_s", "at_time_s": 2,
+                "target": 10, "tolerance": 0.1,
+            },
+        )
+        lab_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}")
+        result = evaluate_scenario(lab_scenario, parameters={"mass_kg": 2, "force_n": 10})
+        self.assertTrue(result["met"])
+
+    def test_position_at_time_target_manual_example(self):
+        # mass = 2 kg, force = 10 N -> a = 5 m/s^2 -> x(2) = 0.5*5*4 = 10 m.
+        scenario = self._active_scenario(
+            initial_state={"mass_kg": 2, "force_n": 10},
+            target_condition={
+                "kind": "within_range", "field": "position_m", "at_time_s": 2,
+                "range_min": 9, "range_max": 11,
+            },
+        )
+        lab_scenario = get_scenario(f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}")
+        result = evaluate_scenario(lab_scenario, parameters={"mass_kg": 2, "force_n": 10})
+        self.assertTrue(result["met"])
+
+    def test_forged_zero_mass_is_rejected_not_a_server_error(self):
+        scenario = self._active_scenario(
+            initial_state={"mass_kg": 2, "force_n": 10},
+            target_condition={
+                "kind": "value", "field": "acceleration_m_s2", "at_time_s": 0,
+                "target": 5, "tolerance": 0.1,
+            },
+        )
+        url = reverse(
+            "physics_lab:experiment_scenario_check",
+            args=[self.sim.slug, f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}"],
+        )
+        response = self.client.post(url, {"mass_kg": "0", "force_n": "10"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_end_to_end_check_endpoint(self):
+        scenario = self._active_scenario(
+            initial_state={"mass_kg": 2, "force_n": 10},
+            target_condition={
+                "kind": "value", "field": "velocity_m_s", "at_time_s": 2,
+                "target": 10, "tolerance": 0.5,
+            },
+        )
+        url = reverse(
+            "physics_lab:experiment_scenario_check",
+            args=[self.sim.slug, f"{TEACHER_SCENARIO_PREFIX}{scenario.slug}"],
+        )
+        response = self.client.post(url, {"mass_kg": "2", "force_n": "10"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["met"])
+
+    def test_scenario_appears_in_scenarios_for_and_lab_page(self):
+        self._active_scenario(
+            initial_state={"mass_kg": 2, "force_n": 10},
+            target_condition={
+                "kind": "value", "field": "acceleration_m_s2", "at_time_s": 0,
+                "target": 5, "tolerance": 0.1,
+            },
+        )
+        ids = {s.scenario_id for s in scenarios_for("newtons_second_law")}
+        self.assertTrue(any(sid.startswith(TEACHER_SCENARIO_PREFIX) for sid in ids))
+
+    def test_ai_suggestion_for_newtons_second_law_validates_with_the_same_rules(self):
+        provider = FakeAIProvider(response=json.dumps({
+            "title": "Reach cruising speed", "description": "d", "instructions": "i",
+            "initial_state": {"mass_kg": 2, "force_n": 10},
+            "target_kind": "value", "target_field": "velocity_m_s",
+            "target_value": 10, "tolerance": 0.5, "at_time_s": 2,
+        }))
+        draft = services.suggest_scenario_draft(
+            teacher_request="Reach a cruising speed.", simulation_id=self.sim.pk, provider=provider,
+        )
+        self.assertEqual(draft["initial_state"], {"mass_kg": 2.0, "force_n": 10.0})
+        self.assertEqual(draft["target_condition"]["field"], "velocity_m_s")
+
+    def test_ai_suggestion_rejects_reverses_for_newtons_second_law(self):
+        provider = FakeAIProvider(response=json.dumps({
+            "title": "Bad", "description": "d", "instructions": "i",
+            "initial_state": {"mass_kg": 2, "force_n": 10},
+            "target_kind": "reverses",
+        }))
+        with self.assertRaises(services.ScenarioError):
+            services.suggest_scenario_draft(
+                teacher_request="x", simulation_id=self.sim.pk, provider=provider,
+            )
+
+    def test_form_shows_mass_and_force_fields_and_hides_reverses_option(self):
+        self.client.login(username=self.teacher.username, password=PW)
+        body = self.client.post(
+            reverse("teachers:scenario_create"),
+            {"action": "choose_simulation", "simulation_id": str(self.sim.pk)},
+        ).content.decode()
+        self.assertIn('id="sf-initial-mass_kg"', body)
+        self.assertIn('id="sf-initial-force_n"', body)
+        self.assertNotIn('value="reverses"', body)
 
 
 @override_settings(AI_PROVIDER="fake")

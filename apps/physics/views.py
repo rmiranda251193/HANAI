@@ -395,11 +395,13 @@ def _serialize_experiment_attempt(attempt):
 def experiment_scenario_check(request, slug, scenario_id):
     """Server-authoritative check of a scenario challenge. Persists nothing.
 
-    The browser sends only the parameters the student chose. The server clamps
-    them and reconstructs the outcome with the deterministic Kinematics model,
-    so ``completed=true`` / ``score=100`` in the body can never pass a check.
-    The durable learning evidence for a challenge is the explanation the student
-    submits through the normal Explain step.
+    The browser sends only the parameters the student chose, keyed by the
+    simulation's own registered ``input_fields`` -- the server clamps them and
+    reconstructs the outcome with that simulation's own deterministic model
+    (``lab_scenarios.evaluate_scenario``), so ``completed=true`` / ``score=100``
+    in the body can never pass a check. The durable learning evidence for a
+    challenge is the explanation the student submits through the normal
+    Explain step.
     """
 
     simulation = _active_simulation(slug)
@@ -407,13 +409,13 @@ def experiment_scenario_check(request, slug, scenario_id):
     if scenario is None or scenario.simulation_type != simulation.simulation_type:
         raise Http404("That challenge is not available.")
 
+    definition = get_simulation_definition(simulation.simulation_type)
+    parameters = {
+        field: request.POST.get(field, 0)
+        for field in (definition.input_fields if definition is not None else ())
+    }
     try:
-        result = evaluate_scenario(
-            scenario,
-            initial_position=request.POST.get("initial_position_m", 0),
-            initial_velocity=request.POST.get("initial_velocity_m_s", 0),
-            acceleration=request.POST.get("acceleration_m_s2", 0),
-        )
+        result = evaluate_scenario(scenario, parameters=parameters)
     except (TypeError, ValueError):
         return JsonResponse(
             {"ok": False, "error": "Those parameters are not valid numbers."}, status=400

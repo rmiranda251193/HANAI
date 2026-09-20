@@ -14,11 +14,12 @@ selected simulation's own registered bounds
 target kinds (``apps.physics.lab_scenarios.allowed_target_kinds`` /
 ``value_fields_for``).
 
-Deliberately scoped to Kinematics only for now -- see
-``TEACHER_SCENARIO_SUPPORTED_TYPES`` -- the one simulation type
-``lab_scenarios.py``'s deterministic checker actually supports. Extending
-this to another simulation type means teaching ``lab_scenarios.py`` that
-type's own state fields first, the same "grown one at a time" discipline
+Deliberately scoped to the simulation types ``lab_scenarios.py``'s
+deterministic checker actually supports -- see
+``TEACHER_SCENARIO_SUPPORTED_TYPES`` (Kinematics and Newton's Second Law so
+far). Extending this to another simulation type means teaching
+``lab_scenarios.py`` that type's own state fields first, via its
+``_STATE_BUILDERS`` registry -- the same "grown one at a time" discipline
 ``hands_on_experiments.py``/``depth_layers.py`` already use.
 """
 
@@ -41,9 +42,10 @@ from .lab_scenarios import (
 from .models import PhysicsScenario, PhysicsSimulation
 from .simulation_registry import get_simulation_definition
 
-# The one simulation type the deterministic checker actually understands
-# today. A teacher may only build a scenario for one of these.
-TEACHER_SCENARIO_SUPPORTED_TYPES = frozenset({"kinematics"})
+# The simulation types the deterministic checker actually understands today.
+# A teacher may only build a scenario for one of these -- extended one type
+# at a time as lab_scenarios.py's own state-builder registry grows.
+TEACHER_SCENARIO_SUPPORTED_TYPES = frozenset({"kinematics", "newtons_second_law"})
 
 TITLE_MAX = 200
 DESCRIPTION_MAX = 2000
@@ -72,6 +74,11 @@ TARGET_FIELD_LABELS = {
         "position_m": "Position (m)",
         "velocity_m_s": "Velocity (m/s)",
         "acceleration_m_s2": "Acceleration (m/s²)",
+    },
+    "newtons_second_law": {
+        "acceleration_m_s2": "Acceleration (m/s²)",
+        "velocity_m_s": "Velocity (m/s)",
+        "position_m": "Position (m)",
     },
 }
 
@@ -170,7 +177,7 @@ def _validate_target_condition(simulation_type: str, raw) -> dict:
         raise ScenarioError("Choose a success condition.")
 
     kind = str(raw.get("kind", "")).strip()
-    if kind not in allowed_target_kinds():
+    if kind not in allowed_target_kinds(simulation_type):
         raise ScenarioError("Choose a valid success condition type.")
 
     at_time_s = _as_float(raw.get("at_time_s", 0), "the target time")

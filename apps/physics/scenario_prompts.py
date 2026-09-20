@@ -33,7 +33,7 @@ def build_scenario_suggestion_prompt(*, teacher_request: str, simulation) -> Pro
     definition = get_simulation_definition(simulation.simulation_type)
     fields = list(definition.input_fields) if definition is not None else []
     target_fields = sorted(value_fields_for(simulation.simulation_type))
-    target_kinds = sorted(allowed_target_kinds())
+    target_kinds = sorted(allowed_target_kinds(simulation.simulation_type))
 
     system = f"""You are drafting a Physics Lab scenario for the "{simulation.title}" simulation.
 

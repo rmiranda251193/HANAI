@@ -32,8 +32,8 @@ def _simulation_choices():
     )
 
 
-def _target_kind_choices():
-    return [(k, TARGET_KIND_LABELS.get(k, k)) for k in sorted(allowed_target_kinds())]
+def _target_kind_choices(simulation_type):
+    return [(k, TARGET_KIND_LABELS.get(k, k)) for k in sorted(allowed_target_kinds(simulation_type))]
 
 
 def _target_field_choices(simulation_type):
@@ -121,6 +121,7 @@ def _scenario_form_context(request, *, scenario=None, error="", draft=None):
     # (name, value) pairing is done here, once, instead of adding a custom
     # template filter this codebase doesn't otherwise use anywhere.
     initial_state_rows = [{"name": f, "value": initial_state.get(f, "")} for f in input_fields]
+    target_kind_choices = _target_kind_choices(simulation_type)
 
     return {
         "scenario": scenario,
@@ -128,7 +129,8 @@ def _scenario_form_context(request, *, scenario=None, error="", draft=None):
         "simulation_choices": _simulation_choices(),
         "difficulty_choices": PhysicsScenario.Difficulty.choices,
         "category_choices": PhysicsScenario.Category.choices,
-        "target_kind_choices": _target_kind_choices(),
+        "target_kind_choices": target_kind_choices,
+        "supports_reverses": any(value == "reverses" for value, _ in target_kind_choices),
         "target_field_choices": _target_field_choices(simulation_type) if simulation_type else [],
         "input_fields": input_fields,
         "initial_state_rows": initial_state_rows,

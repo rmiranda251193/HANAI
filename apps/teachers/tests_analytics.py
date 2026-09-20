@@ -113,6 +113,21 @@ class AnalyticsDataMixin:
             ExperimentAttempt.objects.filter(pk=row.pk).update(started_at=when)
         return row
 
+    def add_scenario_evidence(self, student, *, scenario_slug="stop-the-cart",
+                              scenario_title="Stop the cart", met=True, lesson=None, when=None):
+        ev = LearningEvidence.objects.create(
+            student=student, lesson=lesson, kind=Kind.EXPERIMENT_OBSERVED,
+            detail="Scenario check",
+            context={
+                "scenario": scenario_slug, "scenario_title": scenario_title,
+                "simulation": "kinematics", "target_type": "value",
+                "target_field": "velocity_m_s", "result": met, "attempt_number": 1,
+            },
+        )
+        if when is not None:
+            LearningEvidence.objects.filter(pk=ev.pk).update(created_at=when)
+        return ev
+
     def add_assessment(self, concept, *, title="A1"):
         q = QuestionBankItem.objects.create(
             key=f"{title}-q", question_type="numeric", prompt="p",
@@ -314,6 +329,43 @@ class CohortServiceTests(AnalyticsDataMixin, TestCase):
         completion = next(r for r in snap.physics_lab_summary if r.label == "Completion rate")
         self.assertIn("1 of 2", completion.note)
 
+    def test_scenario_summary_is_empty_when_no_scenario_checks_exist(self):
+        self.full_fixture()
+        snap = get_cohort_analytics(resolve_analytics_filters({}))
+        self.assertEqual(snap.scenario_summary, ())
+
+    def test_scenario_summary_aggregates_attempts_and_achievement_by_scenario(self):
+        self.full_fixture()
+        self.add_scenario_evidence(self.s1, scenario_slug="stop-the-cart",
+                                   scenario_title="Stop the cart", met=False)
+        self.add_scenario_evidence(self.s1, scenario_slug="stop-the-cart",
+                                   scenario_title="Stop the cart", met=True)
+        self.add_scenario_evidence(self.s2, scenario_slug="reach-the-range",
+                                   scenario_title="Reach the range", met=True)
+        snap = get_cohort_analytics(resolve_analytics_filters({}))
+        by_title = {r.scenario: r for r in snap.scenario_summary}
+        self.assertEqual(by_title["Stop the cart"].attempts, 2)
+        self.assertEqual(by_title["Stop the cart"].target_achieved, 1)
+        self.assertIn("1 of 2", by_title["Stop the cart"].achievement_label)
+        self.assertEqual(by_title["Reach the range"].attempts, 1)
+        self.assertEqual(by_title["Reach the range"].target_achieved, 1)
+
+    def test_scenario_summary_is_scoped_by_student_filter(self):
+        self.full_fixture()
+        self.add_scenario_evidence(self.s1, met=True)
+        self.add_scenario_evidence(self.s2, met=False)
+        snap = get_cohort_analytics(resolve_analytics_filters({"student": str(self.s1.pk)}))
+        self.assertEqual(sum(r.attempts for r in snap.scenario_summary), 1)
+
+    def test_scenario_summary_is_scoped_by_date_range(self):
+        self.full_fixture()
+        self.add_scenario_evidence(self.s1, met=True, when=timezone.now() - timedelta(days=2))
+        self.add_scenario_evidence(self.s1, met=True, when=timezone.now() - timedelta(days=45))
+        recent = get_cohort_analytics(resolve_analytics_filters({"range": "7"}))
+        all_time = get_cohort_analytics(resolve_analytics_filters({"range": "all"}))
+        self.assertEqual(sum(r.attempts for r in recent.scenario_summary), 1)
+        self.assertEqual(sum(r.attempts for r in all_time.scenario_summary), 2)
+
     def test_recovery_started_and_completed_are_separate_from_resolution(self):
         self.full_fixture()
         # add a completed recovery whose misconception the teacher has NOT resolved
@@ -385,6 +437,8 @@ class CohortServiceTests(AnalyticsDataMixin, TestCase):
 
     def test_no_unsupported_mastery_or_risk_language_anywhere(self):
         self.full_fixture()
+        self.add_scenario_evidence(self.s1, met=True)
+        self.add_scenario_evidence(self.s2, met=False)
         snap = get_cohort_analytics(resolve_analytics_filters({}))
         banned = ("mastery", "at risk", "ability", "proficiency", "grade level score", "iq")
         haystacks = []
@@ -396,6 +450,8 @@ class CohortServiceTests(AnalyticsDataMixin, TestCase):
                 haystacks.append((row.label + " " + row.note).lower())
         for row in snap.assessment_summary:
             haystacks.append(row.avg_correct_label.lower())
+        for row in snap.scenario_summary:
+            haystacks.append((row.scenario + " " + row.achievement_label).lower())
         for row in snap.attention_signals:
             haystacks.append((row.band + " " + " ".join(row.signals)).lower())
         for text in haystacks:
@@ -411,6 +467,20 @@ class AuthorizationTests(AnalyticsDataMixin, TestCase):
     def test_teacher_can_open_dashboard(self):
         self.client.force_login(self.make_teacher())
         self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_dashboard_renders_scenario_studio_section(self):
+        self.full_fixture()
+        self.add_scenario_evidence(self.s1, scenario_title="Stop the cart", met=True)
+        self.client.force_login(self.make_teacher())
+        response = self.client.get(self.url)
+        self.assertContains(response, "Scenario Studio insights")
+        self.assertContains(response, "Stop the cart")
+
+    def test_dashboard_shows_empty_state_with_no_scenario_evidence(self):
+        self.full_fixture()
+        self.client.force_login(self.make_teacher())
+        response = self.client.get(self.url)
+        self.assertContains(response, "No scenario challenge attempts in this range yet.")
 
     def test_signed_in_student_is_refused(self):
         self.client.force_login(self.make_student_user())
@@ -489,13 +559,15 @@ class AuthorizationTests(AnalyticsDataMixin, TestCase):
 
 
 class QueryBudgetTests(AnalyticsDataMixin, TestCase):
-    # One bounded set of grouped aggregate queries. No query runs per student,
-    # per concept, or per misconception, so the count does not grow with cohort
-    # size or history length -- test_budget_does_not_grow_with_cohort pins that.
+    # One bounded set of grouped aggregate queries (including one for
+    # teacher-authored scenario challenge evidence). No query runs per
+    # student, per concept, or per misconception, so the count does not grow
+    # with cohort size or history length -- test_budget_does_not_grow_with_cohort
+    # pins that.
     def test_cohort_analytics_query_budget(self):
         self.full_fixture()
         filters = resolve_analytics_filters({})
-        with self.assertNumQueries(27):
+        with self.assertNumQueries(28):
             get_cohort_analytics(filters)
 
     def test_budget_does_not_grow_with_cohort_size(self):
@@ -509,7 +581,7 @@ class QueryBudgetTests(AnalyticsDataMixin, TestCase):
                               key=f"ex{i}")
             self.add_experiment(extra, self.sim, lesson=base_lesson, completed=bool(i % 2))
         filters = resolve_analytics_filters({})
-        with self.assertNumQueries(27):
+        with self.assertNumQueries(28):
             get_cohort_analytics(filters)
 
     def test_empty_cohort_query_budget(self):
