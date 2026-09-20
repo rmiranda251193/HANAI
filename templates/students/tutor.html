@@ -13,6 +13,16 @@
     <a class="text-link" href="{% url 'students:lessons' %}">All lessons</a>
   </section>
 
+  <form method="post" action="" class="tutor-socratic-toggle">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="toggle_socratic">
+    <label>
+      <input type="checkbox" name="socratic_mode" value="on" onchange="this.form.submit()" {% if session.socratic_mode %}checked{% endif %}>
+      Socratic mode &mdash; the tutor sticks to guiding questions instead of direct answers
+    </label>
+    <noscript><button type="submit" class="button button-secondary">Update</button></noscript>
+  </form>
+
   {% if tutor_error %}
     <section class="generation-message generation-message-error" role="alert">
       <p class="card-label">Physics tutor</p>

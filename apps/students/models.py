@@ -56,6 +56,14 @@ class TutorSession(models.Model):
         choices=Status.choices,
         default=Status.ACTIVE,
     )
+    socratic_mode = models.BooleanField(
+        default=False,
+        help_text=(
+            "When on, the tutor sticks to guiding questions instead of "
+            "direct answers/explanations for this session, even when asked "
+            "directly -- the student can still ask it to just explain."
+        ),
+    )
     started_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

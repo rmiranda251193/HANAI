@@ -235,6 +235,36 @@ class TutorRequestAndPromptTests(TutorDataMixin, TestCase):
         self.assertNotIn("Physics level:", prompt.user)
         self.assertIn("Respect the stated grade level", prompt.system)
 
+    def test_socratic_mode_off_by_default_uses_the_normal_tutoring_rules(self):
+        prompt = build_tutor_prompt(make_tutor_request())
+        self.assertNotIn("SOCRATIC MODE IS ON", prompt.system)
+        self.assertIn('mode "explain"', prompt.system)
+        self.assertIn('mode "solution"', prompt.system)
+
+    def test_socratic_mode_on_strengthens_the_question_first_rule(self):
+        prompt = build_tutor_prompt(make_tutor_request(socratic_mode=True))
+        self.assertIn("SOCRATIC MODE IS ON", prompt.system)
+        # the escape valve must still be present -- Section 27's own wording
+        # is "only reveal ... when appropriate", not "never".
+        self.assertIn("just explain", prompt.system.lower())
+
+    def test_tutor_request_from_session_reads_socratic_mode(self):
+        lesson = self.make_lesson()
+        session = self.make_session(lesson)
+        session.socratic_mode = True
+        session.save(update_fields=["socratic_mode"])
+
+        request = TutorRequest.from_session(session, student_question="x")
+
+        self.assertTrue(request.socratic_mode)
+
+    def test_tutor_request_from_session_defaults_socratic_mode_to_false(self):
+        session = self.make_session()
+
+        request = TutorRequest.from_session(session, student_question="x")
+
+        self.assertFalse(request.socratic_mode)
+
     def test_prompt_contains_recent_conversation(self):
         prompt = build_tutor_prompt(
             make_tutor_request(
@@ -387,6 +417,37 @@ class TutorViewTests(TutorDataMixin, TestCase):
         self.client.get(self.url)
 
         self.assertEqual(TutorMessage.objects.count(), 0)
+
+    def test_socratic_toggle_defaults_to_unchecked(self):
+        body = self.client.get(self.url).content.decode()
+        self.assertIn('name="socratic_mode"', body)
+        self.assertNotIn('name="socratic_mode" value="on" onchange="this.form.submit()" checked', body)
+
+    def test_socratic_toggle_turns_on_and_persists_across_requests(self):
+        response = self.client.post(self.url, {"action": "toggle_socratic", "socratic_mode": "on"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Socratic mode turned on")
+        session = TutorSession.objects.get(lesson=self.lesson)
+        self.assertTrue(session.socratic_mode)
+
+        refreshed = self.client.get(self.url).content.decode()
+        self.assertIn("checked", refreshed)
+
+    def test_socratic_toggle_turns_off_when_unchecked(self):
+        self.client.post(self.url, {"action": "toggle_socratic", "socratic_mode": "on"})
+        self.assertTrue(TutorSession.objects.get(lesson=self.lesson).socratic_mode)
+
+        # An unchecked HTML checkbox sends no field at all, not "off".
+        response = self.client.post(self.url, {"action": "toggle_socratic"})
+        self.assertContains(response, "Socratic mode turned off")
+        self.assertFalse(TutorSession.objects.get(lesson=self.lesson).socratic_mode)
+
+    def test_toggling_socratic_mode_creates_no_tutor_message_or_evidence(self):
+        before_messages = TutorMessage.objects.count()
+        before_evidence = LearningEvidence.objects.count()
+        self.client.post(self.url, {"action": "toggle_socratic", "socratic_mode": "on"})
+        self.assertEqual(TutorMessage.objects.count(), before_messages)
+        self.assertEqual(LearningEvidence.objects.count(), before_evidence)
 
     def test_guidance_mode_is_used_for_confusion(self):
         response = self.client.post(

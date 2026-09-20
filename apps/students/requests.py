@@ -599,6 +599,7 @@ class TutorRequest:
     topic: str
     grade_level: str
     level: str = ""
+    socratic_mode: bool = False
     learning_objectives: tuple[str, ...] = ()
     common_misconceptions: tuple[str, ...] = ()
     concepts: tuple[ConceptContext, ...] = ()
@@ -614,6 +615,7 @@ class TutorRequest:
         object.__setattr__(self, "topic", self.topic.strip())
         object.__setattr__(self, "grade_level", str(self.grade_level).strip())
         object.__setattr__(self, "level", str(self.level or "").strip())
+        object.__setattr__(self, "socratic_mode", bool(self.socratic_mode))
         object.__setattr__(
             self,
             "learning_objectives",
@@ -678,6 +680,7 @@ class TutorRequest:
             topic=lesson.topic,
             grade_level=lesson.grade_level,
             level=getattr(lesson, "level", "") or "",
+            socratic_mode=bool(getattr(session, "socratic_mode", False)),
             learning_objectives=tuple(lesson.learning_objectives or []),
             common_misconceptions=tuple(lesson.common_misconceptions or []),
             concepts=tuple(

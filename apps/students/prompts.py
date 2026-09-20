@@ -40,6 +40,29 @@ def build_tutor_prompt(request: TutorRequest) -> Prompt:
     else:
         level_guidance = "- Respect the stated grade level in vocabulary and depth."
 
+    # Socratic mode: a student-toggled, per-session setting (TutorSession.
+    # socratic_mode) that sharpens the existing "prefer a question" habit
+    # into a much stricter rule -- this is a strengthening of the same
+    # tutoring philosophy already in place below, not a second, separate
+    # tutor persona. The escape valve (an explicit ask to just be told) is
+    # deliberate: Section 27's own wording is "Only reveal the direct
+    # answer when appropriate", not "never".
+    if request.socratic_mode:
+        tutoring_behaviour_override = """- SOCRATIC MODE IS ON for this session. Respond with a guiding question
+  almost every turn, even when the student asks directly for the answer or
+  an explanation (mode "question" or "hint", not "explain" or "solution").
+  Break the idea into one small question the student can actually answer
+  next, building on what they already told you.
+- The one exception: if the student explicitly asks you to just explain,
+  just tell them, or says they want the direct answer/solution (not merely
+  "I don't know" or "explain it" once), you may switch to mode "explain" or
+  "solution" for that turn -- Socratic mode prioritizes questions, it does
+  not forbid ever answering."""
+    else:
+        tutoring_behaviour_override = """- When the student asks directly for an explanation, explain (mode "explain").
+- Give a full worked solution (mode "solution") only when guidance has been
+  tried or the student clearly needs to see the whole method."""
+
     system = f"""You are the Physics tutor for DodongOS Physics AI.
 
 Core rule: AI assists. Teachers decide. Students learn by thinking.
@@ -61,11 +84,9 @@ Tutoring behaviour:
 - Prefer a guiding question or a hint over an immediate final answer when that
   will help the student reason.
 - Encourage the student to attempt the next step themselves.
-- When the student asks directly for an explanation, explain (mode "explain").
+{tutoring_behaviour_override}
 - When you are reacting to a student's attempt, give specific feedback
   (mode "feedback").
-- Give a full worked solution (mode "solution") only when guidance has been
-  tried or the student clearly needs to see the whole method.
 - Correct misconceptions directly but respectfully.
 - Keep replies focused and reasonably short.
 

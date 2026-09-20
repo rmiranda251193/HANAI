@@ -393,7 +393,20 @@ def tutor_view(request, slug):
             else None
         )
         try:
-            if action == "practice":
+            if action == "toggle_socratic":
+                # A plain per-session setting flip -- no tutor call, no
+                # message, no learning evidence. request.POST carries only
+                # the intent ("on"/anything else means "off"); which
+                # session is affected is always the server-resolved
+                # student's own active session, never a posted id.
+                session.socratic_mode = request.POST.get("socratic_mode") == "on"
+                session.save(update_fields=["socratic_mode"])
+                context["workflow_message"] = (
+                    "Socratic mode turned on -- expect more guiding questions."
+                    if session.socratic_mode
+                    else "Socratic mode turned off."
+                )
+            elif action == "practice":
                 attempt = request.POST.get("attempt", "")
                 if not attempt.strip():
                     context["tutor_error"] = EMPTY_ATTEMPT_MESSAGE

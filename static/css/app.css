@@ -338,6 +338,8 @@ a { color: inherit; }
 .tutor-main { min-width: 0; }
 .tutor-side { display: grid; gap: 1rem; min-width: 0; }
 .tutor-conversation h2 { margin: .65rem 0 1rem; font-size: 1.2rem; }
+.tutor-socratic-toggle { margin: 0 0 1rem; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .45rem; background: var(--surface-inset); }
+.tutor-socratic-toggle label { display: inline-flex; align-items: center; gap: .5rem; font-size: .88rem; color: var(--text-secondary); }
 .tutor-thread { display: grid; gap: .8rem; margin: 0 0 1.25rem; padding: 0; list-style: none; }
 .tutor-turn { padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .55rem; background: var(--surface-inset); }
 .tutor-turn-student { border-left: 3px solid var(--muted); }
