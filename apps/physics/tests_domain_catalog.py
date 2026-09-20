@@ -221,6 +221,24 @@ class LibraryLevelAndDepthTests(TestCase):
         body = self.client.get(self.url).content.decode()
         self.assertNotIn("<script>", body)
 
+    def test_coulombs_law_and_momentum_depth_toggles_render_for_the_real_concepts(self):
+        coulomb = PhysicsConcept.objects.create(
+            name="Electric charge and Coulomb's law", description="d",
+            topic="Charge", difficulty="introductory",
+        )
+        momentum = PhysicsConcept.objects.create(
+            name="Conservation of momentum", description="d",
+            topic="Momentum", difficulty="intermediate",
+        )
+        self.assertEqual(coulomb.slug, "electric-charge-and-coulombs-law")
+        self.assertEqual(momentum.slug, "conservation-of-momentum")
+        body = self.client.get(self.url).content.decode()
+        # n2l (from setUp) + these 2 -- three real, deliberately-chosen
+        # concepts with depth content, not a blanket toggle for everything.
+        self.assertEqual(body.count("lib-depth-toggle"), 3)
+        self.assertIn("the photon has zero rest mass", body)
+        self.assertIn("relativistic momentum", body)
+
     def test_level_filter_matches_concepts_whose_range_covers_it(self):
         # n2l is "intermediate" -> range (senior_high, intro_university),
         # which covers senior_high itself; force is "foundational" -> range
